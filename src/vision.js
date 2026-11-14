@@ -13,7 +13,9 @@ let hands = null;
 let initPromise = null;
 let initError = null;
 let handsError = null;
-let delegate = { pose: null, face: null, hands: null };
+let delegate = { pose: null, face: null, hands: null, reason: "" };
+let bufs = { pose: null, face: null, hands: null };
+let gl = null; // { renderer, software }
 let loadMs = 0;
 const timings = { downloadMs: null, filesetMs: null, poseMs: null, faceMs: null, handsMs: null, simd: null };
 const progress = { loaded: 0, total: 0, phase: "idle", listeners: new Set() };
@@ -27,6 +29,7 @@ export function visionStatus() {
     error: initError,
     handsError,
     delegate: { ...delegate },
+    gl,
     loadMs,
     timings: { ...timings },
     phase: progress.phase,
@@ -74,6 +77,26 @@ async function fetchWithProgress(url, expected, onBytes) {
   let off = 0;
   for (const p of parts) { out.set(p, off); off += p.byteLength; }
   return out;
+}
+
+/**
+ * 浏览器是否在用软件渲染（SwiftShader / llvmpipe / Microsoft Basic Render Driver）。
+ * 这种情况下 MediaPipe 的「GPU」其实跑在 CPU 上模拟，比直接用 CPU 慢很多，是卡顿的常见原因。
+ */
+export function detectGL() {
+  if (gl) return gl;
+  gl = { renderer: "", software: false };
+  try {
+    const c = document.createElement("canvas");
+    const ctx = c.getContext("webgl2") || c.getContext("webgl");
+    if (!ctx) { gl = { renderer: "无 WebGL", software: true }; return gl; }
+    const ext = ctx.getExtension("WEBGL_debug_renderer_info");
+    const r = String(ext ? ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER) || "");
+    gl = { renderer: r.slice(0, 120), software: /swiftshader|llvmpipe|softpipe|software|basic render|microsoft basic/i.test(r) };
+    const lose = ctx.getExtension("WEBGL_lose_context");
+    if (lose) lose.loseContext();
+  } catch (_) {}
+  return gl;
 }
 
 async function createPose(buffer, dlg) {
@@ -135,14 +158,18 @@ export function initVision() {
       fileset = await FilesetResolver.forVisionTasks(WASM_PATH);
       timings.filesetMs = Math.round(performance.now() - tA);
       tA = performance.now();
-      try { pose = await createPose(poseBuf, "GPU"); delegate.pose = "GPU"; }
+      bufs.pose = poseBuf; bufs.face = faceBuf;
+      const g = detectGL();
+      const first = g.software ? "CPU" : "GPU";
+      delegate.reason = g.software ? `浏览器在用软件渲染（${g.renderer || "未知"}），直接用 CPU 更快` : "先试 GPU";
+      try { pose = await createPose(poseBuf, first); delegate.pose = first; }
       catch (e) {
         try { pose = await createPose(poseBuf, "CPU"); delegate.pose = "CPU"; }
         catch (e2) { initError = "pose: " + (e2?.message || e2); }
       }
       timings.poseMs = Math.round(performance.now() - tA);
       tA = performance.now();
-      try { face = await createFace(faceBuf, "GPU"); delegate.face = "GPU"; }
+      try { face = await createFace(faceBuf, delegate.pose || first); delegate.face = delegate.pose || first; }
       catch (e) {
         try { face = await createFace(faceBuf, "CPU"); delegate.face = "CPU"; }
         catch (e2) { initError = (initError ? initError + "; " : "") + "face: " + (e2?.message || e2); }
@@ -157,6 +184,7 @@ export function initVision() {
         const handExpected = 7819105;
         progress.total += handExpected;
         const handBuf = await fetchWithProgress(HAND_MODEL, handExpected, onBytes);
+        bufs.hands = handBuf;
         tA = performance.now();
         try { hands = await createHands(handBuf, delegate.pose || "GPU"); delegate.hands = delegate.pose || "GPU"; }
         catch (e) {
@@ -189,6 +217,25 @@ export function initVision() {
   return initPromise;
 }
 
+/** 运行中切换 GPU / CPU（自动性能模式用）。返回切换后的 delegate。 */
+export async function switchDelegate(dlg) {
+  if (!fileset) return { ...delegate };
+  const swap = async (cur, create, buf, key) => {
+    if (!cur || !buf) return cur;
+    try {
+      const next = await create(buf, dlg);
+      try { cur.close && cur.close(); } catch (_) {}
+      delegate[key] = dlg;
+      return next;
+    } catch (_) { return cur; }
+  };
+  pose = await swap(pose, createPose, bufs.pose, "pose");
+  face = await swap(face, createFace, bufs.face, "face");
+  hands = await swap(hands, createHands, bufs.hands, "hands");
+  lastTs += 1000; // 新实例也要求时间戳递增
+  return { ...delegate };
+}
+
 /** Allow「重试加载」after an error/timeout. */
 export function resetVision() {
   if (pose || face) return;
@@ -200,6 +247,7 @@ export function resetVision() {
 
 let frameNo = 0;
 let lastFace = null;
+let lastHands = null;
 let lastTs = 0;
 
 /**
@@ -209,13 +257,14 @@ let lastTs = 0;
  */
 export function detectVideo(video, timestampMs, opts = {}) {
   const { mirror = false, faceEvery = 1, handEvery = 1 } = opts;
-  const out = { pose: null, face: null, matrix: null, hands: null, ms: 0 };
+  const out = { pose: null, face: null, matrix: null, hands: null, ms: 0, msPose: 0, msFace: 0, msHands: 0, ranFace: false, ranHands: false };
   if (!video || video.readyState < 2 || !video.videoWidth) return out;
   // MediaPipe requires strictly increasing timestamps.
   const ts = Math.max(timestampMs, lastTs + 1);
   lastTs = ts;
   frameNo += 1;
   const t0 = performance.now();
+  let tm = t0;
   try {
     if (pose) {
       const r = pose.detectForVideo(video, ts);
@@ -228,10 +277,13 @@ export function detectVideo(video, timestampMs, opts = {}) {
       }
     }
   } catch (_) { /* frame skip */ }
+  out.msPose = performance.now() - tm;
+  tm = performance.now();
   try {
     if (face && faceEvery > 1 && frameNo % faceEvery !== 0) {
       out.face = lastFace;
     } else if (face) {
+      out.ranFace = true;
       lastFace = null;
       const r = face.detectForVideo(video, ts);
       if (r && r.faceLandmarks && r.faceLandmarks[0]) {
@@ -246,8 +298,15 @@ export function detectVideo(video, timestampMs, opts = {}) {
       }
     }
   } catch (_) { /* frame skip */ }
+  out.msFace = performance.now() - tm;
+  tm = performance.now();
   try {
-    if (hands && (handEvery <= 1 || frameNo % handEvery === 0)) {
+    if (hands && handEvery > 0 && handEvery < Infinity && !(handEvery <= 1 || (frameNo + 1) % handEvery === 0)) {
+      // 这一帧不跑手部：沿用上一次的结果（画面上的手不会闪）
+      out.hands = lastHands;
+    } else if (hands && handEvery > 0 && handEvery < Infinity) {
+      out.ranHands = true;
+      lastHands = null;
       const r = hands.detectForVideo(video, ts);
       const lists = r && (r.landmarks || r.handLandmarks);
       if (lists && lists.length) {
@@ -267,9 +326,11 @@ export function detectVideo(video, timestampMs, opts = {}) {
           pts.handedness = label;
           return pts;
         });
+        lastHands = out.hands;
       }
     }
   } catch (_) { /* frame skip */ }
+  out.msHands = performance.now() - tm;
   out.ms = performance.now() - t0;
   return out;
 }

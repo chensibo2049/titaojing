@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** v1.1.0 静态检查与口头禅报告单元测试（不启动浏览器）。 */
+/** 静态检查（v1.2.0）与口头禅报告单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
@@ -14,10 +14,12 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.1.0", pkg.version === "1.1.0", pkg.version);
+check("package.json 版本为 1.2.0", pkg.version === "1.2.0", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-check("CHANGELOG 含 v1.1.0", /## v1\.1\.0/.test(changelog));
+check("CHANGELOG 含 v1.2.0 与 v1.1.0", /## v1\.2\.0/.test(changelog) && /## v1\.1\.0/.test(changelog));
+const notesSrc = fs.readFileSync(path.join(root, "src/changelog.js"), "utf8");
+check("应用内更新说明含 1.2.0", /version: "1\.2\.0"/.test(notesSrc));
 
 const config = fs.readFileSync(path.join(root, "config.js"), "utf8");
 check("保留测试激活码 CSB-TEST-PRO", /CSB-TEST-PRO/.test(config));
@@ -54,10 +56,31 @@ const privacy = fs.readFileSync(path.join(root, "docs/PRIVACY.md"), "utf8");
 check("隐私说明含时长上限", /22 分钟/.test(privacy));
 
 const asr = fs.readFileSync(path.join(root, "docs/ASR.md"), "utf8");
-check("ASR 文档写明本机识别尚未接入", /尚未.*接入|仍未真正接入/.test(asr));
+check("ASR 文档写明本机听写的模型、镜像与限制", /Paraformer/.test(asr) && /modelscope\.cn/.test(asr) && /限制/.test(asr) && /只识别普通话/.test(asr));
 
+// 本机听写：引擎文件与清单一致；模型不进 git；只有缓存里真有模型才算可用
+const crypto = await import("node:crypto");
+const mf = JSON.parse(fs.readFileSync(path.join(root, "assets/asr/manifest.json"), "utf8"));
+check("ASR 清单为 ready 且列出模型 sha256", mf.status === "ready" && mf.model && mf.model.files.every((f) => /^[0-9a-f]{64}$/.test(f.sha256) && f.bytes > 0));
+check("ASR 模型镜像首选国内可达且允许跨域的 ModelScope", /modelscope\.cn/.test(mf.model.mirrors[0].base));
+const engMismatch = mf.engineFiles.files.filter((f) => {
+  const p = path.join(root, mf.engineFiles.dir, f.name);
+  if (!fs.existsSync(p)) return true;
+  const b = fs.readFileSync(p);
+  return b.length !== f.bytes || crypto.createHash("sha256").update(b).digest("hex") !== f.sha256;
+});
+check("ASR 引擎文件与清单一致（大小与 sha256）", engMismatch.length === 0, engMismatch.map((f) => f.name).join(", "));
+const glue = fs.readFileSync(path.join(root, "assets/asr/engine/sherpa-onnx-wasm-main-vad-asr.js"), "utf8");
+check("引擎 glue 不会自动下载预载数据包", !/REMOTE_PACKAGE_BASE/.test(glue));
+check("worker 存在并加载 Silero VAD", /silero_vad\.onnx/.test(fs.readFileSync(path.join(root, "assets/asr/engine/asr-worker.js"), "utf8")));
+const bigTracked = mf.model.files.filter((f) => fs.existsSync(path.join(root, "assets/asr", f.name)) || fs.existsSync(path.join(root, "assets/asr/engine", f.name)));
+check("中文模型没有放进仓库目录", bigTracked.length === 0, bigTracked.map((f) => f.name).join(", "));
 const sherpa = fs.readFileSync(path.join(root, "src/asr-sherpa.js"), "utf8");
-check("startSherpa 不会在检测到文件时假装可用", /不会开始本机转写|尚未完成接入|还没有真正跑起来/.test(sherpa));
+check("本机听写只在模型已缓存时标为可用", /st\.cached\s*\?\s*\{ ok: true/.test(sherpa) && /modelCacheRefs/.test(sherpa));
+const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+check("Service Worker 升级时不删除已下载的听写模型", /titaojing-asr-model-/.test(sw));
+const settingsSrc = fs.readFileSync(path.join(root, "src/settings.js"), "utf8");
+check("设置含流畅度（自动 / 流畅优先 / 精细优先）", /perfMode/.test(settingsSrc) && index.includes("流畅优先") && index.includes("精细优先"));
 
 const speech = fs.readFileSync(path.join(root, "src/speech.js"), "utf8");
 check("network 错误说明不是电脑没网", /不是你没联网/.test(speech) && !/语音识别需要联网（浏览器自带服务）\.当前听不到口头禅/.test(speech));

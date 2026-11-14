@@ -6,6 +6,8 @@
 const BUILD_ID = "__BUILD_ID__";
 const SHELL_CACHE = `titaojing-shell-${BUILD_ID}`;
 const MODEL_CACHE = "titaojing-models-mp0.10.32";
+// 本机听写引擎（随网站发布，约 12 MB）。中文模型由页面自己存进 titaojing-asr-model-*，这里不碰。
+const ASR_ENGINE_CACHE = "titaojing-asr-engine-9d5fc71";
 const SHELL = [
   "./",
   "index.html",
@@ -34,12 +36,13 @@ self.addEventListener("message", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith("titaojing-") && k !== SHELL_CACHE && k !== MODEL_CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith("titaojing-") && !k.startsWith("titaojing-asr-model-") && k !== SHELL_CACHE && k !== MODEL_CACHE && k !== ASR_ENGINE_CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
 
 const isModel = (url) => url.pathname.includes("/assets/mediapipe/");
+const isAsrEngine = (url) => url.pathname.includes("/assets/asr/engine/");
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -64,10 +67,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Models / WASM: cache first (large, immutable per MediaPipe version).
-  if (isModel(url)) {
+  // Models / WASM: cache first (large, immutable per version).
+  if (isModel(url) || isAsrEngine(url)) {
     event.respondWith((async () => {
-      const c = await caches.open(MODEL_CACHE);
+      const c = await caches.open(isAsrEngine(url) ? ASR_ENGINE_CACHE : MODEL_CACHE);
       const hit = await c.match(req, { ignoreSearch: true });
       if (hit) return hit;
       const res = await fetch(req);

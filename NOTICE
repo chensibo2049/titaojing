@@ -16,6 +16,24 @@ Copyright 2026 南京市沉思波网络科技有限责任公司
    许可证：MIT
    https://github.com/evanw/esbuild
 
+3. sherpa-onnx（本机听写引擎，WebAssembly 构建，随网站发布于 assets/asr/engine/）
+   Copyright Xiaomi Corporation 等 k2-fsa 贡献者
+   许可证：Apache License 2.0
+   https://github.com/k2-fsa/sherpa-onnx
+   取自官方 Hugging Face Space k2-fsa/web-assembly-vad-asr-sherpa-onnx-zh-zipformer-ctc（提交 9d5fc71）；
+   修改：去掉了 glue JS 中自动下载预载数据包的代码，模型改为运行时写入。其中包含 ONNX Runtime（MIT，Microsoft）。
+
+4. Silero VAD（语音段检测模型 silero_vad.onnx，随网站发布）
+   Copyright Silero Team
+   许可证：MIT
+   https://github.com/snakers4/silero-vad
+
+5. Paraformer 中文小模型（sherpa-onnx-paraformer-zh-small-2024-03-09，int8；不随网站发布，用户使用本机听写时从公开镜像下载到自己的浏览器）
+   原始模型：FunASR（阿里巴巴达摩院语音实验室） https://github.com/modelscope/FunASR
+   ONNX 导出：k2-fsa / sherpa-onnx https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09
+   镜像：https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-paraformer-zh-small （模型卡标注 Apache License 2.0）
+   使用和再分发时请保留以上出处；FunASR 的模型许可要求注明模型来源。
+
 浏览器在使用「浏览器听写」时，还可能调用 Chrome / Edge / Safari 厂商自己的语音识别服务。那一部分不属于本软件的分发内容，由相应浏览器的隐私政策约束。
 
 训练脚手架（training/）在安装 PyTorch 等可选依赖时，还会受那些软件包自己的许可证约束。

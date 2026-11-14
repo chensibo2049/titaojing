@@ -96,8 +96,9 @@ export function initDebug({ getVisionStatus, getEnv, getSettings } = {}) {
 
 /* ——— hooks called by the app ——— */
 
-export function debugFrame({ source, t, det, pose, face, gaze, flags, onBoard, faceEvery, events }) {
+export function debugFrame({ source, t, det, pose, face, gaze, flags, onBoard, faceEvery, events, perf }) {
   if (!ON) return;
+  if (perf) st.perf = perf;
   const now = performance.now();
   st.source = source;
   st.t = t;
@@ -247,6 +248,9 @@ function paint() {
   const avgMs = st.inferMs.length ? st.inferMs.reduce((a, b) => a + b, 0) / st.inferMs.length : 0;
   set("perf", `<table><tr><td>来源</td><td><b>${esc(st.source === "demo" ? "demo（合成）" : st.source)}</b>${stale ? ' <span class="muted">（无新帧）</span>' : ""}</td><td>t</td><td>${st.t.toFixed(1)}s</td></tr>
 <tr><td>帧率</td><td class="${fps && fps < 12 ? "warn" : ""}">${stale ? "-" : fps.toFixed(1)} fps</td><td>推理</td><td>${avgMs ? avgMs.toFixed(1) + " ms" : "-"}</td></tr>
+${st.perf ? `<tr><td>档位</td><td>${esc(st.perf.level)}（${esc(st.perf.mode)}）</td><td>目标</td><td>${st.perf.targetFps} fps</td></tr>
+<tr><td>姿态</td><td>${st.perf.msPose.toFixed(1)} ms · ${esc(st.perf.delegate?.pose || "-")}</td><td>面部</td><td>${st.perf.msFace.toFixed(1)} ms · ${esc(st.perf.delegate?.face || "-")}</td></tr>
+<tr><td>手部</td><td>${st.perf.msHands.toFixed(1)} ms · 每 ${st.perf.handEvery} 帧</td><td>GPU</td><td class="${st.perf.delegate?.pose === "CPU" ? "warn" : ""}">${st.perf.delegate?.pose === "CPU" ? "已改用 CPU" : "GPU"}</td></tr>` : ""}
 <tr><td>面部频率</td><td>每 ${st.faceEvery} 帧</td><td>记录</td><td>${st.rec ? `<span class="bad">● ${st.rec.frames.length} 帧</span>` : st.lastTrace ? `${st.lastTrace.frames.length} 帧待下载` : "-"}</td></tr></table>`);
 
   const pose = st.lastDet?.pose;

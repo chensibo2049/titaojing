@@ -74,9 +74,18 @@ try {
   await page.evaluate(() => { location.hash = "#/about"; });
   await waitVisible("screen-about");
   const about = await page.$eval("#about-changelog-body", (e) => e.textContent).catch(() => "");
-  check("关于页展示本版更新", /1\.1\.0/.test(about), about.slice(0, 120));
+  const pkgVer = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
+  check("关于页展示本版更新", about.includes(pkgVer), about.slice(0, 120));
   const cap = await page.$eval("#about-capabilities-list", (e) => e.textContent).catch(() => "");
   check("关于页写明不能认出黑板上的字", /不能认出黑板上的字/.test(cap), cap.slice(0, 80));
+  await page.evaluate(() => { location.hash = "#/settings"; });
+  await waitVisible("screen-settings");
+  await page.waitForSelector("#local-asr-box .la-get, #local-asr-box .la-del, #local-asr-box .la-text", { timeout: 10000 }).catch(() => {});
+  const la = await page.$eval("#local-asr-box", (e) => e.textContent).catch(() => "");
+  check("设置页可下载本机听写（写明体积）", /下载本机听写（约 \d+ MB/.test(la), la.replace(/\s+/g, " ").slice(0, 120));
+  check("设置页有流畅度选项", !!(await page.$('select[name="perfMode"]')));
+  const engineOk = await page.evaluate(async () => (await fetch("assets/asr/engine/asr-worker.js")).ok && (await fetch("assets/asr/engine/sherpa-onnx-wasm-main-vad-asr.wasm", { method: "HEAD" })).ok);
+  check("本机听写引擎随网站发布", engineOk);
   await page.evaluate(() => { location.hash = "#/profile"; });
   await waitVisible("screen-profile");
   const prof = await page.$eval("#screen-profile", (e) => e.textContent).catch(() => "");
@@ -106,7 +115,7 @@ try {
   check("模型加载耗时已记录", cam.vision.timings && cam.vision.timings.downloadMs != null && cam.vision.loadMs > 0, JSON.stringify(cam.vision.timings));
   check("姿态模型可用（手部可选，缺失不失败）", !!(cam.vision && cam.vision.pose), JSON.stringify({ pose: cam.vision && cam.vision.pose, hands: cam.vision && cam.vision.hands, handsError: cam.vision && cam.vision.handsError }));
   await page.screenshot({ path: path.join(OUT, "debug-mode.png") });
-  await page.waitForFunction(() => !document.getElementById("btn-stop").disabled, { timeout: 10000 }).catch(() => {});
+  await page.waitForFunction(() => !document.getElementById("btn-stop").disabled, { timeout: 30000 }).catch(() => {});
   const liveHint = await page.$eval("#live-kbd-hint", (e) => ({ hidden: e.hidden, text: e.textContent }));
   check("试讲中提示可用空格结束", liveHint && !liveHint.hidden && /空格/.test(liveHint.text || ""), JSON.stringify(liveHint));
   await page.keyboard.press("Space");

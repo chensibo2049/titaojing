@@ -15,7 +15,7 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.1.0-A33B28?style=flat-square" alt="v1.1.0">
+  <img src="https://img.shields.io/badge/版本-v1.2.0-A33B28?style=flat-square" alt="v1.2.0">
 </p>
 
 <p align="center">
@@ -84,7 +84,7 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 - 网页版会持续打磨，现在就可以在浏览器里用。
 - 会做便于下载、在本机使用的 Windows / macOS 电脑版（骨架在 [`apps/desktop/`](apps/desktop/)）。
-- 听写将尽量留在本机，见 [`docs/ASR.md`](docs/ASR.md)。当前默认仍是浏览器听写：在中国大陆，Chrome 即使网页能打开，听写也经常连不上厂商服务；本机听写尚未接入。
+- 本机听写（v1.2.0）：下载一次中文模型后在浏览器里离线转写普通话，声音不离开设备，见 [`docs/ASR.md`](docs/ASR.md)。没下载时用浏览器听写：在中国大陆，Chrome 即使网页能打开，听写也经常连不上厂商服务。
 - 欢迎学校、教具和培训机构一起把这面镜子送到更多教室。
 - 以后可能会有「像评委一样的课后点评」，现在还没有；先把镜子本身做好。
 

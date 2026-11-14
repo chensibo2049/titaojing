@@ -1,6 +1,69 @@
 {
   "engine": "sherpa-onnx",
-  "status": "scaffold",
-  "note": "v1.1.0 尚未完成 WASM 接入，本机听写不会被标成可用。模型文件不要提交进仓库。详见 docs/ASR.md。",
-  "files": []
+  "status": "ready",
+  "engineFiles": {
+    "dir": "assets/asr/engine/",
+    "source": "https://huggingface.co/spaces/k2-fsa/web-assembly-vad-asr-sherpa-onnx-zh-zipformer-ctc (commit 9d5fc71, 2026-03-12), Apache-2.0; 预载数据包已从 glue 中去掉，模型在运行时写入虚拟文件系统",
+    "files": [
+      {
+        "name": "sherpa-onnx-wasm-main-vad-asr.wasm",
+        "bytes": 11722172,
+        "sha256": "e4dead1d159c531282e635069fa9e028175dee71f3f90908186994655425b3ce"
+      },
+      {
+        "name": "sherpa-onnx-wasm-main-vad-asr.js",
+        "bytes": 90563,
+        "sha256": "b735e6d9631da0272ace5d94a371ea86fdbb43ca1f296d31a36edee9ea901555"
+      },
+      {
+        "name": "sherpa-onnx-asr.js",
+        "bytes": 47391,
+        "sha256": "6297ed7520e0b4569486cd89be89045146728605418254fec4172194abc36c8d"
+      },
+      {
+        "name": "sherpa-onnx-vad.js",
+        "bytes": 7764,
+        "sha256": "ca2b0844d1cfd375cbb7faba206e456c5140561578b67f5fc6e7510d09e75510"
+      },
+      {
+        "name": "silero_vad.onnx",
+        "bytes": 643854,
+        "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+      }
+    ]
+  },
+  "model": {
+    "id": "sherpa-onnx-paraformer-zh-small-2024-03-09",
+    "kind": "paraformer",
+    "label": "Paraformer 中文小模型（int8，FunASR 训练，k2-fsa 导出）",
+    "license": "模型卡标注 Apache-2.0；原始权重来自 FunASR（阿里巴巴达摩院），再分发与使用请保留出处",
+    "mirrors": [
+      {
+        "name": "ModelScope（魔搭）",
+        "base": "https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-paraformer-zh-small/resolve/master/"
+      },
+      {
+        "name": "hf-mirror.com",
+        "base": "https://hf-mirror.com/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09/resolve/main/"
+      },
+      {
+        "name": "Hugging Face",
+        "base": "https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09/resolve/main/"
+      }
+    ],
+    "files": [
+      {
+        "name": "model.int8.onnx",
+        "as": "model.onnx",
+        "bytes": 81828675,
+        "sha256": "3ef6c19369b912f7caf3cef8e545c5ccd1a33d9d7ec792a46668dc41c4b229ec"
+      },
+      {
+        "name": "tokens.txt",
+        "as": "tokens.txt",
+        "bytes": 75352,
+        "sha256": "4b2d964e18b9cf139b473003b6698fb2ed9a2a5ec55b93daa677b28f578897aa"
+      }
+    ]
+  }
 }

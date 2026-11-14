@@ -48,6 +48,11 @@ window.TITAOJING_CONFIG = {
   experienceMaxScreenshots: 3,
   experienceSampleRate: 1,
 
+  // 本机听写中文模型的自建镜像目录（可选）。留空时依次从魔搭 ModelScope、hf-mirror.com、Hugging Face 下载。
+  // 若填写，目录下需有 model.int8.onnx 与 tokens.txt（见 assets/asr/manifest.json 的 sha256），并允许跨域（Access-Control-Allow-Origin）。
+  // 可用 `npm run fetch-asr` 下载到本地后上传到自己的对象存储。
+  asrModelBase: "",
+
   // 云端账号服务地址。留空（默认）时，注册 / 登录表单只作说明，不会发送邮箱或密码。
   authEndpoint: ""
 };

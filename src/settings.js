@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   targetMin: 2,
   frameMode: "auto",         // auto | half | full
   asrEngine: "auto",         // auto | webspeech | sherpa
+  perfMode: "auto",          // auto | smooth（流畅优先）| detail（精细优先）
   sens: { posture: "mid", gaze: "mid", filler: "mid", board: "mid" },
   fillers: FILLERS.slice(),
   boardSide: "right",
@@ -47,6 +48,7 @@ export function normalize(raw) {
   s.sessionMode = s.sessionMode === "classroom" ? "classroom" : "practice";
   s.frameMode = ["auto", "half", "full"].includes(s.frameMode) ? s.frameMode : "auto";
   s.asrEngine = ["auto", "webspeech", "sherpa"].includes(s.asrEngine) ? s.asrEngine : "auto";
+  s.perfMode = ["auto", "smooth", "detail"].includes(s.perfMode) ? s.perfMode : "auto";
   const mode = SESSION_MODES[s.sessionMode];
   s.targetMin = Number(s.targetMin) || mode.defaultMin;
   if (!mode.mins.includes(s.targetMin)) s.targetMin = mode.defaultMin;

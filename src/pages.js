@@ -1,4 +1,5 @@
 /** Secondary pages: 历史记录、进步对比、设置、反馈问题、关于与隐私. */
+import { mountLocalAsr } from "./asr-ui.js";
 import { $, esc, toast, confirmBox, downloadBlob, copyText, modal } from "./ui.js";
 import { listSessions, deleteSession, deleteVideo, clearAll, usage, putSession, getSession, requestPersist } from "./store.js";
 import { fmtDate, fmtShortDate, fmtBytes, fmtDur } from "./records.js";
@@ -253,13 +254,15 @@ export function renderSettings() {
   syncDurationOptions(s.sessionMode, s.targetMin);
   f.frameMode.value = s.frameMode;
   f.asrEngine.value = s.asrEngine || "auto";
+  if (f.perfMode) f.perfMode.value = s.perfMode || "auto";
   const asr = asrStatus();
   const ah = $("asr-engine-hint");
   if (ah) {
-    if (asr.sherpa) ah.textContent = "本机听写可用，声音会留在这台设备上。";
-    else if (asr.sherpaFiles) ah.textContent = "已找到本机识别文件，但当前版本还不能用它转写，仍会使用浏览器听写。";
-    else ah.textContent = "本机听写尚未接入。将使用浏览器听写：Chrome / Edge 会把声音送到厂商的服务；在中国大陆即使网页能打开，听写也经常连不上。";
+    if (asr.sherpa) ah.textContent = "本机听写已下载：「自动」会用本机听写，声音留在这台设备上。";
+    else if (!asr.sherpaSupported) ah.textContent = "这个浏览器不能运行本机听写，只能用浏览器听写（Chrome / Edge 会把声音送到厂商的服务；在中国大陆经常连不上）。";
+    else ah.textContent = `本机听写还没下载（${asr.sherpaSize}，一次即可）。下载前「自动」会用浏览器听写；它连不上时，横幅里也能直接下载。`;
   }
+  mountLocalAsr($("local-asr-box"), { onChange: () => renderSettings(), onReady: () => renderSettings() });
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
   f.mirror.checked = s.mirror;
@@ -302,6 +305,7 @@ export function wireSettings() {
       targetMin: Number(f.targetMin.value),
       frameMode: f.frameMode.value,
       asrEngine: f.asrEngine.value,
+      perfMode: f.perfMode ? f.perfMode.value : "auto",
       boardSide: f.boardSide.value,
       facing: f.facing.value,
       deviceId: "",
@@ -437,6 +441,7 @@ export function renderAbout() {
       "晃动、含胸、重心偏了、抱臂、走出讲台；全身构图下还会看是否来回走动、写板时是否整个人背对学生。",
       "视线落下（低头看稿），以及写完板书是否回视学生。",
       "口头禅：按设置里的词表统计（默认识别「然后」「就是说」「嗯、啊、呃」等），回放里给出次数和具体改法。",
+      "本机听写：下载一次中文模型（约 90 MB）后，在浏览器里离线转写普通话，声音不离开这台设备。单字语气词（嗯、啊）多数能写出，但很短、很轻的一声可能漏掉。",
       "能看见双手（每只手 21 个点），用来辅助判断写板和抱臂。手部模型加载失败时，体态和视线仍可运行。",
       "目前不能认出黑板上的字。能看到手是否伸向板书区、是否在写、写完是否回视学生；写板时会留下板书区静帧，供你自己看字迹。",
     ].map((s) => `<li>${s}</li>`).join("");

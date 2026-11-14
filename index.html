@@ -105,7 +105,7 @@
         <p class="eyebrow">对着镜头试讲</p>
         <h2>需要使用镜头和麦克风</h2>
         <p class="plain-lead">画面只在这台设备的浏览器里分析。不需要账号。录像默认不保存；若勾选保存，也只写入本机历史，沉思波不会收到。练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析随录制在本机进行，结束后不会继续分析（回放已保存的记录除外）。</p>
-        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。浏览器听写在 Chrome / Edge 里可用，但声音会送到厂商的语音服务（不经过沉思波）；在中国大陆即使网页能打开，听写也经常连不上。本机听写仍在准备中，当前还不能用来转写。</p>
+        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：下载一次中文模型（约 90 MB）后，声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商，不用连外网。没下载时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
         <div class="perm-modes">
           <p class="field-label">这次怎么讲</p>
           <div class="seg" role="radiogroup" aria-label="试讲模式" id="perm-session-mode">
@@ -407,16 +407,29 @@
               <option value="zh-HK">粤语（zh-HK）</option>
               <option value="en-US">英语（en-US，英语试讲）</option>
             </select>
-            <small>Chrome / Edge 的浏览器听写会把声音送到厂商的语音服务（不经过沉思波）。在中国大陆即使网页能打开，听写也经常连不上，这不是电脑没网。本机听写仍在准备中，当前版本还不能用它转写。</small>
+            <small>本机听写：声音只在这台设备上识别，需先下载一次中文模型。浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务（不经过沉思波），在中国大陆即使网页能打开也经常连不上，这不是电脑没网。识别语言只对浏览器听写生效；本机听写目前只识别普通话。</small>
           </label>
           <label class="field">
             <span>转写方式</span>
             <select name="asrEngine">
-              <option value="auto">自动（有本机模型就用本机，否则用浏览器听写）</option>
-              <option value="sherpa">仅本机识别（需先下载模型）</option>
+              <option value="auto">自动（已下载本机听写就用本机，否则用浏览器听写）</option>
+              <option value="sherpa">仅本机听写（需先下载模型）</option>
               <option value="webspeech">仅浏览器听写</option>
             </select>
             <small id="asr-engine-hint"></small>
+          </label>
+          <div class="field" id="local-asr-box"></div>
+        </fieldset>
+        <fieldset>
+          <legend>流畅度</legend>
+          <label class="field">
+            <span>分析方式</span>
+            <select name="perfMode">
+              <option value="auto">自动（先量这台电脑的速度，慢就少算一些）</option>
+              <option value="smooth">流畅优先（面部和手部隔几帧算一次，适合较旧的电脑）</option>
+              <option value="detail">精细优先（每帧都算姿态和面部，需要较新的电脑）</option>
+            </select>
+            <small>只影响画面上的分析频率，不影响录像和听写。浏览器若在用软件渲染（显卡被禁用或远程桌面），会自动改用 CPU 分析。</small>
           </label>
         </fieldset>
         <fieldset>
@@ -553,7 +566,7 @@
           <ul class="plain-list">
             <li><b>录像和历史只留在这台设备。</b>画面分析都在本机浏览器里完成。录像只有你勾选「把录像存进本机历史」才会写入 IndexedDB，默认关闭。可在「历史记录」里删除单次记录、只删录像，或全部删除。</li>
             <li><b>能录多久、分析多久。</b>练习 1–5 分钟，课堂 10 / 15 / 20 分钟，到时会提示，硬性上限 22 分钟。分析随录制在本机进行，时长与这一次录音相同；结束后不会继续分析，除非你稍后回放已经保存在本机的记录。</li>
-            <li><b>转写是例外。</b>使用浏览器听写时，Chrome / Edge 会把声音送到<b>厂商</b>的语音服务，不经过沉思波。在中国大陆即使网页能打开，听写也经常连不上。本机听写（声音留在本机）仍在准备中，当前还不能用来转写。</li>
+            <li><b>转写看你用哪种听写。</b><b>本机听写</b>（sherpa-onnx + Paraformer 中文小模型，在浏览器里用 WebAssembly 运行）：声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商；第一次需下载约 90 MB（识别引擎来自本站，中文模型来自魔搭 ModelScope 等公开镜像），存在浏览器缓存里，之后可离线使用。<b>浏览器听写</b>：Chrome / Edge 会把声音送到<b>厂商</b>的语音服务，不经过沉思波，在中国大陆经常连不上。两种方式下，转写文字都只留在本机。</li>
             <li id="about-asr-state"></li>
             <li><b>沉思波默认不接收任何数据。</b>只有同时打开体验计划、并且管理员在配置里填写了上传地址，才可能发出词表、转写、摘要和少量截图。当前上传地址为空，因此什么也不会发出。录像和音频默认不会进入队列。</li>
             <li><b>不需要账号才能练习。</b>可选的本机练习档案存在这台设备上，见「我的档案」。云端注册登录尚未开通。</li>

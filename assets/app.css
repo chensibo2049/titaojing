@@ -1346,3 +1346,17 @@ mark.shuici, .shuici {
 .pr-stills figure { margin: 0; width: 140px; }
 .pr-stills img { width: 100%; border-radius: 6px; }
 .coach-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+/* v1.2.0 本机听写下载 */
+.local-asr { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
+.local-asr .la-text { flex: 1 1 260px; font-size: 13px; line-height: 1.6; color: var(--ink-soft); }
+.local-asr .la-err { color: var(--cinnabar-deep); }
+.local-asr .la-bar { flex: 1 1 100%; height: 6px; border-radius: 3px; background: var(--paper-deep); overflow: hidden; }
+.local-asr .la-bar i { display: block; height: 100%; width: 0; background: var(--teal); transition: width 0.3s var(--ease); }
+.local-asr.compact { justify-content: center; margin-top: 8px; }
+.local-asr.compact .la-text { flex: 0 1 auto; color: inherit; font-size: 12px; }
+.speech-banner .local-asr .la-bar { background: rgba(255, 255, 255, 0.15); }
+.speech-banner .local-asr .la-bar i { background: var(--gold-bright); }
+.speech-banner .btn-mini { pointer-events: auto; }
+.speech-banner .banner-close { margin-left: 8px; opacity: 0.8; }
+#speech-preflight-local { margin: 4px 0 8px; }

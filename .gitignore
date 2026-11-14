@@ -13,6 +13,7 @@ assets/asr/*
 !assets/asr/.gitkeep
 !assets/asr/README.md
 !assets/asr/manifest.json
+!assets/asr/engine/
 training/data/real/
 training/data/synthetic/
 training/out/

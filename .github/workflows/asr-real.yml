@@ -1,0 +1,25 @@
+# 本机听写真机测试：较重（会从镜像下载约 90 MB 模型），只在手动触发时运行，不影响日常 CI。
+name: 本机听写真机测试
+on:
+  workflow_dispatch:
+jobs:
+  asr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: 本机听写（无头 Chrome，WAV 当麦克风）
+        run: node scripts/asr-real.mjs
+      - name: 保留结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asr-real
+          path: .smoke-out
+          if-no-files-found: ignore

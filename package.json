@@ -1,6 +1,6 @@
 {
   "name": "titaojing",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "沉思波 · 体态镜（OpenJing）：一面给试讲与表达用的镜子",
   "license": "Apache-2.0",
@@ -20,7 +20,9 @@
     "smoke": "node scripts/smoke.mjs",
     "qa": "node scripts/qa-v1.mjs",
     "package": "python3 scripts/package.py",
-    "fetch-asr": "node scripts/fetch-asr.mjs"
+    "fetch-asr": "node scripts/fetch-asr.mjs",
+    "asr-real": "node scripts/asr-real.mjs",
+    "perf": "node scripts/perf.mjs"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "0.10.32",

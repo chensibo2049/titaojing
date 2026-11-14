@@ -3,10 +3,11 @@ import { renderScene, coverPose, landmarksFromRig, faceFromRig, applyShot, build
 import { captionAt, fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
 import { createSession, tickFrame, addFiller, addTranscript, extractGaze, extractPosture, diagnose, frameAt, maybeCaptureBoardStill } from "./analyze.js";
 import { drawLiveOverlays, drawCoachSilhouette, resizeCanvasTo } from "./overlays.js";
-import { initVision, detectVideo, visionStatus, onVisionProgress, resetVision } from "./vision.js";
+import { initVision, detectVideo, visionStatus, onVisionProgress, resetVision, switchDelegate } from "./vision.js";
 import { speechSupported, preflightSpeech } from "./speech.js";
 import { startAsr, highlightFillerHtml, asrStatus, describeAsrEngine } from "./asr.js";
-import { inspectSherpa } from "./asr-sherpa.js";
+import { inspectSherpa, preflightSherpa, prewarmSherpa, dropWarmSherpa } from "./asr-sherpa.js";
+import { mountLocalAsr, localDownloadRunning } from "./asr-ui.js";
 import { exportSummary } from "./export.js";
 import { getSettings, saveSettings, timing, SESSION_MODES, FRAME_MODES } from "./settings.js";
 import { getLicense } from "./license.js";
@@ -92,6 +93,7 @@ function stopEverything({ keepPreview = false } = {}) {
 }
 
 function releaseStream() {
+  dropWarmSherpa();
   stopTracks(mediaStream);
   mediaStream = null;
   for (const id of ["coach-video", "live-video"]) { const v = $(id); if (v) v.srcObject = null; }
@@ -449,6 +451,19 @@ async function startCoach() {
   attachVideo(video, mediaStream);
   $("mic-state").textContent = micOn ? "麦克风已开启，将留下转写并标出水词" : "麦克风未开启：这一次没有转写，也统计不了口头禅。建议返回并允许麦克风。";
   setAsrStatusLabel($("coach-asr-state"));
+  // 本机听写已下载：在站位时就把引擎在后台线程里载入，开讲时不用再等。
+  if (micOn && s.asrEngine !== "webspeech" && asrStatus().sherpa) prewarmSherpa(mediaStream);
+  // 还没下载本机听写：在站位页就给出下载入口（浏览器听写在中国大陆经常连不上）
+  {
+    let box = $("coach-local-asr");
+    const out = $("speech-preflight-result");
+    if (!box && out) { box = document.createElement("div"); box.id = "coach-local-asr"; out.insertAdjacentElement("afterend", box); }
+    if (box) {
+      const st = asrStatus();
+      box.hidden = !(micOn && s.asrEngine !== "webspeech" && !st.sherpa && st.sherpaSupported);
+      if (!box.hidden) mountLocalAsr(box, { compact: true, onReady: () => { setAsrStatusLabel($("coach-asr-state")); prewarmSherpa(mediaStream); } });
+    }
+  }
   const sub = $("coach-sub");
   if (sub) sub.textContent = `半透框是「板书区」（画面${s.boardSide === "left" ? "左" : "右"}侧），可对准教室里的黑板。没有黑板也可以忽略。目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生。`;
   const canvas = $("coach-canvas");
@@ -570,37 +585,54 @@ async function startCameraLive() {
   debugSessionStart({ kind: "camera", camera: camLabel, mic: micOn, aspect: session.aspect });
   const asrLive = $("live-asr-state");
   if (micOn) {
+    const speechOpen = () => (mode === "camera" || mode === "finishing") && liveStart && !paused;
+    const speechT = (meta) => Math.max(0, (performance.now() - liveStart) / 1000 - ((meta && meta.agoSec) || 0));
     speechHandle = startAsr({
       engine: s.asrEngine,
       lang: s.speechLang,
       fillers: s.fillers,
       sensitivity: s.sens.filler,
-      onFiller: (word) => {
-        if (mode !== "camera" || !liveStart || paused) return;
-        const t = (performance.now() - liveStart) / 1000;
+      stream: mediaStream,
+      onFiller: (word, meta) => {
+        if (!speechOpen()) return;
+        const t = speechT(meta);
         addFiller(session, t, word);
-        flashFiller(word);
+        if (mode === "camera") flashFiller(word);
         debugSpeech("filler", word, { t });
       },
       onTranscript: (seg) => {
-        if (mode !== "camera" || !liveStart || paused) return;
-        const t = (performance.now() - liveStart) / 1000;
-        addTranscript(session, t, seg.text, !!seg.final);
+        if (!speechOpen()) return;
+        addTranscript(session, speechT(seg), seg.text, !!seg.final);
       },
       onDebug: debugEnabled() ? debugSpeech : null,
       onHeard: () => { session.speechHeard = true; },
       onStatus: (st) => {
-        if (st && st.engine) session.asrEngine = st.engine;
-        setAsrStatusLabel(asrLive, st && st.engine, st && st.ok === false ? "当前不可用" : "");
+        if (!st) return;
+        if (st.engine) session.asrEngine = st.engine;
+        if (st.engine === "sherpa" && st.ok) session.speechAvailable = true;
+        setAsrStatusLabel(asrLive, st.engine, st.ok === false ? "当前不可用" : st.loading ? "载入中" : "");
+        if (st.switched) {
+          session.speechError = "";
+          banner(st.message, 6000);
+          logEvent("speech", st.message);
+          return;
+        }
         if (!st.ok) {
           session.speechError = st.message || "";
-          banner(st.message, st.sticky ? 0 : 8000);
+          banner(st.message, st.sticky ? 0 : 8000, st.offerLocal ? { localOffer: true } : null);
           if (st.sticky || st.engine === "none") session.speechAvailable = false;
           logEvent("speech", st.message);
         }
       },
     });
     setAsrStatusLabel(asrLive, speechHandle && speechHandle.engine);
+    // 浏览器听写 20 秒都没写出字（有的环境不报错，只是没有结果）：提示可改用本机听写
+    setTimeout(() => {
+      if (mode !== "camera" || !session || session.speechHeard || session.asrEngine === "sherpa") return;
+      const st = asrStatus();
+      if (st.sherpa || !st.sherpaSupported) return;
+      banner("浏览器听写 20 秒都没有写出字。在中国大陆它经常连不上厂商服务。可以改用本机听写：声音只在这台设备上识别。", 0, { localOffer: true });
+    }, 20000);
   } else {
     session.speechAvailable = false;
     setAsrStatusLabel(asrLive, "none", "未开麦克风");
@@ -611,16 +643,46 @@ async function startCameraLive() {
 
 function setAsrStatusLabel(el, engine, extra = "") {
   if (!el) return;
-  const d = describeAsrEngine(engine || asrStatus().preferred);
+  const pref = getSettings().asrEngine;
+  const d = describeAsrEngine(engine || (pref === "webspeech" ? "webspeech" : pref === "sherpa" ? "sherpa" : asrStatus().preferred));
   el.textContent = extra ? `听写：${d.label}（${extra}）` : `听写：${d.label}`;
   el.title = d.detail;
   el.hidden = false;
 }
 
 let bannerTimer = 0;
-function banner(msg, ms = 6000) {
+function banner(msg, ms = 6000, extra = null) {
   const el = $("speech-banner");
-  el.textContent = msg;
+  // 横幅里正在下载本机听写：别让其他提示把进度条盖掉
+  if (localDownloadRunning() && !el.hidden && el.querySelector(".local-asr")) return;
+  el.textContent = "";
+  const txt = document.createElement("span");
+  txt.textContent = msg;
+  el.appendChild(txt);
+  if (extra && extra.localOffer && !asrStatus().sherpa) {
+    const box = document.createElement("div");
+    box.className = "banner-local";
+    el.appendChild(box);
+    mountLocalAsr(box, {
+      compact: true,
+      onReady: () => {
+        // 正在试讲：立刻改用本机听写
+        if (speechHandle && speechHandle.switchToLocal) {
+          speechHandle.switchToLocal();
+          session && (session.asrEngine = "sherpa", session.speechError = "", session.speechAvailable = true);
+          setAsrStatusLabel($("live-asr-state"), "sherpa", "载入中");
+          speechHandle.ready && speechHandle.ready.then((r) => setAsrStatusLabel($("live-asr-state"), "sherpa", r && r.ok ? "" : "当前不可用"));
+          setTimeout(() => { el.hidden = true; }, 4000);
+        }
+      },
+    });
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "btn-mini banner-close";
+    close.textContent = "收起";
+    close.addEventListener("click", () => { el.hidden = true; });
+    el.appendChild(close);
+  }
   el.hidden = false;
   clearTimeout(bannerTimer);
   if (ms && ms > 0) bannerTimer = setTimeout(() => { el.hidden = true; }, ms);
@@ -673,26 +735,81 @@ function drawVideoInto(video, mirror) {
   };
 }
 
+/**
+ * 性能档位。「流畅优先」少算面部和手部、限制分析帧率；「精细优先」每帧都算姿态和面部。
+ * 「自动」先按精细跑 3 秒，量出每帧耗时后决定，必要时再一级级降。
+ */
+const PERF_LEVELS = [
+  { name: "精细", targetFps: 24, faceEvery: 1, handEvery: 2 },
+  { name: "均衡", targetFps: 20, faceEvery: 2, handEvery: 3 },
+  { name: "流畅", targetFps: 15, faceEvery: 3, handEvery: 4 },
+  { name: "省力", targetFps: 12, faceEvery: 4, handEvery: 6 },
+  { name: "最省", targetFps: 10, faceEvery: 5, handEvery: 8, lowRes: true },
+];
+
 function loopCamera() {
   const video = $("live-video");
   const overlay = $("live-overlay");
   const s = getSettings();
-  let faceEvery = 1;
+  const perfMode = s.perfMode || "auto";
+  let level = perfMode === "detail" ? 0 : perfMode === "smooth" ? 2 : 1;
+  const floor = perfMode === "detail" ? 1 : PERF_LEVELS.length - 1; // 精细优先最多降到「均衡」
+  let lvl = PERF_LEVELS[level];
   let frameTimes = [];
   let slowSince = 0;
   let noPoseSince = 0;
   let fpsSum = 0, fpsN = 0, minFps = 99, poseFrames = 0, totalFrames = 0;
-  session.stats = { camera: camLabel, mic: micOn, vision: session.visionAvailable, delegate: visionStatus().delegate };
+  let lastVideoTime = -1, lastDetectAt = 0, lastUiAt = 0, lastSizeAt = 0;
+  const msWin = []; // 最近的每帧总耗时
+  const perModel = { pose: [], face: [], hands: [] };
+  let triedCpu = false, gpuMs = 0;
+  let decided = perfMode !== "auto";
+  session.stats = { camera: camLabel, mic: micOn, vision: session.visionAvailable, delegate: visionStatus().delegate, perfMode };
+  const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const push = (a, v, n = 30) => { a.push(v); if (a.length > n) a.shift(); };
+  const setLevel = (n, why) => {
+    n = Math.max(0, Math.min(floor, n));
+    if (n === level) return;
+    const down = n > level;
+    level = n; lvl = PERF_LEVELS[level];
+    if (lvl.lowRes) lowerCameraResolution();
+    logEvent("perf", `${lvl.name} ${why}`);
+    if (down && level >= 2) banner(level === 2 ? "这台电脑有点吃力，已切到「流畅优先」：少算面部和手部，画面更顺。" : "设备较慢，已进一步降低分析频率。可关闭其他标签页，或在设置里选「流畅优先」。", 5000);
+  };
 
   const step = () => {
     if (mode !== "camera") return;
-    if (paused) { raf = requestAnimationFrame(step); return; }
+    raf = requestAnimationFrame(step);
+    if (paused) return;
     const now = performance.now();
     const t = (now - liveStart) / 1000;
-    fitStage($("live-stage"), videoAspectOf(video));
-    resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
-    const handEvery = faceEvery > 1 ? faceEvery : 1;
-    const det = detectVideo(video, now, { mirror: session.mirror, faceEvery, handEvery });
+    // 计时与按钮：每秒 4 次就够，不必每帧改 DOM
+    if (now - lastUiAt > 250) {
+      lastUiAt = now;
+      setClock(t, liveTiming.suggested);
+      $("btn-stop").disabled = t < liveTiming.minStop;
+      $("dock-note").textContent = t < liveTiming.minStop
+        ? `再讲 ${Math.ceil(liveTiming.minStop - t)} 秒就可以结束`
+        : t >= liveTiming.suggested
+          ? `已经到建议时长，可以结束（最长 ${fmt(liveTiming.max)}）`
+          : `可以结束，也可以继续讲到 ${fmt(liveTiming.suggested)}`;
+      if (t >= liveTiming.max) { cancelAnimationFrame(raf); finishCamera(); return; }
+    }
+    // 摄像头没出新画面、或离上次分析太近：这一帧什么也不算
+    const vt = video.currentTime;
+    if (vt === lastVideoTime || now - lastDetectAt < 1000 / lvl.targetFps - 4) return;
+    lastVideoTime = vt;
+    lastDetectAt = now;
+    if (now - lastSizeAt > 500) {
+      lastSizeAt = now;
+      fitStage($("live-stage"), videoAspectOf(video));
+      resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
+    }
+    const det = detectVideo(video, now, { mirror: session.mirror, faceEvery: lvl.faceEvery, handEvery: lvl.handEvery });
+    push(msWin, det.ms);
+    push(perModel.pose, det.msPose);
+    if (det.ranFace) push(perModel.face, det.msFace);
+    if (det.ranHands) push(perModel.hands, det.msHands);
     const gaze = extractGaze(det.pose, det.face, det.matrix);
     const posture = extractPosture(det.pose, session._hist, det.hands);
     tickFrame(session, t, det.pose, det.face, gaze, posture, det.hands);
@@ -700,25 +817,44 @@ function loopCamera() {
     const frame = { pose: det.pose, gaze, flags: posture.flags, onBoard: last ? last.onBoard : false, hands: det.hands };
     if (session._writing) maybeCaptureBoardStill(session, video, t, { mirror: session.mirror });
     drawLiveOverlays(overlay.getContext("2d"), frame, overlay.width, overlay.height, { showMap: s.showMap });
-    updateFlagsHUD(frame.flags, gaze, frame.onBoard, det.hands);
-    if (debugEnabled()) debugFrame({ source: "camera", t, det, gaze, flags: frame.flags, onBoard: frame.onBoard, faceEvery, events: session.events, hands: det.hands ? det.hands.length : 0 });
+    if (totalFrames % 3 === 0) updateFlagsHUD(frame.flags, gaze, frame.onBoard, det.hands);
+    const perf = { mode: perfMode, level: lvl.name, targetFps: lvl.targetFps, faceEvery: lvl.faceEvery, handEvery: lvl.handEvery,
+      msPose: avg(perModel.pose), msFace: avg(perModel.face), msHands: avg(perModel.hands), msFrame: avg(msWin), delegate: visionStatus().delegate };
+    if (debugEnabled()) debugFrame({ source: "camera", t, det, gaze, flags: frame.flags, onBoard: frame.onBoard, faceEvery: lvl.faceEvery, events: session.events, hands: det.hands ? det.hands.length : 0, perf });
 
     // performance watch
     totalFrames += 1;
     if (det.pose) poseFrames += 1;
     frameTimes.push(now);
     while (frameTimes.length && now - frameTimes[0] > 2000) frameTimes.shift();
-    if (t > 3 && frameTimes.length > 3) {
+    if (t > 2.5 && frameTimes.length > 3 && session.visionAvailable) {
       const fps = (frameTimes.length - 1) / ((now - frameTimes[0]) / 1000);
       fpsSum += fps; fpsN += 1; minFps = Math.min(minFps, fps);
-      if (fps < 12 && session.visionAvailable) {
-        if (!slowSince) slowSince = now;
-        if (now - slowSince > 3000 && faceEvery < 3) {
-          faceEvery += 1;
-          slowSince = 0;
-          banner(faceEvery === 2 ? "设备有点吃力，已降低面部分析频率，画面会更流畅。" : "设备较慢，已进一步降低分析频率。可关闭其他标签页或改用电脑。", 5000);
-          logEvent("low-fps", `${fps.toFixed(1)}fps faceEvery=${faceEvery}`);
+      const msPerFrame = avg(msWin);
+      // 自动：头 3 秒量一次，决定起步档位；GPU 明显慢时试一次 CPU
+      if (!decided && t > 3 && msWin.length >= 8) {
+        decided = true;
+        const d = visionStatus().delegate;
+        if (d.pose === "GPU" && avg(perModel.pose) > 35 && !triedCpu) {
+          triedCpu = true;
+          gpuMs = avg(perModel.pose);
+          logEvent("perf", `GPU 姿态 ${gpuMs.toFixed(0)} ms/帧，试 CPU`);
+          switchDelegate("CPU").then(() => { perModel.pose.length = 0; perModel.face.length = 0; perModel.hands.length = 0; msWin.length = 0; });
         }
+        const budget = 1000 / 20; // 每帧分析耗时超过 50 ms 就从「均衡」往下
+        if (msPerFrame > budget * 1.6) setLevel(3, `每帧 ${msPerFrame.toFixed(0)} ms`);
+        else if (msPerFrame > budget) setLevel(2, `每帧 ${msPerFrame.toFixed(0)} ms`);
+        else if (msPerFrame < 22) setLevel(0, `每帧 ${msPerFrame.toFixed(0)} ms`);
+      }
+      // 试过 CPU：若反而更慢，换回 GPU
+      if (triedCpu && gpuMs && perModel.pose.length >= 10 && visionStatus().delegate.pose === "CPU") {
+        const cpuMs = avg(perModel.pose);
+        if (cpuMs > gpuMs * 1.15) { logEvent("perf", `CPU ${cpuMs.toFixed(0)} ms 比 GPU 慢，换回`); switchDelegate("GPU"); }
+        gpuMs = 0;
+      }
+      if (fps < lvl.targetFps * 0.6 && fps < 12) {
+        if (!slowSince) slowSince = now;
+        if (now - slowSince > 3000 && level < floor) { setLevel(level + 1, `${fps.toFixed(1)} fps`); slowSince = 0; }
       } else slowSince = 0;
     }
     if (session.visionAvailable && !det.pose && t > 2) {
@@ -730,20 +866,23 @@ function loopCamera() {
 
     session.stats.avgFps = fpsN ? Math.round((fpsSum / fpsN) * 10) / 10 : 0;
     session.stats.minFps = minFps === 99 ? 0 : Math.round(minFps * 10) / 10;
-    session.stats.faceEvery = faceEvery;
+    session.stats.faceEvery = lvl.faceEvery;
+    session.stats.handEvery = lvl.handEvery;
+    session.stats.perfLevel = lvl.name;
+    session.stats.msPerFrame = Math.round(avg(msWin));
+    session.stats.delegate = visionStatus().delegate;
     session.stats.poseSeen = totalFrames ? Math.round((poseFrames / totalFrames) * 100) / 100 : 0;
-
-    setClock(t, liveTiming.suggested);
-    $("btn-stop").disabled = t < liveTiming.minStop;
-    $("dock-note").textContent = t < liveTiming.minStop
-      ? `再讲 ${Math.ceil(liveTiming.minStop - t)} 秒就可以结束`
-      : t >= liveTiming.suggested
-        ? `已经到建议时长，可以结束（最长 ${fmt(liveTiming.max)}）`
-        : `可以结束，也可以继续讲到 ${fmt(liveTiming.suggested)}`;
-    if (t >= liveTiming.max) { finishCamera(); return; }
-    raf = requestAnimationFrame(step);
   };
   raf = requestAnimationFrame(step);
+}
+
+/** 最省档：把摄像头降到 640 宽（录像也随之变小），分析和编码都更轻。 */
+function lowerCameraResolution() {
+  try {
+    const tr = mediaStream && mediaStream.getVideoTracks()[0];
+    const st = tr && tr.getSettings ? tr.getSettings() : {};
+    if (tr && st.width && st.width > 700) tr.applyConstraints({ width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } }).catch(() => {});
+  } catch (_) {}
 }
 
 function pauseLive(why) {
@@ -783,7 +922,10 @@ async function finishCamera() {
     // Do not count paused time.
     paused = false;
   }
-  if (speechHandle) { speechHandle.stop(); speechHandle = null; }
+  const sh = speechHandle;
+  speechHandle = null;
+  // 本机听写会先把最后一句识别完再停（最多约 2.5 秒），与停止录像并行。
+  const speechDone = sh ? Promise.resolve(sh.stop()).catch(() => {}) : Promise.resolve();
   keepAwake(false);
   const rec = recorder;
   recorder = null;
@@ -800,6 +942,7 @@ async function finishCamera() {
     session.videoUrl = URL.createObjectURL(session.videoBlob);
   }
   chunks = [];
+  await Promise.race([speechDone, new Promise((r) => setTimeout(r, 3000))]);
   if (!session.thumb) {
     const v = $("live-video");
     const last = session.frames[session.frames.length - 1];
@@ -1045,7 +1188,7 @@ function renderTranscript(sess) {
       empty.hidden = false;
       empty.textContent = sess.kind === "demo"
         ? "演示样本的转写按讲稿生成，水词已标出。"
-        : (sess.speechAvailable ? "这一次听写没有留下句子。可先点「试一下听写」，或改用 Microsoft Edge。" : "这一次没有可用的听写，口头禅无法统计。Chrome / Edge 的听写在中国大陆经常连不上厂商服务，即便网页已经打开。本机听写仍在准备中。");
+        : (sess.speechAvailable ? "这一次听写没有留下句子。可先点「试一下听写」；浏览器听写连不上时，可改用本机听写。" : "这一次没有可用的听写，口头禅无法统计。Chrome / Edge 的听写在中国大陆经常连不上厂商服务，即便网页已经打开。可在「设置」里下载本机听写（一次即可），之后不用联网也能转写。");
     }
     return;
   }
@@ -1343,7 +1486,7 @@ function onDocumentKey(e) {
 function onReady() {
   if (location.protocol === "file:") $("file-warning").hidden = false;
   showConsentIfNeeded();
-  inspectSherpa().catch(() => {});
+  inspectSherpa().then(() => { setAsrStatusLabel($("coach-asr-state")); }).catch(() => {});
   initDebug({ getVisionStatus: visionStatus, getEnv: envInfo, getSettings });
 
   $("btn-dismiss-whats-new")?.addEventListener("click", () => {
@@ -1355,13 +1498,33 @@ function onReady() {
     const out = $("speech-preflight-result");
     const btn = $("btn-speech-preflight");
     if (btn) btn.disabled = true;
-    if (out) { out.hidden = false; out.textContent = "正在试听，请对着麦克风说一两句话…"; }
+    const want = getSettings().asrEngine;
+    const st = asrStatus();
+    const useLocal = want !== "webspeech" && st.sherpa;
+    let offer = $("speech-preflight-local");
+    if (offer) offer.hidden = true;
+    if (out) { out.hidden = false; out.textContent = useLocal ? "正在载入本机听写…" : "正在试听，请对着麦克风说一两句话…"; }
+    let r = null;
     try {
-      const r = await preflightSpeech({ lang: getSettings().speechLang, seconds: 4 });
+      r = useLocal
+        ? await preflightSherpa({ seconds: 5, onStatus: (x) => { if (out && x && x.reason) out.textContent = x.reason; } })
+        : await preflightSpeech({ lang: getSettings().speechLang, seconds: 4 });
       if (out) out.textContent = r.reason;
     } catch (e) {
-      if (out) out.textContent = "试听没能完成，请改用 Chrome 或 Edge，并允许麦克风。";
+      if (out) out.textContent = "试听没能完成，请允许麦克风后再试。";
     }
+    if (!useLocal && r && !r.ok && r.error !== "not-allowed" && st.sherpaSupported) {
+      if (!offer) {
+        offer = document.createElement("div");
+        offer.id = "speech-preflight-local";
+        out.insertAdjacentElement("afterend", offer);
+      }
+      offer.hidden = false;
+      if (out) out.textContent = r.reason + " 可以改用本机听写：声音只在这台设备上识别，不需要连外网。";
+      mountLocalAsr(offer, { compact: true, onReady: () => { setAsrStatusLabel($("coach-asr-state")); if (out) out.textContent = "本机听写已下载。再点一次「试一下听写」试试。"; } });
+    }
+    setAsrStatusLabel($("coach-asr-state"));
+    if (mode === "coach" && micOn && getSettings().asrEngine !== "webspeech" && asrStatus().sherpa) prewarmSherpa(mediaStream);
     if (btn) btn.disabled = false;
   });
   $("btn-demo").addEventListener("click", () => navigate("#/demo"));
