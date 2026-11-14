@@ -1682,3 +1682,570 @@ mark.shuici, .shuici {
   min-height: 0;
   padding: 6px 8px;
 }
+
+
+/* ==== 以下为「镜台」视觉深度层 v1.0（追加部分，原样式一字未改）====
+   合入方式：把本段之后的内容追加到 app.css 末尾即可；build.mjs 会把
+   app.css 整体写入 dist/，因此无需改动 index.html 与构建脚本。
+   ================================================================ */
+
+/* ==================================================================
+   体态镜 · 「镜台」/ The Podium Mirror — 视觉深度层  v1.0
+   ------------------------------------------------------------------
+   性质：纯增量样式层。不新增 DOM、不改 JS、不覆盖文案、不触碰
+        #cover-canvas（3D 人物由原引擎绘制，本层只给它做「镜框」）。
+   合入（推荐 · 零工程改动）：把本文件全文追加到 assets/app.css 末尾。
+        build.mjs 会把 app.css 整体写进 dist/，所以不必改 index.html、
+        不必改 build.mjs、不必往 assets 白名单里加文件名。
+   合入（可选 · 便于灰度）：保持独立文件，在 index.html 的 app.css
+        之后加一行 <link rel="stylesheet"
+        href="assets/app.depth.css?v=__BUILD_ID__">，同时在 build.mjs
+        的 cp 列表补一行 cp("assets/app.depth.css")。移除 link 即回退。
+   对照：预览页用 link.disabled 关闭本层，即可逐像素比对原版。
+
+   设计意图
+   --------
+   原版把「宣纸 + 墨 + 朱砂」平铺在一张平面上。本层不改品牌色与
+   字体，只重建空间：把页面组织成一面立在讲台上的镜子。
+
+     Z -3  远景  黑板墙、顶部聚光、粉笔灰
+     Z -1  中景  讲台台面（透视网格向纵深收敛）
+     Z  0  镜框  实体木框 / 黄铜内圈 / 内凹镜面 / 台面接触影
+     Z +1  前景  标题、按钮、卡片抬离纸面
+
+   全站统一光照：左上 45°。所有高光在顶/左，所有阴影在底/右。
+   不使用玻璃拟态、紫蓝渐变、霓虹发光、通用大圆角卡片。
+   ================================================================== */
+
+
+/* ------------------------------------------------------------------
+   0 · 深度令牌（4pt 空间尺度 / 语义化 elevation）
+   ------------------------------------------------------------------ */
+:root {
+  --frame-walnut: #2a2018;
+  --frame-walnut-lit: #3d2e21;
+  --frame-brass: #b9975b;
+  --frame-brass-lit: #e6c98a;
+  --board-deep: #1d2a24;
+  --chalk: rgba(243, 238, 228, 0.42);
+
+  /* 语义化高度：每层由「接触影 + 近影 + 远影」三段组成，
+     阴影克制到「察觉得到但不会抢注意」的程度。 */
+  --depth-1:
+    0 1px 0 rgba(27, 23, 18, 0.08),
+    0 4px 10px -6px rgba(27, 23, 18, 0.22);
+  --depth-2:
+    0 1px 0 rgba(27, 23, 18, 0.12),
+    0 8px 18px -10px rgba(27, 23, 18, 0.30),
+    0 22px 40px -26px rgba(27, 23, 18, 0.36);
+  --depth-3:
+    0 2px 0 rgba(27, 23, 18, 0.14),
+    0 14px 26px -14px rgba(27, 23, 18, 0.34),
+    0 34px 64px -34px rgba(27, 23, 18, 0.42),
+    0 64px 96px -60px rgba(27, 23, 18, 0.30);
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+/* ------------------------------------------------------------------
+   1 · 舞台：远景黑板墙 + 顶部聚光 + 中景透视台面
+   ------------------------------------------------------------------ */
+.screen-cover {
+  position: relative;
+  isolation: isolate;
+  background:
+    /* 聚光：从镜框上方向下泻的一束暖光 */
+    radial-gradient(ellipse 62% 42% at 76% -12%,
+        rgba(230, 201, 138, 0.30) 0%,
+        rgba(230, 201, 138, 0.08) 42%,
+        transparent 74%),
+    /* 远景：黑板墙只在上缘透出一点冷绿，压住画面的「天花板」 */
+    linear-gradient(180deg,
+        rgba(29, 42, 36, 0.125) 0%,
+        rgba(29, 42, 36, 0.038) 16%,
+        transparent 38%),
+    /* 台沿：一条贯穿画面的高光线，把内容托在讲台上 */
+    linear-gradient(180deg,
+        transparent 0 82%,
+        rgba(255, 252, 244, 0.72) 82% 82.18%,
+        rgba(27, 23, 18, 0.055) 82.18% 82.4%,
+        rgba(27, 23, 18, 0.022) 82.4% 100%),
+    var(--paper);
+}
+
+/* 远景细节：粉笔横纹 + 两侧暗角，制造「教室纵深」而不是纯色墙 */
+.screen-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg,
+        transparent 0 46px,
+        rgba(243, 238, 228, 0.030) 46px 47px),
+    radial-gradient(ellipse 120% 90% at 50% 0%,
+        transparent 45%,
+        rgba(27, 23, 18, 0.055) 100%);
+  opacity: 0.9;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+}
+
+/* 中景：讲台台面。透视网格向远处收敛——这是「平面变立体」的关键一笔 */
+.screen-cover::after {
+  content: "";
+  position: absolute;
+  left: -18%;
+  right: -18%;
+  bottom: 0;
+  height: 44%;
+  z-index: 0;
+  pointer-events: none;
+  transform: perspective(560px) rotateX(64deg);
+  transform-origin: bottom center;
+  background:
+    repeating-linear-gradient(90deg,
+        transparent 0 88px,
+        rgba(27, 23, 18, 0.10) 88px 89px),
+    repeating-linear-gradient(0deg,
+        transparent 0 52px,
+        rgba(27, 23, 18, 0.075) 52px 53px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 46%, transparent 94%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 46%, transparent 94%);
+  opacity: 0.8;
+}
+
+
+/* ------------------------------------------------------------------
+   2 · 前景抬升：内容站到台面之上（Z +1）
+   ------------------------------------------------------------------ */
+.cover-head,
+.cover-layout,
+.cover-foot,
+.whats-new {
+  position: relative;
+  z-index: 2;
+}
+
+.cover-layout {
+  perspective: 1400px;
+  transform-style: preserve-3d;
+}
+
+.cover-copy {
+  transform: translateZ(20px);
+}
+
+.cover-head {
+  /* 品牌栏像钉在墙上的铭牌：下方一道极细暗线 */
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(27, 23, 18, 0.10);
+  box-shadow: 0 6px 14px -12px rgba(27, 23, 18, 0.5);
+}
+
+.cover-foot {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(27, 23, 18, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 244, 0.6);
+}
+
+
+/* ------------------------------------------------------------------
+   3 · 镜框（Focal Point）：实体木框 / 黄铜内圈 / 内凹镜面
+        ⚠ canvas 内容与 3D 人物完全不动，只装裱外框
+   ------------------------------------------------------------------ */
+.cover-preview {
+  position: relative;
+  perspective: 1200px;
+}
+
+.preview-frame {
+  border-radius: 2px;
+  transform: rotateY(-5deg) rotateX(1.4deg);
+  transform-style: preserve-3d;
+  background: var(--stage-bg);
+  box-shadow:
+    /* 由内向外的实体框层 */
+    0 0 0 1px rgba(27, 23, 18, 0.6),
+    0 0 0 9px var(--frame-walnut),
+    0 0 0 10px rgba(185, 151, 91, 0.72),
+    0 0 0 12px rgba(27, 23, 18, 0.20),
+    /* 镜面内凹 */
+    inset 0 0 0 1px rgba(230, 201, 138, 0.30),
+    inset 0 22px 46px rgba(0, 0, 0, 0.52),
+    inset 0 -18px 40px rgba(0, 0, 0, 0.34),
+    /* 台面投影：近实远虚 */
+    18px 26px 40px -16px rgba(27, 23, 18, 0.44),
+    36px 54px 88px -46px rgba(27, 23, 18, 0.46);
+  transition:
+    transform 0.72s var(--ease-out-quart),
+    box-shadow 0.5s var(--ease-out-quart);
+}
+
+/* 斜掠高光 + 四角取景准星：呼应「体态观察」，不是装饰性发光 */
+.preview-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(116deg,
+        transparent 26%,
+        rgba(255, 252, 244, 0.085) 41%,
+        rgba(255, 252, 244, 0.015) 52%,
+        transparent 62%),
+    /* 四角准星 */
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) left 14px top 14px / 14px 1px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) left 14px top 14px / 1px 14px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) right 14px top 14px / 14px 1px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) right 14px top 14px / 1px 14px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) left 14px bottom 14px / 14px 1px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) left 14px bottom 14px / 1px 14px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) right 14px bottom 14px / 14px 1px no-repeat,
+    linear-gradient(var(--frame-brass-lit), var(--frame-brass-lit)) right 14px bottom 14px / 1px 14px no-repeat;
+  opacity: 0.72;
+  mix-blend-mode: screen;
+}
+
+/* 镜子立在台面上的接触影 —— 比「倒影」更真实也更克制 */
+.cover-preview::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  width: min(58%, 300px);
+  height: 34px;
+  z-index: -1;
+  pointer-events: none;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center,
+      rgba(27, 23, 18, 0.20) 0%,
+      rgba(27, 23, 18, 0.08) 45%,
+      transparent 72%);
+  filter: blur(9px);
+}
+
+.cover-preview:hover .preview-frame {
+  transform: rotateY(0deg) rotateX(0deg) translateZ(8px);
+  box-shadow:
+    0 0 0 1px rgba(27, 23, 18, 0.6),
+    0 0 0 9px var(--frame-walnut),
+    0 0 0 10px rgba(230, 201, 138, 0.92),
+    0 0 0 12px rgba(27, 23, 18, 0.20),
+    inset 0 0 0 1px rgba(230, 201, 138, 0.38),
+    inset 0 22px 46px rgba(0, 0, 0, 0.52),
+    inset 0 -18px 40px rgba(0, 0, 0, 0.34),
+    22px 34px 52px -18px rgba(27, 23, 18, 0.46),
+    46px 68px 100px -48px rgba(27, 23, 18, 0.48);
+}
+
+.preview-caption {
+  left: 20px;
+  right: 20px;
+  bottom: 22px;
+  padding: 7px 10px;
+  z-index: 4;
+  border-radius: 2px;
+  background: linear-gradient(180deg,
+      rgba(22, 20, 16, 0.62),
+      rgba(22, 20, 16, 0.38));
+  box-shadow:
+    inset 0 1px 0 rgba(230, 201, 138, 0.22),
+    0 6px 16px -10px rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+
+/* ------------------------------------------------------------------
+   4 · 标题：纸面浮起 + 朱砂标尺（放大层级差，不改任何文案）
+   ------------------------------------------------------------------ */
+.cover-copy h1,
+.plain-card h2 {
+  text-shadow:
+    0 1px 0 rgba(255, 252, 244, 0.85),
+    0 10px 26px -18px rgba(27, 23, 18, 0.55);
+}
+
+.cover-copy h1 {
+  position: relative;
+  padding-left: 22px;
+  margin-left: -22px;
+}
+
+/* 竖排刻度标尺：像讲台边的身高/视线刻度，只用 CSS 画 */
+.cover-copy h1::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.16em;
+  bottom: 0.16em;
+  width: 3px;
+  background:
+    repeating-linear-gradient(180deg,
+        var(--cinnabar) 0 8px,
+        transparent 8px 14px);
+  box-shadow: 1px 0 0 rgba(255, 252, 244, 0.7);
+  opacity: 0.9;
+}
+
+.cover-points li {
+  padding-left: 1.45em;
+}
+
+.cover-points li::before {
+  width: 11px;
+  height: 2px;
+  box-shadow: 0 1px 0 rgba(255, 252, 244, 0.7);
+}
+
+.cover-note {
+  padding-left: 12px;
+  border-left: 2px solid rgba(163, 59, 40, 0.35);
+}
+
+
+/* ------------------------------------------------------------------
+   5 · 按钮：有厚度的「讲台按键」，按下会真的沉下去
+   ------------------------------------------------------------------ */
+.btn {
+  border-radius: 2px;
+  position: relative;
+  transition:
+    transform 0.34s var(--ease-out-quart),
+    box-shadow 0.34s var(--ease-out-quart),
+    background 0.2s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(168deg,
+      var(--frame-walnut-lit) 0%,
+      var(--ink) 46%,
+      #120f0b 100%);
+  color: var(--paper-soft);
+  box-shadow:
+    inset 0 1px 0 rgba(230, 201, 138, 0.30),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.42),
+    0 3px 0 #100d09,
+    0 12px 22px -10px rgba(27, 23, 18, 0.52),
+    0 28px 48px -30px rgba(27, 23, 18, 0.42);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(168deg,
+      #463526 0%,
+      #2a241c 46%,
+      #16120d 100%);
+  transform: translateY(-2px) translateZ(6px);
+  box-shadow:
+    inset 0 1px 0 rgba(230, 201, 138, 0.38),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.42),
+    0 5px 0 #100d09,
+    0 18px 30px -12px rgba(27, 23, 18, 0.54),
+    0 36px 60px -32px rgba(27, 23, 18, 0.44);
+}
+
+.btn-primary:active {
+  transform: translateY(2px) translateZ(0);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    0 1px 0 #100d09,
+    0 4px 8px -6px rgba(27, 23, 18, 0.5);
+}
+
+.btn-secondary {
+  background: linear-gradient(180deg,
+      rgba(255, 253, 247, 0.72) 0%,
+      rgba(230, 220, 203, 0.30) 100%);
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 3px 0 rgba(27, 23, 18, 0.07),
+    0 12px 22px -14px rgba(27, 23, 18, 0.36);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(180deg,
+      rgba(255, 253, 247, 0.92) 0%,
+      rgba(230, 220, 203, 0.46) 100%);
+  transform: translateY(-2px) translateZ(4px);
+  box-shadow:
+    inset 0 0 0 1px rgba(163, 59, 40, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 5px 0 rgba(27, 23, 18, 0.08),
+    0 18px 30px -16px rgba(27, 23, 18, 0.4);
+}
+
+.btn-secondary:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 0 0 1px var(--line-strong), inset 0 2px 5px rgba(27, 23, 18, 0.16);
+}
+
+.btn .btn-label {
+  text-shadow: 0 1px 0 rgba(255, 252, 244, 0.14);
+}
+
+.install-chip {
+  border-radius: 2px;
+  box-shadow: var(--depth-1);
+}
+
+
+/* ------------------------------------------------------------------
+   6 · 卡片与分层控件：纸叠厚度，而不是通用大圆角投影卡片
+   ------------------------------------------------------------------ */
+.plain-card {
+  border-radius: 3px;
+  border: 1px solid rgba(27, 23, 18, 0.16);
+  background: linear-gradient(180deg, #fbf8f1 0%, var(--paper) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 0 rgba(27, 23, 18, 0.10),
+    0 8px 18px -10px rgba(27, 23, 18, 0.24),
+    0 30px 60px -32px rgba(27, 23, 18, 0.42),
+    0 56px 88px -56px rgba(27, 23, 18, 0.30);
+}
+
+.screen-plain,
+.screen-page {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -8%,
+        rgba(230, 201, 138, 0.24), transparent 72%),
+    var(--paper);
+}
+
+/* 分段控件：凹槽 + 选中块浮起，把「选项」做成实体拨片 */
+.seg {
+  border-radius: 3px;
+  padding: 4px;
+  background: linear-gradient(180deg, rgba(27, 23, 18, 0.07), rgba(27, 23, 18, 0.02));
+  box-shadow:
+    inset 0 2px 5px rgba(27, 23, 18, 0.13),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.seg-btn[aria-checked="true"],
+.seg-btn.on {
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fdfaf4, #e9e1d2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 0 rgba(27, 23, 18, 0.16),
+    0 6px 12px -8px rgba(27, 23, 18, 0.4);
+}
+
+.whats-new-inner {
+  border-radius: 3px;
+  box-shadow: var(--depth-2);
+}
+
+.btn-mini {
+  border-radius: 2px;
+  box-shadow: var(--depth-1);
+}
+
+
+/* ------------------------------------------------------------------
+   7 · 导航与铭牌：hover 时下划线像刻度一样「量」出来
+   ------------------------------------------------------------------ */
+.brand-mark {
+  text-shadow: 0 1px 0 rgba(255, 252, 244, 0.8);
+}
+
+.cover-nav a {
+  position: relative;
+  transition: color 0.24s var(--ease-out-quart);
+}
+
+.cover-nav a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: 3px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cinnabar), var(--frame-brass));
+  transition: right 0.38s var(--ease-out-quart);
+}
+
+.cover-nav a:hover::after,
+.cover-nav a:focus-visible::after {
+  right: 0;
+}
+
+.live-dot {
+  box-shadow: 0 0 0 3px rgba(211, 83, 60, 0.22), 0 0 10px rgba(211, 83, 60, 0.55);
+}
+
+
+/* ------------------------------------------------------------------
+   8 · 焦点可见性（WCAG 2.4.7）—— 强化，不削弱原版
+   ------------------------------------------------------------------ */
+button:focus-visible,
+a:focus-visible,
+.seg-btn:focus-visible {
+  outline: 2px solid var(--frame-brass);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+
+/* ------------------------------------------------------------------
+   9 · 响应式：窄屏撤掉 3D 旋转，保留分层（移动端不吃透视性能）
+   ------------------------------------------------------------------ */
+@media (max-width: 900px) {
+  .preview-frame {
+    transform: rotateY(-2deg) rotateX(0.6deg);
+  }
+  .cover-preview:hover .preview-frame {
+    transform: rotateY(0deg) translateZ(4px);
+  }
+  .cover-copy {
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .preview-frame {
+    transform: none;
+  }
+  .screen-cover::after {
+    opacity: 0.30;
+  }
+  .cover-copy h1 {
+    padding-left: 16px;
+    margin-left: -16px;
+  }
+}
+
+
+/* ------------------------------------------------------------------
+   10 · 动效偏好：尊重系统的「减少动态效果」
+   ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .preview-frame,
+  .btn,
+  .cover-nav a::after {
+    transition: none;
+  }
+  .preview-frame,
+  .cover-preview:hover .preview-frame,
+  .cover-copy {
+    transform: none;
+  }
+  .cover-preview:hover .preview-frame {
+    /* 静默状态下只换黄铜线的亮度，不做位移 */
+    box-shadow:
+      0 0 0 1px rgba(27, 23, 18, 0.6),
+      0 0 0 9px var(--frame-walnut),
+      0 0 0 10px rgba(230, 201, 138, 0.92),
+      inset 0 0 0 1px rgba(230, 201, 138, 0.38),
+      inset 0 22px 46px rgba(0, 0, 0, 0.52);
+  }
+}
