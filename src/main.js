@@ -36,6 +36,51 @@ const SCREEN_IDS = ["cover", "permission", "error", "coach", "live", "replay", "
 const screens = Object.fromEntries(SCREEN_IDS.map((k) => [k, $(`screen-${k}`)]));
 const PAGES = ["history", "compare", "settings", "feedback", "about", "profile"];
 
+
+let presenter3d = null;
+let presenter3dHost = "";
+
+function characterSceneHref() {
+  return new URL("assets/character-scene.js", document.baseURI).href;
+}
+
+function disposePresenter3d() {
+  if (presenter3d && presenter3d.dispose) {
+    try { presenter3d.dispose(); } catch (_) {}
+  }
+  presenter3d = null;
+  presenter3dHost = "";
+  const a = $("cover-3d"); if (a) { a.hidden = true; a.innerHTML = ""; }
+  const b = $("live-3d"); if (b) { b.hidden = true; b.innerHTML = ""; }
+  const canvas = $("cover-canvas");
+  if (canvas) canvas.classList.remove("is-3d-overlay");
+}
+
+async function ensurePresenter3d(hostId, clip) {
+  const s = getSettings();
+  if (s.sim3d === "off" || s.perfMode === "smooth") return null;
+  if (presenter3d && presenter3dHost === hostId) {
+    if (clip && presenter3d.setClip) presenter3d.setClip(clip);
+    return presenter3d;
+  }
+  disposePresenter3d();
+  const host = $(hostId);
+  if (!host) return null;
+  try {
+    const { canUse3D, mountPresenterScene } = await import(characterSceneHref());
+    if (!canUse3D({ force: s.sim3d })) return null;
+    host.hidden = false;
+    presenter3d = await mountPresenterScene(host, { clip: clip || "talk" });
+    presenter3dHost = hostId;
+    return presenter3d;
+  } catch (err) {
+    console.warn("presenter 3d unavailable", err);
+    disposePresenter3d();
+    return null;
+  }
+}
+
+
 let mode = "cover"; // cover | demo | coach | camera | replay | page
 let session = null;
 let raf = 0;
@@ -88,6 +133,7 @@ function stopEverything({ keepPreview = false } = {}) {
   $("pause-veil").hidden = true;
   if (speechHandle) { speechHandle.stop(); speechHandle = null; }
   stopClassroomSim();
+  disposePresenter3d();
   const wrap = $("live-wrap");
   if (wrap) wrap.classList.remove("has-sim");
   if (recorder && recorder.state !== "inactive") { try { recorder.stop(); } catch (_) {} }
@@ -160,6 +206,9 @@ function startCoverLoop() {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   setRuntime({});
+  ensurePresenter3d("cover-3d", "talk").then((p3) => {
+    if (p3 && canvas) canvas.classList.add("is-3d-overlay");
+  });
   const tick = (ts) => {
     if (mode !== "cover") return;
     const cycle = (ts / 1000) % 16;
@@ -167,10 +216,19 @@ function startCoverLoop() {
     if (runtimeShot !== shot) { runtimeShot = shot; setRuntime({ frameMode: shot, frameResolved: shot }); }
     const t = cycle % 8;
     const p = { ...coverPose(), shot, rArm: 1.6 + Math.sin(t * 0.8) * 0.4, headYaw: -0.05 + Math.sin(t * 0.5) * 0.04, speak: 0.15 + Math.abs(Math.sin(t * 2.4)) * 0.2, chalk: 0.55, bodyYaw: shot === "full" && t > 4 ? 0.7 : 0 };
+    if (presenter3d && presenter3dHost === "cover-3d") {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const rig = buildRig(p);
+      const pose = landmarksFromRig(rig, canvas.width, canvas.height);
+      const gaze = extractGaze(pose, faceFromRig(rig), null);
+      drawLiveOverlays(ctx, { pose, gaze, flags: {}, onBoard: false }, canvas.width, canvas.height, { showMap: true, clear: false });
+      if (presenter3d.setClip) presenter3d.setClip(shot === "full" && t > 4 ? "board" : "talk");
+    } else {
     const rig = renderScene(ctx, canvas.width, canvas.height, p, ts / 1000);
     const pose = landmarksFromRig(rig);
     const gaze = extractGaze(pose, faceFromRig(rig), null);
     drawLiveOverlays(ctx, { pose, gaze, flags: {}, onBoard: false }, canvas.width, canvas.height, { showMap: true, clear: false });
+    }
     const label = $("cover-shot-label");
     if (label) label.textContent = shot === "full" ? "全身 · 教室侧前方" : "半身 · 讲台近景";
     coverRaf = requestAnimationFrame(tick);
@@ -228,6 +286,13 @@ function startDemo() {
   if (liveHint) liveHint.hidden = true;
   $("live-video").hidden = true;
   $("live-scene").hidden = false;
+  ensurePresenter3d("live-3d", "talk").then((p3) => {
+    if (mode !== "demo") return;
+    if (p3) {
+      $("live-scene").hidden = true;
+      if (presenter3d.setClip) presenter3d.setClip("talk");
+    }
+  });
   $("hud-caption").hidden = false;
   $("speech-banner").hidden = true;
   if ($("live-asr-state")) $("live-asr-state").hidden = true;
@@ -251,7 +316,15 @@ function paintDemoFrame(t) {
   resizeCanvasTo(scene, scene.clientWidth || 360, scene.clientHeight || 640);
   resizeCanvasTo(overlay, overlay.clientWidth || 360, overlay.clientHeight || 640);
   const { p, pose, gaze } = sampleDemo(t);
-  renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
+  if (presenter3d && presenter3dHost === "live-3d") {
+    scene.hidden = true;
+    const ctx = scene.getContext("2d");
+    ctx.clearRect(0, 0, scene.width, scene.height);
+    if (presenter3d.setClip) presenter3d.setClip(t % 20 < 12 ? "talk" : (t % 20 < 16 ? "gesture" : "board"));
+  } else {
+    scene.hidden = false;
+    renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
+  }
   const frame = (session && frameAt(session, t)) || { pose, gaze, flags: {}, onBoard: gaze.label === "board" };
   drawLiveOverlays(overlay.getContext("2d"), { ...frame, pose, gaze }, overlay.width, overlay.height, { showMap: true });
   updateFlagsHUD(frame.flags, gaze, frame.onBoard);
@@ -285,7 +358,13 @@ function loopDemo() {
     const { w, h } = resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
     resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
     const { p, pose, gaze } = sampleDemo(t);
-    renderScene(scene.getContext("2d"), w, h, p, t);
+    if (presenter3d && presenter3dHost === "live-3d") {
+      scene.hidden = true;
+      if (presenter3d.setClip) presenter3d.setClip(t % 20 < 12 ? "talk" : (t % 20 < 16 ? "gesture" : "board"));
+    } else {
+      scene.hidden = false;
+      renderScene(scene.getContext("2d"), w, h, p, t);
+    }
     const frame = frameAt(session, t) || { pose, gaze, flags: {}, onBoard: gaze.label === "board" };
     drawLiveOverlays(overlay.getContext("2d"), { ...frame, pose, gaze }, overlay.width, overlay.height, { showMap: true });
     updateFlagsHUD(frame.flags, gaze, frame.onBoard);
@@ -304,6 +383,7 @@ function loopDemo() {
 function finishDemo() {
   if (mode !== "demo") return;
   cancelAnimationFrame(raf);
+  disposePresenter3d();
   debugSessionEnd(session);
   openReplay(session);
   setHashSilently("#/replay");

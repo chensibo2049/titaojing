@@ -313,6 +313,26 @@ check("春晓样例有意象意境与批判性问题、表现性评价", ywRepor
 check("语文观察表总览含教态与口头表达", ywReport.law && /教态/.test(ywReport.law.title) && /口头表达/.test(ywReport.law.title));
 try { fs.unlinkSync(tmpYw); } catch (_) {}
 
+// v1.5.0 3D characters
+const charDir = path.join(root, "assets/characters");
+const glbs = ["students.glb", "guests.glb", "teacher.glb", "classroom.glb", "podium.glb"];
+let charBytes = 0;
+for (const f of glbs) {
+  const fp = path.join(charDir, f);
+  check(`角色文件存在 ${f}`, fs.existsSync(fp));
+  if (fs.existsSync(fp)) charBytes += fs.statSync(fp).size;
+}
+check("3D 角色合计不超过约 15 MB", charBytes > 1e6 && charBytes <= 15.5 * 1024 * 1024, `${(charBytes / 1048576).toFixed(2)} MB`);
+const notice = fs.readFileSync(path.join(root, "NOTICE"), "utf8");
+check("NOTICE 记录 MakeHuman CC0 与 three.js", /MakeHuman/.test(notice) && /CC0/.test(notice) && /three\.js/.test(notice) && !/本仓库不收录 Mixamo/.test("x") && /Mixamo/.test(notice));
+const mainSrc = fs.readFileSync(path.join(root, "src/main.js"), "utf8");
+const simUi = fs.readFileSync(path.join(root, "src/classroom-sim-ui.js"), "utf8");
+check("3D 为按需加载且可退回插画", simUi.includes("sim-stage3d") && simUi.includes("character-scene.js") && settingsSrc.includes('sim3d: "auto"') && mainSrc.includes("ensurePresenter3d"));
+check("构建会打包 character-scene 并复制 glb", fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("character-scene.js") && fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("assets/characters"));
+check("changelog 写明 3D 限制", /手臂|A-pose|插画/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")) && /1\.5\.0/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")));
+
+
+
 
 try { fs.unlinkSync(tmp); } catch (_) {}
 

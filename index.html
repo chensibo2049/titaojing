@@ -71,6 +71,7 @@
 
         <div class="cover-preview" aria-hidden="true">
           <div class="preview-frame">
+            <div id="cover-3d" class="preview-3d" hidden></div>
             <canvas id="cover-canvas" width="720" height="1280"></canvas>
             <div class="preview-caption">
               <span class="live-dot"></span>
@@ -226,6 +227,7 @@
       <div class="stage-wrap" id="live-wrap">
         <div class="stage" id="live-stage">
           <video id="live-video" class="stage-video" playsinline autoplay muted></video>
+          <div id="live-3d" class="stage-3d" hidden></div>
           <canvas id="live-scene" class="stage-scene"></canvas>
           <canvas id="live-overlay" class="stage-overlay"></canvas>
           <div class="hud-left" id="hud-gaze" aria-hidden="true"></div>
@@ -443,6 +445,15 @@
               <option value="roadshow">模拟路演（3 位嘉宾／评委）</option>
             </select>
             <small>打开后，试讲画面旁边会出现虚拟同学或嘉宾，按您的话举手、回答或提问。全部在本机演算，不联网。题库是一份普通 JSON（assets/classroom/banks.json），老师可直接改。不是真实课堂。</small>
+          </label>
+          <label class="field">
+            <span>模拟人物与封面演示</span>
+            <select name="sim3d">
+              <option value="auto">自动（能用 3D 就用 3D，显卡弱或软件渲染时退回插画）</option>
+              <option value="on">尽量使用 3D 人物</option>
+              <option value="off">只用插画</option>
+            </select>
+            <small>3D 人物是我们用 Blender 和 MakeHuman（CC0）二改的课堂角色，会按需加载（合计约 15 MB）。在「流畅优先」或浏览器是软件渲染时，自动改回原来的插画。</small>
           </label>
         </fieldset>
         <fieldset>

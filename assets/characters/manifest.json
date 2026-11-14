@@ -1,0 +1,37 @@
+{
+  "license": "CC0 (MakeHuman / MPFB assets), animations and tints by 沉思波 · 体态镜",
+  "clips": {
+    "student": [
+      "idle_sit",
+      "raise_hand",
+      "nod",
+      "confused",
+      "distracted",
+      "speak",
+      "group_read",
+      "stand_to_read"
+    ],
+    "guest": [
+      "idle_sit",
+      "ask",
+      "nod",
+      "speak",
+      "confused"
+    ],
+    "teacher": [
+      "idle_stand",
+      "talk",
+      "talk_gesture",
+      "walk",
+      "turn_board"
+    ]
+  },
+  "files": {
+    "classroom.glb": 39140,
+    "guests.glb": 4235072,
+    "podium.glb": 5888,
+    "students.glb": 7187996,
+    "teacher.glb": 2071140
+  },
+  "totalBytes": 13539236
+}

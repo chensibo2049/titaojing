@@ -1,14 +1,19 @@
 """
 Build the OpenPodium / 体态镜 character set in headless Blender.
 
-Source: MakeHuman plugin for Blender (MPFB) CC0 basemesh + macros.
-Our modifications (沉思波 · 体态镜): proportions, skin tones, school uniforms
-and business-casual clothes, mesh hair, and classroom animations.
+Source: MakeHuman Plugin For Blender (MPFB). The plugin is AGPL-3.0;
+bundled MakeHuman assets and exported character meshes are CC0.
+Clothes, hair, eyes and skins come from the official MakeHuman Community
+CC0 asset packs, fitted with MHCLO proxies on the intact basemesh.
+Animations are original keyframes on the default MakeHuman rig
+(not Mixamo). 沉思波 · 体态镜 二改: macros, tinted outfits, classroom clips.
 
-Usage (from the repo, after Blender + MPFB are installed):
+Usage (Blender 4.x + MPFB + CC0 packs in the MPFB user data folder):
 
   export BLENDER_USER_RESOURCES=/workspace/tools/blender-user
-  /workspace/tools/blender -b -P scripts/characters/build_cast.py -- /path/to/out
+  /workspace/tools/blender -b -P scripts/characters/build_cast.py -- --out assets/characters
+
+Optional: --preview writes review stills next to the glb files.
 """
 from __future__ import annotations
 
@@ -16,14 +21,24 @@ import os
 import sys
 import importlib
 import math
-from mathutils import Vector, Euler, Matrix
+from mathutils import Vector, Euler
 
 import bpy
-import bmesh
 
-# ---------------------------------------------------------------------------
-# MPFB
-# ---------------------------------------------------------------------------
+FPS = 24
+
+# The official default rig splits each limb into a pair of bones that
+# point opposite ways (twist). Hip flexion and knee bend live on the
+# *downward* bones: upperleg02 / lowerleg02. Rotating the 01 bones
+# tears the mesh. Verified in review stills 2026-11-14.
+SIT_THIGH = -80
+SIT_SHIN = 85
+SIT_FOOT = 8
+SIT_SPINE = 8
+# Extra world-Z lift after planting the feet, so the hips rest on a
+# 0.44 m chair instead of sinking through the seat.
+SIT_LIFT = 0.06
+
 
 def dynamic_import(absolute_package_str, key):
     for amod in sys.modules:
@@ -41,10 +56,23 @@ def ensure_mpfb():
         bpy.ops.preferences.addon_enable(module="bl_ext.user_default.mpfb")
 
 
+def mpfb_data():
+    env = os.environ.get("MPFB_USER_DATA")
+    if env and os.path.isdir(env):
+        return env
+    root = os.environ.get("BLENDER_USER_RESOURCES", "")
+    cand = os.path.join(root, "extensions/.user/user_default/mpfb/data")
+    if os.path.isdir(cand):
+        return cand
+    raise FileNotFoundError(
+        "MakeHuman / MPFB user data not found. Set MPFB_USER_DATA or "
+        "BLENDER_USER_RESOURCES to a tree that contains the CC0 packs."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Character cards (our 二改)
 # ---------------------------------------------------------------------------
-
 # age: baby=0, child=0.1875, young=0.5, old=1
 # gender: 0 female, 1 male
 
@@ -52,66 +80,79 @@ STUDENTS = [
     dict(id="s1", name="LinQiu", label="林秋", role="student",
          gender=0.15, age=0.32, height=0.42, weight=0.45, muscle=0.35,
          asian=0.85, african=0.05, caucasian=0.10,
-         skin=(0.83, 0.66, 0.52), hair=(0.08, 0.06, 0.05), hair_style="bob",
-         sweater=(0.15, 0.28, 0.38), pants=(0.12, 0.16, 0.22), skirt=True,
+         hair_style="bob", hair=(0.08, 0.06, 0.05),
+         shirt=(0.20, 0.42, 0.62), pants=(0.16, 0.20, 0.28),
          raise_hand="l"),
     dict(id="s2", name="ZhouNan", label="周南", role="student",
-         gender=0.85, age=0.34, height=0.55, weight=0.48, muscle=0.5,
-         asian=0.8, african=0.05, caucasian=0.15,
-         skin=(0.72, 0.54, 0.40), hair=(0.07, 0.05, 0.04), hair_style="short",
-         sweater=(0.18, 0.32, 0.30), pants=(0.14, 0.16, 0.20), skirt=False,
+         gender=0.85, age=0.34, height=0.55, weight=0.48, muscle=0.50,
+         asian=0.80, african=0.05, caucasian=0.15,
+         hair_style="short02", hair=(0.07, 0.05, 0.04),
+         shirt=(0.22, 0.48, 0.40), pants=(0.16, 0.18, 0.22),
+         suit="clothes/male_casualsuit04/male_casualsuit04.mhclo",
          raise_hand="r"),
     dict(id="s3", name="ChenHe", label="陈禾", role="student",
-         gender=0.4, age=0.30, height=0.46, weight=0.42, muscle=0.38,
-         asian=0.7, african=0.12, caucasian=0.18,
-         skin=(0.62, 0.44, 0.32), hair=(0.12, 0.07, 0.04), hair_style="ponytail",
-         sweater=(0.22, 0.18, 0.28), pants=(0.13, 0.14, 0.18), skirt=False,
+         gender=0.40, age=0.30, height=0.46, weight=0.42, muscle=0.38,
+         asian=0.70, african=0.12, caucasian=0.18,
+         hair_style="long", hair=(0.12, 0.07, 0.04),
+         shirt=(0.46, 0.28, 0.50), pants=(0.16, 0.14, 0.20),
          raise_hand="r"),
     dict(id="s4", name="MaYan", label="马言", role="student",
-         gender=0.9, age=0.36, height=0.62, weight=0.58, muscle=0.55,
+         gender=0.90, age=0.36, height=0.62, weight=0.58, muscle=0.55,
          asian=0.75, african=0.08, caucasian=0.17,
-         skin=(0.78, 0.60, 0.46), hair=(0.10, 0.07, 0.05), hair_style="short",
-         sweater=(0.16, 0.22, 0.36), pants=(0.12, 0.14, 0.18), skirt=False,
+         hair_style="short01", hair=(0.10, 0.07, 0.05),
+         shirt=(0.24, 0.36, 0.62), pants=(0.14, 0.16, 0.22),
+         suit="clothes/male_casualsuit05/male_casualsuit05.mhclo",
          raise_hand="l"),
     dict(id="s5", name="XuQing", label="许青", role="student",
          gender=0.12, age=0.31, height=0.48, weight=0.40, muscle=0.32,
          asian=0.88, african=0.04, caucasian=0.08,
-         skin=(0.86, 0.70, 0.56), hair=(0.09, 0.06, 0.05), hair_style="bun",
-         sweater=(0.28, 0.16, 0.16), pants=(0.14, 0.12, 0.16), skirt=True,
+         hair_style="bob", hair=(0.09, 0.06, 0.05),
+         shirt=(0.62, 0.28, 0.28), pants=(0.16, 0.14, 0.18),
          raise_hand="r"),
 ]
 
 GUESTS = [
     dict(id="g1", name="ChenJudge", label="陈评委", role="guest",
-         gender=0.9, age=0.62, height=0.62, weight=0.55, muscle=0.5,
-         asian=0.8, african=0.05, caucasian=0.15,
-         skin=(0.74, 0.56, 0.42), hair=(0.12, 0.10, 0.09), hair_style="short",
-         jacket=(0.18, 0.18, 0.18), shirt=(0.92, 0.90, 0.86), pants=(0.14, 0.14, 0.15),
-         skirt=False, raise_hand="r"),
+         gender=0.90, age=0.62, height=0.62, weight=0.55, muscle=0.50,
+         asian=0.80, african=0.05, caucasian=0.15,
+         hair_style="short01", hair=(0.12, 0.10, 0.09),
+         shirt=(0.18, 0.22, 0.28),
+         raise_hand="r"),
     dict(id="g2", name="WangTeacher", label="王老师", role="guest",
-         gender=0.2, age=0.58, height=0.52, weight=0.50, muscle=0.4,
+         gender=0.20, age=0.58, height=0.52, weight=0.50, muscle=0.40,
          asian=0.82, african=0.05, caucasian=0.13,
-         skin=(0.80, 0.64, 0.50), hair=(0.16, 0.10, 0.07), hair_style="bob",
-         jacket=(0.22, 0.28, 0.24), shirt=(0.93, 0.91, 0.86), pants=(0.16, 0.16, 0.16),
-         skirt=False, raise_hand="l"),
+         hair_style="bob", hair=(0.16, 0.10, 0.07),
+         shirt=(0.32, 0.24, 0.22),
+         raise_hand="l"),
     dict(id="g3", name="ZhaoGuest", label="赵嘉宾", role="guest",
-         gender=0.7, age=0.48, height=0.58, weight=0.48, muscle=0.48,
-         asian=0.7, african=0.1, caucasian=0.2,
-         skin=(0.68, 0.50, 0.38), hair=(0.07, 0.05, 0.04), hair_style="short",
-         jacket=(0.32, 0.18, 0.16), shirt=(0.90, 0.88, 0.82), pants=(0.15, 0.14, 0.14),
-         skirt=False, raise_hand="r"),
+         gender=0.70, age=0.48, height=0.58, weight=0.48, muscle=0.48,
+         asian=0.70, african=0.10, caucasian=0.20,
+         hair_style="short03", hair=(0.07, 0.05, 0.04),
+         shirt=(0.22, 0.30, 0.36),
+         suit="clothes/male_casualsuit06/male_casualsuit06.mhclo",
+         raise_hand="r"),
 ]
 
 TEACHER = dict(
     id="teacher", name="Presenter", label="试讲老师", role="teacher",
-    gender=0.55, age=0.46, height=0.58, weight=0.50, muscle=0.48,
+    gender=0.22, age=0.46, height=0.56, weight=0.50, muscle=0.42,
     asian=0.78, african=0.06, caucasian=0.16,
-    skin=(0.79, 0.62, 0.48), hair=(0.09, 0.07, 0.05), hair_style="short",
-    jacket=(0.16, 0.24, 0.28), shirt=(0.93, 0.90, 0.84), pants=(0.13, 0.13, 0.14),
-    skirt=False, raise_hand="r",
+    hair_style="bob", hair=(0.09, 0.07, 0.05),
+    raise_hand="r",
 )
 
-FPS = 24
+HAIR_ASSETS = {
+    "bob": "hair/bob01/bob01.mhclo",
+    "bob02": "hair/bob02/bob02.mhclo",
+    "short": "hair/short02/short02.mhclo",
+    "short01": "hair/short01/short01.mhclo",
+    "short02": "hair/short02/short02.mhclo",
+    "short03": "hair/short03/short03.mhclo",
+    "short04": "hair/short04/short04.mhclo",
+    "long": "hair/long01/long01.mhclo",
+    "ponytail": "hair/ponytail01/ponytail01.mhclo",
+    "braid": "hair/braid01/braid01.mhclo",
+}
 
 
 def out_dir():
@@ -121,15 +162,20 @@ def out_dir():
         i = rest.index("--out")
         if i + 1 < len(rest):
             return os.path.abspath(rest[i + 1])
-    # a bare path (not a flag) after --
     for tok in rest:
         if not tok.startswith("-"):
             return os.path.abspath(tok)
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "../../assets/characters"))
 
 
+def want_preview():
+    args = sys.argv
+    rest = args[args.index("--") + 1:] if "--" in args else args[1:]
+    return "--preview" in rest
+
+
 # ---------------------------------------------------------------------------
-# Mesh helpers
+# Scene helpers
 # ---------------------------------------------------------------------------
 
 def clear_scene():
@@ -138,10 +184,13 @@ def clear_scene():
         bpy.ops.object.delete()
     for act in list(bpy.data.actions):
         bpy.data.actions.remove(act)
-    for block in (bpy.data.meshes, bpy.data.armatures, bpy.data.materials, bpy.data.images):
+    for block in (bpy.data.meshes, bpy.data.armatures, bpy.data.materials, bpy.data.images, bpy.data.collections):
         for x in list(block):
-            if x.users == 0:
-                block.remove(x)
+            try:
+                if getattr(x, "users", 1) == 0:
+                    block.remove(x)
+            except Exception:
+                pass
 
 
 def mat(name, color, roughness=0.55, specular=0.2):
@@ -150,17 +199,9 @@ def mat(name, color, roughness=0.55, specular=0.2):
     nt = m.node_tree
     principled = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     principled.inputs["Base Color"].default_value = (*color, 1)
-    principled.inputs["Roughness"].default_value = roughness
-    if "Specular IOR Level" in principled.inputs:
-        principled.inputs["Specular IOR Level"].default_value = specular
-    m.diffuse_color = (*color, 1)
+    if "Roughness" in principled.inputs:
+        principled.inputs["Roughness"].default_value = roughness
     return m
-
-
-def clear_shape_keys(obj):
-    """Macros already baked into the basis; drop keys so modifiers can apply."""
-    if obj.data.shape_keys:
-        obj.shape_key_clear()
 
 
 def select_only(obj):
@@ -172,359 +213,271 @@ def select_only(obj):
     bpy.context.view_layer.objects.active = obj
 
 
-def delete_groups(obj, names_or_prefixes):
-    """Delete vertices belonging to named groups / prefixes (helpers, joint cubes)."""
-    select_only(obj)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="DESELECT")
-    bpy.ops.mesh.select_mode(type="VERT")
-    bpy.ops.object.mode_set(mode="OBJECT")
-    groups = []
-    for g in obj.vertex_groups:
-        if any(g.name == n or g.name.startswith(n) for n in names_or_prefixes):
-            groups.append(g)
-    if not groups:
-        return
-    for v in obj.data.vertices:
-        v.select = False
-    for v in obj.data.vertices:
-        for vg in v.groups:
-            if any(vg.group == g.index and vg.weight > 0.01 for g in groups):
-                v.select = True
-                break
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.delete(type="VERT")
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-
-def world_co(obj, v):
-    return obj.matrix_world @ v.co
-
-
-def verts_by_height(obj, zmin, zmax, also=None):
-    """Return vertex indices whose world-space Z is in [zmin, zmax]."""
-    idxs = []
-    for v in obj.data.vertices:
-        w = world_co(obj, v)
-        if zmin <= w.z <= zmax:
-            # "also" is evaluated in character-local space so side filters
-            # still work when the rig has been moved along X.
-            if also and not also(v.co):
-                continue
-            idxs.append(v.index)
-    return idxs
-
-
-def duplicate_as(obj, name):
-    select_only(obj)
-    bpy.ops.object.duplicate()
-    dup = bpy.context.active_object
-    dup.name = name
-    if dup.data:
-        dup.data = dup.data.copy()
-        dup.data.name = name
-    return dup
-
-
-def keep_only_indices(obj, indices):
-    select_only(obj)
-    keep = set(indices)
-    for v in obj.data.vertices:
-        v.select = v.index not in keep
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.delete(type="VERT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.remove_doubles(threshold=0.0001)
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-
-def inflate(obj, amount):
-    select_only(obj)
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.transform.shrink_fatten(value=amount)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    # thin solidify so garments have thickness
-    mod = obj.modifiers.new("solid", "SOLIDIFY")
-    mod.thickness = max(0.004, amount * 0.6)
-    mod.offset = 1
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-
-
-def bind_to_armature(mesh, arm, copy_from=None):
-    # parent
-    mesh.parent = arm
-    if copy_from is not None:
-        # data transfer of vertex groups + add armature modifier
-        for g in copy_from.vertex_groups:
-            if g.name not in mesh.vertex_groups:
-                mesh.vertex_groups.new(name=g.name)
-        dt = mesh.modifiers.new("xfer", "DATA_TRANSFER")
-        dt.object = copy_from
-        dt.use_vert_data = True
-        dt.data_types_verts = {"VGROUP_WEIGHTS"}
-        dt.vert_mapping = "POLYINTERP_NEAREST"
-        dt.use_max_distance = False
-        select_only(mesh)
-        bpy.ops.object.modifier_apply(modifier=dt.name)
-    else:
-        select_only(mesh)
-        arm.select_set(True)
-        bpy.context.view_layer.objects.active = arm
-        bpy.ops.object.parent_set(type="ARMATURE_AUTO")
-        mesh.parent = arm
-    # ensure armature modifier
-    if not any(m.type == "ARMATURE" for m in mesh.modifiers):
-        am = mesh.modifiers.new("arm", "ARMATURE")
-        am.object = arm
-    else:
-        for m in mesh.modifiers:
-            if m.type == "ARMATURE":
-                m.object = arm
-
-
-def decimate(obj, ratio=0.4, min_faces=800):
-    faces = len(obj.data.polygons)
-    if faces <= min_faces:
-        return
-    target_ratio = max(ratio, min_faces / max(1, faces))
-    select_only(obj)
-    mod = obj.modifiers.new("dec", "DECIMATE")
-    mod.ratio = target_ratio
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-
-
 def shade_smooth(obj):
-    select_only(obj)
-    bpy.ops.object.shade_smooth()
-    if hasattr(obj.data, "use_auto_smooth"):
-        obj.data.use_auto_smooth = True
-        obj.data.auto_smooth_angle = math.radians(45)
-
-
-# ---------------------------------------------------------------------------
-# Clothes & hair (our meshes)
-# ---------------------------------------------------------------------------
-
-def make_garment(body, name, zmin, zmax, inflate_amt, material, also=None):
-    idxs = verts_by_height(body, zmin, zmax, also=also)
-    if len(idxs) < 20:
-        return None
-    g = duplicate_as(body, name)
-    clear_shape_keys(g)
-    # drop leftover modifiers from body (armature etc.) so we start clean
-    for m in list(g.modifiers):
-        g.modifiers.remove(m)
-    keep_only_indices(g, idxs)
-    inflate(g, inflate_amt)
-    g.data.materials.clear()
-    g.data.materials.append(material)
-    return g
-
-
-def make_hair(body, style, material, arm):
-    """Simple mesh hair from the scalp, parented to the head bone."""
-    scalp = body.vertex_groups.get("scalp")
-    idxs = []
-    if scalp:
-        for v in body.data.vertices:
-            for vg in v.groups:
-                if vg.group == scalp.index and vg.weight > 0.2:
-                    idxs.append(v.index)
-                    break
-    if len(idxs) < 10:
-        idxs = verts_by_height(body, 1.18, 2.0, also=lambda c: c.z > 1.18)
-    if len(idxs) < 8:
-        return None
-    hair = duplicate_as(body, body.name + "_hair")
-    for m in list(hair.modifiers):
-        hair.modifiers.remove(m)
-    keep_only_indices(hair, idxs)
-    inflate(hair, 0.018 if style != "short" else 0.012)
-    # extra volume / tails
-    if style in ("bob", "ponytail", "bun"):
-        # inflate back of head a bit more
-        select_only(hair)
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.select_all(action="SELECT")
-        bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value": (0, 0.01, 0.008 if style != "bob" else 0.0)})
-        bpy.ops.object.mode_set(mode="OBJECT")
-    if style == "ponytail":
-        # a small tail behind the head
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.045, location=(0, 0.07, 1.22))
-        tail = bpy.context.active_object
-        tail.name = body.name + "_tail"
-        bpy.ops.transform.resize(value=(0.55, 1.6, 0.55))
-        tail.data.materials.append(material)
-        bind_to_head(tail, arm)
-    if style == "bun":
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.055, location=(0, 0.09, 1.32))
-        bun = bpy.context.active_object
-        bun.name = body.name + "_bun"
-        bun.data.materials.append(material)
-        bind_to_head(bun, arm)
-    hair.data.materials.clear()
-    hair.data.materials.append(material)
-    bind_to_armature(hair, arm, copy_from=body)
-    shade_smooth(hair)
-    return hair
-
-
-def bind_to_head(obj, arm):
-    """Parent a small accessory to the head bone."""
-    obj.parent = arm
-    obj.parent_type = "BONE"
-    if "head" in arm.data.bones:
-        obj.parent_bone = "head"
-        # convert world loc to head-bone space roughly: keep world, Blender will
-        # treat location as bone-local after parenting — fix by clearing.
-        # Safer: use armature modifier with all weight on head.
-        obj.parent_type = "OBJECT"
-        obj.parent = arm
-        vg = obj.vertex_groups.new(name="head")
-        vg.add(list(range(len(obj.data.vertices))), 1.0, "REPLACE")
-        am = obj.modifiers.new("arm", "ARMATURE")
-        am.object = arm
-
-
-
-def voxel_remesh(obj, size=0.022):
-    """Turn the body-hugging shell into a puffy, hole-free garment before binding."""
-    select_only(obj)
-    mod = obj.modifiers.new("voxel_rm", "REMESH")
-    mod.mode = "VOXEL"
-    mod.voxel_size = size
-    mod.use_smooth_shade = True
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-    shade_smooth(obj)
-
-def delete_indices(obj, indices):
-    if not indices:
+    if obj.type != "MESH":
         return
     select_only(obj)
-    keep = set(indices)
-    for v in obj.data.vertices:
-        v.select = v.index in keep
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.delete(type="VERT")
-    bpy.ops.mesh.select_all(action="SELECT")
     try:
-        bpy.ops.mesh.fill_holes(sides=0)
+        bpy.ops.object.shade_smooth()
     except Exception:
         pass
-    bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def body_shell(body, name, material, inflate_amt, drop_pred):
-    """Duplicate the whole body, drop only unwanted verts (e.g. the head), inflate.
-    Avoids the torn 'slice' edges of cutting a mid-body band."""
-    g = duplicate_as(body, name)
-    clear_shape_keys(g)
-    for m in list(g.modifiers):
-        g.modifiers.remove(m)
-    drop = [v.index for v in g.data.vertices if drop_pred(v.co)]
-    print("  shell drop verts", len(drop), "of", len(g.data.vertices))
-    delete_indices(g, drop)
-    if inflate_amt:
-        inflate(g, inflate_amt)
-    voxel_remesh(g, 0.022)
-    g.data.materials.clear()
-    g.data.materials.append(material)
-    # paint a second material on lower verts when a tuple (mat_upper, mat_lower, z_cut) is passed? done by caller.
-    return g
-
-
-def assign_strict(obj, upper, lower, belt, shoe, z_pants=0.70, z_shoe=0.09):
-    """Assign by the face's min/max z so the waist isn't a jagged sawtooth."""
-    obj.data.materials.clear()
-    for m in (upper, lower, belt, shoe):
-        obj.data.materials.append(m)
-    for p in obj.data.polygons:
-        zs = [obj.data.vertices[i].co.z for i in p.vertices]
-        lo, hi = min(zs), max(zs)
-        if hi <= z_shoe:
-            p.material_index = 3
-        elif hi <= z_pants:
-            p.material_index = 1
-        elif lo >= z_pants + 0.04:
-            p.material_index = 0
-        else:
-            p.material_index = 2
-
-def assign_by_height(obj, materials):
-
-    """materials: list of (mat, zmin, zmax). Later entries override."""
-    obj.data.materials.clear()
-    for mat, _a, _b in materials:
-        obj.data.materials.append(mat)
-    for v in obj.data.vertices:
-        v.select = False
-    for slot, (_mat, zmin, zmax) in enumerate(materials):
-        for p in obj.data.polygons:
-            zs = [obj.data.vertices[i].co.z for i in p.vertices]
-            z = sum(zs) / len(zs)
-            if zmin <= z <= zmax:
-                p.material_index = slot
-
-
-def dress(body, arm, card):
-    zs = [(body.matrix_world @ v.co).z for v in body.data.vertices]
-    print("  body world Z", round(min(zs), 3), round(max(zs), 3), "verts", len(zs), "origin", tuple(round(x,3) for x in body.location))
-    skin = mat(card["id"] + "_skin", card["skin"], roughness=0.62)
-    body.data.materials.clear()
-    body.data.materials.append(skin)
-
-    # Cut the uniform shell just under the chin so face, scalp and ears stay as skin.
-    # Do not use raw bone head_local: MPFB bones may be in a different unit and
-    # would push the cut above the mesh (0 verts deleted).
-    zmax = max(v.co.z for v in body.data.vertices) or 1.66
-    # Chin / base of neck is near 0.85 of stature (1.42 m on a 1.67 m figure).
-    # 0.68 was mid-chest and cut the uniform into a torn strapless band.
-    head_z = zmax * 0.85
-    print("  shell cut z", round(head_z, 3), "of", round(zmax, 3))
-    def drop_head(c):
-        return c.z >= head_z
-
-    shirt_col = card.get("shirt", (0.93, 0.93, 0.90))
-    sweater_col = card.get("sweater", card.get("jacket", (0.18, 0.24, 0.30)))
-    pants_col = card.get("pants", (0.13, 0.14, 0.16))
-    sock_col = (0.90, 0.90, 0.88) if card["role"] == "student" else pants_col
-    shoe_col = (0.08, 0.07, 0.06)
-
-    shell_m = mat(card["id"] + "_shell", sweater_col, roughness=0.7)
-    shell = body_shell(body, card["id"] + "_uniform", shell_m, 0.018, drop_head)
-    # Regional colours on the same shell: shoes, socks/trousers, sweater/jacket, collar.
-    shoe_m = mat(card["id"] + "_shoe", shoe_col, roughness=0.45)
-    pants_m = mat(card["id"] + "_pants", pants_col, roughness=0.68)
-    sock_m = mat(card["id"] + "_sock", sock_col, roughness=0.8)
-    collar_m = mat(card["id"] + "_collar", shirt_col, roughness=0.65)
-    if card["role"] == "student":
-        belt_m = mat(card["id"] + "_belt", (0.18, 0.16, 0.14), roughness=0.6)
-        assign_strict(shell, shell_m, pants_m, belt_m, shoe_m, z_pants=0.70, z_shoe=0.09)
-        skirt = None
-    else:
-        jacket_m = mat(card["id"] + "_jacket", sweater_col, roughness=0.6)
-        belt_m = mat(card["id"] + "_belt", (0.16, 0.14, 0.12), roughness=0.55)
-        assign_strict(shell, jacket_m, pants_m, belt_m, shoe_m, z_pants=0.70, z_shoe=0.09)
-        skirt = None
-
-    pieces = [shell]
-    if card.get("skirt"):
-        pieces.append(skirt)
-
-    hair_m = mat(card["id"] + "_hair", card["hair"], roughness=0.45)
-    make_hair(body, card["hair_style"], hair_m, arm)
-    for pce in pieces:
-        if not pce:
+def ev_bounds(*objs):
+    dg = bpy.context.evaluated_depsgraph_get()
+    xs, ys, zs = [], [], []
+    for obj in objs:
+        if not obj or obj.type != "MESH":
             continue
-        shade_smooth(pce)
-        decimate(pce, 0.72, min_faces=1200)
-        bind_to_armature(pce, arm, copy_from=body)
-    return pieces
+        ev = obj.evaluated_get(dg)
+        try:
+            mesh = ev.to_mesh()
+        except Exception:
+            continue
+        mw = ev.matrix_world
+        for v in mesh.vertices:
+            w = mw @ v.co
+            xs.append(w.x)
+            ys.append(w.y)
+            zs.append(w.z)
+        ev.to_mesh_clear()
+    if not zs:
+        return None
+    return (min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+
+
+def tint_material(mat, rgb, strength=0.8, mode="MIX"):
+    if not mat or not mat.use_nodes:
+        return
+    nt = mat.node_tree
+    principled = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if not principled:
+        return
+    base = principled.inputs.get("Base Color")
+    if not base:
+        return
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = mode
+    mix.inputs["Factor"].default_value = float(strength)
+    mix.location = (principled.location.x - 200, principled.location.y)
+    # Socket names in Blender 4: Factor, A, B for RGBA via components
+    col_in = None
+    for key in ("B", "A"):
+        sock = mix.inputs.get(key)
+        if sock is not None:
+            col_in = key
+            break
+    # Prefer: A = original, B = tint, Factor = strength, blend MIX/MULTIPLY
+    if base.is_linked:
+        link = base.links[0]
+        nt.links.new(link.from_socket, mix.inputs["A"])
+        nt.links.remove(link)
+    else:
+        mix.inputs["A"].default_value = tuple(base.default_value)
+    mix.inputs["B"].default_value = (*rgb, 1.0)
+    nt.links.new(mix.outputs["Result"], base)
+
+
+def tint_image_pixels(img, rgb, strength=0.85):
+    """Blend the image toward rgb so a logo tee can change colour reliably."""
+    try:
+        px = list(img.pixels)
+    except Exception as e:
+        print("  pixel read fail", img.name, e)
+        return
+    r, g, b = rgb
+    n = len(px) // 4
+    for i in range(n):
+        o = i * 4
+        px[o] = px[o] * (1 - strength) + r * strength
+        px[o + 1] = px[o + 1] * (1 - strength) + g * strength
+        px[o + 2] = px[o + 2] * (1 - strength) + b * strength
+    img.pixels[:] = px
+    img.update()
+
+
+def tint_objects(objs, rgb, strength=0.8, mode="MIX"):
+    seen_img = set()
+    seen_mat = set()
+    for obj in objs:
+        if not obj or obj.type != "MESH":
+            continue
+        for mat in obj.data.materials:
+            if not mat:
+                continue
+            if mat.use_nodes:
+                for n in mat.node_tree.nodes:
+                    if n.type == "TEX_IMAGE" and n.image and id(n.image) not in seen_img:
+                        seen_img.add(id(n.image))
+                        tint_image_pixels(n.image, rgb, strength)
+            if mat.name not in seen_mat:
+                seen_mat.add(mat.name)
+                tint_material(mat, rgb, min(0.45, strength), mode)
+
+
+def bake_shapekeys(obj):
+    """Collapse macro / asset shapekeys into the basis so glTF can skip morphs."""
+    if not obj or obj.type != "MESH" or not obj.data.shape_keys:
+        return
+    arm_mods = [m for m in obj.modifiers if m.type == "ARMATURE"]
+    vis = [m.show_viewport for m in arm_mods]
+    for m in arm_mods:
+        m.show_viewport = False
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = obj.evaluated_get(dg)
+    try:
+        mesh = ev.to_mesh()
+        coords = [v.co.copy() for v in mesh.vertices]
+        ev.to_mesh_clear()
+    except Exception as e:
+        print("  bake shapekeys failed", obj.name, e)
+        coords = None
+    for m, v in zip(arm_mods, vis):
+        m.show_viewport = v
+    if not coords or len(coords) != len(obj.data.vertices):
+        return
+    for i, co in enumerate(coords):
+        obj.data.vertices[i].co = co
+    obj.shape_key_clear()
 
 
 # ---------------------------------------------------------------------------
-# Animation
+# Human construction (official MHCLO path)
+# ---------------------------------------------------------------------------
+
+def skin_rel(card):
+    sex = "female" if float(card["gender"]) < 0.5 else "male"
+    age = float(card["age"])
+    band = "old" if age >= 0.75 else ("middleage" if age >= 0.5 else "young")
+    # Prefer Asian; fall back along the card's weights if missing.
+    for group in ("asian", "caucasian", "african"):
+        rel = f"skins/{band}_{group}_{sex}/{band}_{group}_{sex}.mhmat"
+        yield rel
+
+
+def add_mhclo(HumanService, data, basemesh, rel, typ):
+    path = os.path.join(data, rel)
+    if not os.path.exists(path):
+        print("  MISSING", rel)
+        return None
+    return HumanService.add_mhclo_asset(
+        path, basemesh, asset_type=typ, subdiv_levels=0,
+        material_type="MAKESKIN", set_up_rigging=True,
+        interpolate_weights=True, import_subrig=False, import_weights=True,
+    )
+
+
+def clothes_for(card, data):
+    """Return (mhclo relative paths, role). Students get a tucked shirt + wool
+    pants (complete coverage, no midriff gap, no logo tee). Teachers and
+    guests get the official elegant suit for their sex."""
+    # Official MHCLO outfits. Seated clothes must survive hip/knee bends:
+    # the tucked t-shirt and the male elegant jacket tear or balloon when
+    # sitting. female_casualsuit01 / male_casualsuit0N (one-piece tee + jeans)
+    # and the female elegant blouse+skirt were verified in review stills.
+    # The standing teacher keeps the female elegant suit.
+    if card["role"] == "teacher":
+        if float(card["gender"]) < 0.5:
+            paths = [
+                "clothes/female_elegantsuit01/female_elegantsuit01.mhclo",
+                "clothes/shoes01/shoes01.mhclo",
+            ]
+        else:
+            paths = [
+                "clothes/male_elegantsuit01/male_elegantsuit01.mhclo",
+                "clothes/shoes03/shoes03.mhclo",
+            ]
+    elif float(card["gender"]) < 0.5:
+        paths = [
+            "clothes/female_casualsuit01/female_casualsuit01.mhclo",
+            "clothes/joepal_crude_low_socks/joepal_crude_low_socks.mhclo",
+            "clothes/shoes01/shoes01.mhclo",
+        ]
+    else:
+        suit = card.get("suit") or "clothes/male_casualsuit04/male_casualsuit04.mhclo"
+        paths = [suit, "clothes/shoes03/shoes03.mhclo"]
+    return paths
+
+
+def existing_meshes():
+    return set(bpy.data.objects)
+
+
+def new_meshes(before):
+    return [o for o in bpy.data.objects if o.type == "MESH" and o not in before]
+
+
+def apply_macros(basemesh, card, HumanObjectProperties, TargetService):
+    for key in ("gender", "age", "height", "weight", "muscle", "african", "asian", "caucasian"):
+        HumanObjectProperties.set_value(key, float(card[key]), entity_reference=basemesh)
+    TargetService.reapply_macro_details(basemesh)
+
+
+def make_human(card, HumanService, HumanObjectProperties, TargetService, data):
+    basemesh = HumanService.create_human(
+        mask_helpers=True, detailed_helpers=False,
+        extra_vertex_groups=True, scale=0.1,
+    )
+    apply_macros(basemesh, card, HumanObjectProperties, TargetService)
+    skinned = False
+    for rel in skin_rel(card):
+        path = os.path.join(data, rel)
+        if os.path.exists(path):
+            HumanService.set_character_skin(
+                path, basemesh, skin_type="ENHANCED", material_instances=False,
+            )
+            skinned = True
+            break
+    if not skinned:
+        print("  no official skin for", card["id"])
+    rig = HumanService.add_builtin_rig(basemesh, "default")
+    rig.name = f"{card['id']}_rig"
+    basemesh.name = f"{card['id']}_body"
+
+    add_mhclo(HumanService, data, basemesh, "eyes/high-poly/high-poly.mhclo", "Eyes")
+    add_mhclo(HumanService, data, basemesh, "eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")
+    add_mhclo(HumanService, data, basemesh, "eyelashes/eyelashes01/eyelashes01.mhclo", "Eyelashes")
+    add_mhclo(HumanService, data, basemesh, "teeth/teeth_base/teeth_base.mhclo", "Teeth")
+    add_mhclo(HumanService, data, basemesh, "tongue/tongue01/tongue01.mhclo", "Tongue")
+
+    hair_rel = HAIR_ASSETS.get(card.get("hair_style") or "short", HAIR_ASSETS["short"])
+    before = existing_meshes()
+    add_mhclo(HumanService, data, basemesh, hair_rel, "Hair")
+    hair_objs = new_meshes(before)
+    if card.get("hair"):
+        tint_objects(hair_objs, card["hair"], strength=0.95, mode="MIX")
+        for o in hair_objs:
+            for mat in o.data.materials:
+                if not mat or not mat.use_nodes:
+                    continue
+                pr = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+                if pr and not pr.inputs["Base Color"].is_linked:
+                    pr.inputs["Base Color"].default_value = (*card["hair"], 1)
+
+    before = existing_meshes()
+    for rel in clothes_for(card, data):
+        add_mhclo(HumanService, data, basemesh, rel, "Clothes")
+    cloth_objs = new_meshes(before)
+    if card.get("shirt") and card["role"] != "teacher":
+        # One-piece casual suits include the logo tee; a strong mix hides the
+        # MakeHuman mark and gives each student a different uniform colour.
+        clothes_only = [o for o in cloth_objs if "shoe" not in o.name.lower() and "sock" not in o.name.lower()]
+        tint_objects(clothes_only, card["shirt"], strength=0.88, mode="MIX")
+
+    # Bake macros so we can export without morph targets.
+    for obj in list(bpy.data.objects):
+        if obj.type == "MESH":
+            bake_shapekeys(obj)
+            shade_smooth(obj)
+
+    rig.hide_render = True
+    return basemesh, rig
+
+
+# ---------------------------------------------------------------------------
+# Posing (default rig)
 # ---------------------------------------------------------------------------
 
 def pb(arm, name):
@@ -555,35 +508,80 @@ def set_euler(arm, name, rx=0, ry=0, rz=0, loc=None):
         b.location = Vector(loc)
 
 
-def sit_pose(arm, sink=0.22):
-    """Seated at a desk: thighs almost level, calves down, slight settled spine."""
-    # Move the root down so hips meet a chair (~0.45 m).
-    set_euler(arm, "Root", loc=(0, 0.05, -sink))
-    # thighs forward (rotate around local X — may need a sign flip after preview)
-    set_euler(arm, "thigh_l", rx=78)
-    set_euler(arm, "thigh_r", rx=78)
-    set_euler(arm, "calf_l", rx=-82)
-    set_euler(arm, "calf_r", rx=-82)
-    set_euler(arm, "foot_l", rx=4)
-    set_euler(arm, "foot_r", rx=4)
-    set_euler(arm, "spine_01", rx=8)
-    set_euler(arm, "spine_02", rx=4)
-    set_euler(arm, "upperarm_l", rx=18, rz=8)
-    set_euler(arm, "upperarm_r", rx=18, rz=-8)
-    set_euler(arm, "lowerarm_l", rx=-28)
-    set_euler(arm, "lowerarm_r", rx=-28)
+def set_root_world_delta(arm, dx=0, dy=0, dz=0):
+    """Translate the root pose bone by an armature-space (≈ world) delta."""
+    bone = arm.data.bones.get("root")
+    pose = pb(arm, "root")
+    if not bone or not pose:
+        return
+    mat3 = bone.matrix.to_3x3()
+    pose.location = mat3.inverted() @ Vector((dx, dy, dz))
+
+
+# Cache the sit drop so every clip uses the same planted feet.
+_SIT_DROP = {}
+
+
+def measure_sit_drop(arm, meshes):
+    """Pose a raw sit (no root drop), then find the world-Z offset that
+    puts the feet on the floor and the hips slightly above a 0.44 m seat."""
+    reset_pose(arm)
+    _sit_legs_and_spine(arm)
+    relax_arms_sit(arm)
+    bpy.context.view_layer.update()
+    b = ev_bounds(*meshes)
+    if not b:
+        return -0.34
+    # Current min z is the lifted feet; drop so they return to ~0.02.
+    drop = 0.02 - b[4] + SIT_LIFT
+    return drop
+
+
+def _sit_legs_and_spine(arm, thigh=SIT_THIGH, shin=SIT_SHIN, k=1.0):
+    for side in ("L", "R"):
+        set_euler(arm, f"upperleg02.{side}", rx=thigh * k)
+        set_euler(arm, f"lowerleg02.{side}", rx=shin * k)
+        set_euler(arm, f"foot.{side}", rx=SIT_FOOT * k)
+    set_euler(arm, "spine05", rx=SIT_SPINE * k)
+    set_euler(arm, "spine04", rx=2 * k)
+
+
+def relax_arms_sit(arm, k=1.0):
+    """Only tiny arm offsets. Larger shoulder rotations tear MHCLO sleeves."""
+    set_euler(arm, "shoulder01.L", rz=8 * k)
+    set_euler(arm, "shoulder01.R", rz=-8 * k)
+    set_euler(arm, "lowerarm02.L", rx=-6 * k)
+    set_euler(arm, "lowerarm02.R", rx=-6 * k)
+
+
+def relax_arms_stand(arm, k=1.0):
+    set_euler(arm, "shoulder01.L", rz=10 * k)
+    set_euler(arm, "shoulder01.R", rz=-10 * k)
+    set_euler(arm, "lowerarm02.L", rx=-6 * k)
+    set_euler(arm, "lowerarm02.R", rx=-6 * k)
+
+
+def sit_pose(arm, k=1.0):
+    drop = _SIT_DROP.get(arm.name, -0.30)
+    _sit_legs_and_spine(arm, k=k)
+    relax_arms_sit(arm, k=k)
+    set_root_world_delta(arm, dz=drop * k)
+
+
+def stand_pose(arm):
+    reset_pose(arm)
+    relax_arms_stand(arm)
+    set_root_world_delta(arm, 0, 0, 0)
 
 
 def add_action(arm, name, frames, setup_fn, loop=True):
-    """setup_fn(arm, t01, frame) sets the pose for a normalized time in 0..1."""
     select_only(arm)
     bpy.ops.object.mode_set(mode="POSE")
     reset_pose(arm)
-    clip = name
     prefix = arm.name.replace("_rig", "")
-    act_name = f"{prefix}_{clip}"
+    act_name = f"{prefix}_{name}"
     act = bpy.data.actions.new(act_name)
-    act["clip"] = clip
+    act["clip"] = name
     if arm.animation_data is None:
         arm.animation_data_create()
     arm.animation_data.action = act
@@ -591,50 +589,44 @@ def add_action(arm, name, frames, setup_fn, loop=True):
         t = i / frames
         setup_fn(arm, t, i)
         key_all(arm, i + 1)
-    if loop:
-        for fc in act.fcurves:
-            fc.modifiers.new("CYCLES")
-            # actually CYCLES may overshoot; use interpolate last=first instead
-            fc.modifiers.remove(fc.modifiers[-1])
-    # force loop: copy frame 1 to last
+    # loop: copy frame 1 to last
     setup_fn(arm, 0, 1)
     key_all(arm, frames + 1)
     act.use_fake_user = True
     bpy.ops.object.mode_set(mode="OBJECT")
-    return act, clip
+    return act, name
 
 
 def anim_idle_sit(arm, side="r"):
     def fn(a, t, f):
         sit_pose(a)
         breath = math.sin(t * math.tau) * 1.2
-        set_euler(a, "spine_02", rx=4 + breath)
-        set_euler(a, "spine_03", rx=breath * 0.6)
+        set_euler(a, "spine04", rx=2 + breath)
+        set_euler(a, "spine03", rx=breath * 0.6)
         set_euler(a, "head", rx=breath * 0.4, ry=math.sin(t * math.tau * 0.5) * 2)
-        set_euler(a, "upperarm_l", rx=18, rz=8 + math.sin(t * math.tau) * 1.5)
-        set_euler(a, "upperarm_r", rx=18, rz=-8 - math.sin(t * math.tau) * 1.5)
     return add_action(arm, "idle_sit", 48, fn)
 
 
 def anim_raise_hand(arm, side="r"):
+    S = "R" if side == "r" else "L"
+
     def fn(a, t, f):
         sit_pose(a)
         k = (1 - math.cos(min(1, t * 1.2) * math.pi)) * 0.5 if t < 0.85 else 1
         if t > 0.85:
-            k = 1 - (t - 0.85) / 0.15 * 0.15  # hold mostly up
-        bone_u = f"upperarm_{side}"
-        bone_c = f"clavicle_{side}"
-        bone_l = f"lowerarm_{side}"
-        # lift upper arm (sign found by later preview; start with -rx)
-        if side == "r":
-            set_euler(a, bone_c, rz=-18 * k)
-            set_euler(a, bone_u, rx=-10 * k, rz=-70 * k)
-            set_euler(a, bone_l, rx=-20 * k, rz=-10 * k)
+            k = 1 - (t - 0.85) / 0.15 * 0.15
+        # Lift the shoulder / arm on one side. rz sign follows relax_arms_sit.
+        if S == "R":
+            set_euler(a, "clavicle.R", rz=-8 * k)
+            set_euler(a, "shoulder01.R", rz=-28 * k, rx=-6 * k)
+            set_euler(a, "upperarm02.R", rz=-8 * k)
+            set_euler(a, "lowerarm02.R", rx=-12 * k)
         else:
-            set_euler(a, bone_c, rz=18 * k)
-            set_euler(a, bone_u, rx=-10 * k, rz=70 * k)
-            set_euler(a, bone_l, rx=-20 * k, rz=10 * k)
-        set_euler(a, "head", ry=(6 if side == "r" else -6) * k * 0.3)
+            set_euler(a, "clavicle.L", rz=8 * k)
+            set_euler(a, "shoulder01.L", rz=28 * k, rx=-6 * k)
+            set_euler(a, "upperarm02.L", rz=8 * k)
+            set_euler(a, "lowerarm02.L", rx=-12 * k)
+        set_euler(a, "head", ry=(6 if S == "R" else -6) * k * 0.3)
     return add_action(arm, "raise_hand", 36, fn)
 
 
@@ -643,7 +635,7 @@ def anim_nod(arm):
         sit_pose(a)
         n = math.sin(t * math.tau * 2) * 10
         set_euler(a, "head", rx=n)
-        set_euler(a, "neck_01", rx=n * 0.3)
+        set_euler(a, "neck01", rx=n * 0.3)
     return add_action(arm, "nod", 32, fn)
 
 
@@ -652,9 +644,7 @@ def anim_confused(arm):
         sit_pose(a)
         k = (1 - math.cos(t * math.tau)) * 0.5
         set_euler(a, "head", rz=14 * k, rx=6 * k, ry=-4 * k)
-        set_euler(a, "neck_01", rz=6 * k)
-        set_euler(a, "upperarm_l", rx=28, rz=16)
-        set_euler(a, "lowerarm_l", rx=-70 * k - 20)
+        set_euler(a, "neck01", rz=6 * k)
     return add_action(arm, "confused", 40, fn)
 
 
@@ -663,105 +653,71 @@ def anim_distracted(arm):
         sit_pose(a)
         k = min(1, t * 2) if t < 0.8 else 1
         set_euler(a, "head", rx=22 * k, ry=18 * k)
-        set_euler(a, "neck_01", rx=8 * k, ry=8 * k)
-        set_euler(a, "spine_02", ry=6 * k)
-        # left hand in the lap, looking down (phone)
-        set_euler(a, "upperarm_l", rx=35 * k + 10, rz=18)
-        set_euler(a, "lowerarm_l", rx=-70 * k - 10)
-        set_euler(a, "hand_l", rx=-20 * k)
+        set_euler(a, "neck01", rx=8 * k, ry=8 * k)
+        set_euler(a, "spine04", ry=6 * k)
     return add_action(arm, "distracted", 48, fn)
 
 
 def anim_group_read(arm):
-    """齐读：仍坐着，微微前倾，像看着课本当堂齐读。"""
     def fn(a, t, f):
         sit_pose(a)
         w = math.sin(t * math.tau * 2)
-        set_euler(a, "spine_01", rx=12)
-        set_euler(a, "spine_02", rx=8)
+        set_euler(a, "spine05", rx=12)
+        set_euler(a, "spine04", rx=8)
         set_euler(a, "head", rx=16 + 2 * w)
-        set_euler(a, "neck_01", rx=6)
-        set_euler(a, "upperarm_l", rx=28, rz=14)
-        set_euler(a, "upperarm_r", rx=28, rz=-14)
-        set_euler(a, "lowerarm_l", rx=-50)
-        set_euler(a, "lowerarm_r", rx=-50)
+        set_euler(a, "neck01", rx=6)
     return add_action(arm, "group_read", 40, fn)
 
 
 def anim_stand_to_read(arm, side="r"):
-    """请你来读：从坐到站，双手持书，面向前方。"""
     def fn(a, t, f):
-        # 0–0.45 起身，之后站着读
         k = min(1, t / 0.45)
         ease = 0.5 - 0.5 * math.cos(k * math.pi)
-        sit_pose(a, sink=0.22 * (1 - ease))
+        sit_pose(a, k=1 - ease)
         if ease > 0:
-            # blend towards a standing reading pose
-            set_euler(a, "Root", loc=(0, 0.02 * (1 - ease), -0.22 * (1 - ease)))
-            set_euler(a, "thigh_l", rx=78 * (1 - ease))
-            set_euler(a, "thigh_r", rx=78 * (1 - ease))
-            set_euler(a, "calf_l", rx=-82 * (1 - ease))
-            set_euler(a, "calf_r", rx=-82 * (1 - ease))
-            set_euler(a, "spine_01", rx=8 * (1 - ease) + 4 * ease)
-            set_euler(a, "upperarm_l", rx=18 * (1 - ease) + 30 * ease, rz=8 + 6 * ease)
-            set_euler(a, "upperarm_r", rx=18 * (1 - ease) + 30 * ease, rz=-8 - 6 * ease)
-            set_euler(a, "lowerarm_l", rx=-28 * (1 - ease) - 50 * ease)
-            set_euler(a, "lowerarm_r", rx=-28 * (1 - ease) - 50 * ease)
+            relax_arms_stand(a, k=ease)
+            set_euler(a, "spine05", rx=8 * (1 - ease) + 4 * ease)
             set_euler(a, "head", rx=8 * ease)
-        w = math.sin(t * math.tau * 2) if t > 0.45 else 0
         if t > 0.45:
+            w = math.sin(t * math.tau * 2)
             set_euler(a, "head", rx=8 + 2 * w)
     return add_action(arm, "stand_to_read", 48, fn)
 
 
 def anim_speak(arm, side="r"):
+    S = "R" if side == "r" else "L"
+
     def fn(a, t, f):
         sit_pose(a)
         w = math.sin(t * math.tau)
         set_euler(a, "head", rx=3 * w, ry=4 * math.sin(t * math.tau * 0.5))
-        if side == "r":
-            set_euler(a, "upperarm_r", rx=20 + 10 * w, rz=-22)
-            set_euler(a, "lowerarm_r", rx=-40 - 10 * w)
+        if S == "R":
+            set_euler(a, "shoulder01.R", rz=-16 * (0.5 + 0.15 * w))
         else:
-            set_euler(a, "upperarm_l", rx=20 + 10 * w, rz=22)
-            set_euler(a, "lowerarm_l", rx=-40 - 10 * w)
+            set_euler(a, "shoulder01.L", rz=16 * (0.5 + 0.15 * w))
     return add_action(arm, "speak", 40, fn)
 
 
 def anim_ask(arm, side="r"):
+    S = "R" if side == "r" else "L"
+
     def fn(a, t, f):
         sit_pose(a)
         k = (1 - math.cos(min(1, t * 1.4) * math.pi)) * 0.5
-        set_euler(a, "head", rx=-4, ry=(-6 if side == "r" else 6))
-        bone_u = f"upperarm_{side}"
-        bone_l = f"lowerarm_{side}"
-        if side == "r":
-            set_euler(a, bone_u, rx=8, rz=-40 * k)
-            set_euler(a, bone_l, rx=-8)
-            set_euler(a, "hand_r", rz=-10 * k)
+        set_euler(a, "head", rx=-4, ry=(-6 if S == "R" else 6))
+        if S == "R":
+            set_euler(a, "shoulder01.R", rz=-20 * k)
         else:
-            set_euler(a, bone_u, rx=8, rz=40 * k)
-            set_euler(a, bone_l, rx=-8)
-            set_euler(a, "hand_l", rz=10 * k)
+            set_euler(a, "shoulder01.L", rz=20 * k)
     return add_action(arm, "ask", 40, fn)
-
-
-def stand_pose(arm):
-    reset_pose(arm)
-    set_euler(arm, "upperarm_l", rx=8, rz=6)
-    set_euler(arm, "upperarm_r", rx=8, rz=-6)
-    set_euler(arm, "lowerarm_l", rx=-8)
-    set_euler(arm, "lowerarm_r", rx=-8)
 
 
 def anim_idle_stand(arm):
     def fn(a, t, f):
         stand_pose(a)
         b = math.sin(t * math.tau)
-        set_euler(a, "spine_02", rx=1.2 * b)
+        set_euler(a, "spine04", rx=1.2 * b)
         set_euler(a, "head", ry=3 * math.sin(t * math.tau * 0.5), rx=1 * b)
-        set_euler(a, "upperarm_l", rx=8 + b, rz=6)
-        set_euler(a, "upperarm_r", rx=8 - b, rz=-6)
     return add_action(arm, "idle_stand", 48, fn)
 
 
@@ -769,13 +725,11 @@ def anim_talk(arm):
     def fn(a, t, f):
         stand_pose(a)
         w = math.sin(t * math.tau)
-        w2 = math.sin(t * math.tau * 2)
         set_euler(a, "head", rx=3 * w, ry=5 * math.sin(t * math.tau * 0.5))
-        set_euler(a, "spine_03", ry=3 * w)
-        set_euler(a, "upperarm_r", rx=16 + 12 * w, rz=-26 - 8 * w)
-        set_euler(a, "lowerarm_r", rx=-30 - 16 * w)
-        set_euler(a, "hand_r", rz=-8 * w2)
-        set_euler(a, "upperarm_l", rx=10, rz=8)
+        set_euler(a, "spine03", ry=3 * w)
+        set_euler(a, "shoulder01.R", rz=-16 - 6 * w)
+        set_euler(a, "lowerarm02.R", rx=-20 - 10 * w)
+        set_euler(a, "wrist.R", rz=-8 * math.sin(t * math.tau * 2))
     return add_action(arm, "talk", 48, fn)
 
 
@@ -783,10 +737,10 @@ def anim_talk_gesture(arm):
     def fn(a, t, f):
         stand_pose(a)
         k = 0.5 - 0.5 * math.cos(t * math.tau)
-        set_euler(a, "upperarm_r", rx=20, rz=-50 * k - 10)
-        set_euler(a, "lowerarm_r", rx=-20)
+        set_euler(a, "shoulder01.R", rz=-22 * k - 6)
+        set_euler(a, "lowerarm02.R", rx=-16)
         set_euler(a, "head", ry=-8 * k)
-        set_euler(a, "spine_02", ry=-4 * k)
+        set_euler(a, "spine04", ry=-4 * k)
     return add_action(arm, "talk_gesture", 36, fn)
 
 
@@ -796,15 +750,14 @@ def anim_walk(arm):
         ph = t * math.tau
         th = math.sin(ph) * 28
         tk = -abs(math.sin(ph)) * 20
-        set_euler(a, "thigh_l", rx=th)
-        set_euler(a, "thigh_r", rx=-th)
-        set_euler(a, "calf_l", rx=tk if th > 0 else -6)
-        set_euler(a, "calf_r", rx=tk if th < 0 else -6)
-        set_euler(a, "upperarm_l", rx=8 - th * 0.4, rz=6)
-        set_euler(a, "upperarm_r", rx=8 + th * 0.4, rz=-6)
-        set_euler(a, "spine_02", ry=math.sin(ph) * 2)
-        # in-place walk; slight vertical bob
-        set_euler(a, "Root", loc=(0, 0, abs(math.sin(ph)) * 0.012))
+        set_euler(a, "upperleg02.L", rx=th)
+        set_euler(a, "upperleg02.R", rx=-th)
+        set_euler(a, "lowerleg02.L", rx=tk if th > 0 else -6)
+        set_euler(a, "lowerleg02.R", rx=tk if th < 0 else -6)
+        set_euler(a, "shoulder01.L", rz=18, rx=-th * 0.3)
+        set_euler(a, "shoulder01.R", rz=-18, rx=th * 0.3)
+        set_euler(a, "spine04", ry=math.sin(ph) * 2)
+        set_root_world_delta(a, dz=abs(math.sin(ph)) * 0.012)
     return add_action(arm, "walk", 32, fn)
 
 
@@ -812,20 +765,19 @@ def anim_turn_board(arm):
     def fn(a, t, f):
         stand_pose(a)
         k = (1 - math.cos(min(1, t) * math.pi)) * 0.5
-        # turn to the (stage) right, as the product's board default
-        set_euler(a, "Root", ry=-55 * k, loc=(0.08 * k, 0, 0))
-        set_euler(a, "spine_01", ry=-10 * k)
+        # Turn in place toward the board (stage right of the default layout).
+        # Root rotation uses the bone's local axes; we also nudge Y.
+        set_euler(a, "root", ry=-55 * k)
+        set_euler(a, "spine05", ry=-10 * k)
         set_euler(a, "head", ry=-8 * k, rx=6 * k)
-        set_euler(a, "upperarm_r", rx=20 * k, rz=-30 * k)
-        set_euler(a, "lowerarm_r", rx=-40 * k)
+        set_euler(a, "shoulder01.R", rz=-28 * k, rx=12 * k)
+        set_euler(a, "lowerarm02.R", rx=-30 * k)
     return add_action(arm, "turn_board", 48, fn)
 
 
 def stash_nla(arm, actions):
-    """Push every clip onto an NLA track so glTF exports them all (not just the last)."""
     if arm.animation_data is None:
         arm.animation_data_create()
-    # clear leftover tracks
     for tr in list(arm.animation_data.nla_tracks):
         arm.animation_data.nla_tracks.remove(tr)
     for act, clip in actions:
@@ -836,7 +788,9 @@ def stash_nla(arm, actions):
     arm.animation_data.action = None
 
 
-def add_character_anims(arm, card):
+def add_character_anims(arm, card, meshes):
+    _SIT_DROP[arm.name] = measure_sit_drop(arm, meshes)
+    print("  sit drop", arm.name, round(_SIT_DROP[arm.name], 3))
     acts = []
     if card["role"] == "teacher":
         acts += [anim_idle_stand(arm), anim_talk(arm), anim_talk_gesture(arm), anim_walk(arm), anim_turn_board(arm)]
@@ -845,54 +799,115 @@ def add_character_anims(arm, card):
         acts += [anim_idle_sit(arm), anim_ask(arm, side), anim_nod(arm), anim_speak(arm, side), anim_confused(arm)]
     else:
         side = card.get("raise_hand", "r")
-        acts += [anim_idle_sit(arm, side), anim_raise_hand(arm, side), anim_nod(arm), anim_confused(arm), anim_distracted(arm), anim_speak(arm, side), anim_group_read(arm), anim_stand_to_read(arm, side)]
+        acts += [
+            anim_idle_sit(arm, side), anim_raise_hand(arm, side), anim_nod(arm),
+            anim_confused(arm), anim_distracted(arm), anim_speak(arm, side),
+            anim_group_read(arm), anim_stand_to_read(arm, side),
+        ]
     stash_nla(arm, acts)
 
 
 # ---------------------------------------------------------------------------
-# Build one character
+# Build / export
 # ---------------------------------------------------------------------------
 
-def apply_macros(basemesh, card, HumanObjectProperties, TargetService):
-    for key in ("gender", "age", "height", "weight", "muscle", "african", "asian", "caucasian"):
-        HumanObjectProperties.set_value(key, float(card[key]), entity_reference=basemesh)
-    TargetService.reapply_macro_details(basemesh)
+def character_objects(rig):
+    objs = [rig]
+    for o in bpy.data.objects:
+        if o.type != "MESH":
+            continue
+        # parented to this rig, or armature-modified by it
+        if o.parent == rig:
+            objs.append(o)
+            continue
+        for m in o.modifiers:
+            if m.type == "ARMATURE" and m.object == rig:
+                objs.append(o)
+                break
+    return objs
 
 
-def build_one(card, HumanService, HumanObjectProperties, TargetService, origin=(0, 0, 0)):
-    basemesh = HumanService.create_human(mask_helpers=True, detailed_helpers=False, extra_vertex_groups=True, scale=0.1)
-    apply_macros(basemesh, card, HumanObjectProperties, TargetService)
-    # helpers off the export
-    delete_groups(basemesh, ["HelperGeometry", "JointCubes", "helper-", "joint-"])
-    clear_shape_keys(basemesh)
-    shade_smooth(basemesh)
-    rig = HumanService.add_builtin_rig(basemesh, "game_engine")
-    rig.name = card["id"] + "_rig"
-    basemesh.name = card["id"] + "_body"
-    dress(basemesh, rig, card)
-    decimate(basemesh, 0.38, min_faces=3500)
-    add_character_anims(rig, card)
-    # move the whole rig
+def place_character(rig, origin, face_board=True):
+    """Classroom board is at +Y; the default MH human faces -Y, so rotate 180°."""
     rig.location = Vector(origin)
-    # custom property for UI
-    rig["character_id"] = card["id"]
-    rig["character_label"] = card["label"]
-    rig["character_role"] = card["role"]
+    if face_board:
+        rig.rotation_euler = Euler((0, 0, math.pi), "XYZ")
+
+
+def build_one(card, HumanService, HumanObjectProperties, TargetService, data, origin=(0, 0, 0), face_board=True):
+    print("building", card["label"], card["id"])
+    before = set(bpy.data.objects)
+    basemesh, rig = make_human(card, HumanService, HumanObjectProperties, TargetService, data)
+    # rename leftover helper objects so names stay unique across a cast
+    for o in bpy.data.objects:
+        if o not in before and o not in (basemesh, rig) and not o.name.startswith(card["id"]):
+            o.name = f"{card['id']}_{o.name}"
+    meshes = [o for o in character_objects(rig) if o.type == "MESH"]
+    add_character_anims(rig, card, meshes)
+    place_character(rig, origin, face_board=face_board)
+    bpy.context.view_layer.update()
     return rig
 
 
+def shrink_images(max_dim=512):
+    """Resize packed textures and prefer JPEG so a full cast stays under ~15 MB."""
+    import os
+    tmp = "/tmp/char-src/tex"
+    os.makedirs(tmp, exist_ok=True)
+    for img in list(bpy.data.images):
+        w, h = img.size
+        if w <= 0 or h <= 0:
+            continue
+        # Skip tiny generated images
+        if max(w, h) > max_dim:
+            nw = max(1, int(round(w * max_dim / max(w, h))))
+            nh = max(1, int(round(h * max_dim / max(w, h))))
+            try:
+                img.scale(nw, nh)
+            except Exception as e:
+                print("  scale fail", img.name, e)
+                continue
+        has_alpha = bool(img.depth and img.depth >= 32)
+        # Hair / lash cutouts need alpha; everything else can be JPEG.
+        name = (img.name or "").lower()
+        need_alpha = has_alpha and any(k in name for k in ("hair", "lash", "brow", "eye", "alpha"))
+        try:
+            img.file_format = "PNG" if need_alpha else "JPEG"
+            dest = os.path.join(tmp, img.name.replace("/", "_")[:80] + (".png" if need_alpha else ".jpg"))
+            img.save_render(dest)
+            img.filepath = dest
+            img.source = "FILE"
+            img.reload()
+            img.pack()
+        except Exception as e:
+            print("  recompress fail", img.name, e)
+    print("  images after shrink:", len(bpy.data.images))
+
+
 def export_glb(path, objects):
+    shrink_images(384)
+    bpy.ops.object.mode_set(mode="OBJECT")
     bpy.ops.object.select_all(action="DESELECT")
-    # also select children
-    def sel(o):
-        o.hide_set(False)
-        o.select_set(True)
-        for c in o.children:
-            sel(c)
+    keep = set()
     for o in objects:
-        sel(o)
-    bpy.context.view_layer.objects.active = objects[0]
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+        keep.add(o)
+        if o.type == "ARMATURE":
+            keep.update(character_objects(o))
+        for ch in o.children_recursive:
+            keep.add(ch)
+    for o in keep:
+        try:
+            o.hide_set(False)
+            o.hide_viewport = False
+            o.hide_render = o.type == "ARMATURE"
+            o.select_set(True)
+        except Exception:
+            pass
+    # Make one armature active
+    arms = [o for o in keep if o.type == "ARMATURE"]
+    if arms:
+        bpy.context.view_layer.objects.active = arms[0]
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=path,
         export_format="GLB",
@@ -904,18 +919,16 @@ def export_glb(path, objects):
         export_morph=False,
         export_cameras=False,
         export_lights=False,
-        export_apply=True,
-        export_image_format="NONE",
+        export_apply=False,
+        export_image_format="JPEG",
+        export_jpeg_quality=70,
         export_draco_mesh_compression_enable=True,
         export_draco_mesh_compression_level=7,
         export_extras=True,
+        export_yup=True,
     )
-    print("exported", path, "bytes", os.path.getsize(path))
+    print("exported", path, "bytes", os.path.getsize(path) if os.path.exists(path) else 0)
 
-
-# ---------------------------------------------------------------------------
-# Classroom / podium sets (our models, no third-party scene packs)
-# ---------------------------------------------------------------------------
 
 def box(name, size, loc, material, rot=None):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc)
@@ -943,22 +956,21 @@ def build_classroom(n_desks=5):
     objs.append(box("blackboard", (3.2, 0.06, 1.5), (0, 2.34, 1.45), board_m))
     objs.append(box("board_frame_b", (3.3, 0.08, 0.06), (0, 2.33, 0.68), wood_dk))
     objs.append(box("board_tray", (3.2, 0.12, 0.04), (0, 2.28, 0.66), chalk))
-    # desks in a shallow arc facing +Y (the board)
+    objs.append(box("left_wall", (0.08, 6.0, 2.6), (-3.46, 0, 1.3), paper))
+    objs.append(box("right_wall", (0.08, 6.0, 2.6), (3.46, 0, 1.3), paper))
     span = 3.2
     for i in range(n_desks):
         t = 0 if n_desks == 1 else i / (n_desks - 1)
         x = -span / 2 + t * span
         z_top = 0.72
         desk = box(f"desk_{i}", (0.62, 0.42, 0.04), (x, 0.15, z_top), wood)
-        leg1 = box(f"desk_{i}_leg1", (0.04, 0.04, 0.72), (x - 0.26, 0.0, 0.36), wood_dk)
-        leg2 = box(f"desk_{i}_leg2", (0.04, 0.04, 0.72), (x + 0.26, 0.0, 0.36), wood_dk)
-        leg3 = box(f"desk_{i}_leg3", (0.04, 0.04, 0.72), (x - 0.26, 0.30, 0.36), wood_dk)
-        leg4 = box(f"desk_{i}_leg4", (0.04, 0.04, 0.72), (x + 0.26, 0.30, 0.36), wood_dk)
+        legs = [
+            box(f"desk_{i}_leg{k}", (0.04, 0.04, 0.72), (x + dx, 0.0 + dy, 0.36), wood_dk)
+            for k, (dx, dy) in enumerate(((-0.26, 0.0), (0.26, 0.0), (-0.26, 0.30), (0.26, 0.30)), 1)
+        ]
         seat = box(f"chair_{i}", (0.38, 0.38, 0.04), (x, -0.28, 0.44), wood_dk)
         back = box(f"chair_{i}_back", (0.38, 0.04, 0.38), (x, -0.46, 0.64), wood_dk)
-        objs += [desk, leg1, leg2, leg3, leg4, seat, back]
-    for o in objs:
-        shade_smooth(o)
+        objs += [desk, *legs, seat, back]
     return objs
 
 
@@ -972,12 +984,67 @@ def build_podium():
     objs.append(box("p_floor", (5.5, 5.0, 0.04), (0, 0, -0.02), floor_m))
     objs.append(box("p_wall", (5.5, 0.08, 2.8), (0, 2.1, 1.4), paper))
     objs.append(box("p_board", (2.6, 0.06, 1.6), (0.7, 2.04, 1.5), board_m))
-    # lectern
     objs.append(box("lectern_body", (0.7, 0.4, 0.9), (0, 0.35, 0.45), wood))
-    objs.append(box("lectern_top", (0.78, 0.5, 0.05), (0, 0.32, 0.92), wood_dk))
-    for o in objs:
-        shade_smooth(o)
+    objs.append(box("lectern_top", (0.78, 0.5, 0.05), (0, 0.32, 0.92), wood_dk)
+    )
     return objs
+
+
+# ---------------------------------------------------------------------------
+# Preview stills
+# ---------------------------------------------------------------------------
+
+def setup_preview_world(cam_loc, look, size=(900, 1100)):
+    world = bpy.data.worlds[0]
+    world.use_nodes = True
+    world.node_tree.nodes["Background"].inputs[0].default_value = (0.86, 0.82, 0.74, 1)
+    world.node_tree.nodes["Background"].inputs[1].default_value = 1.0
+    scene = bpy.context.scene
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.display.shading.light = "STUDIO"
+    scene.display.shading.color_type = "TEXTURE"
+    scene.render.resolution_x, scene.render.resolution_y = size
+    scene.render.image_settings.file_format = "PNG"
+    for o in list(bpy.data.objects):
+        if o.type in {"LIGHT", "CAMERA"}:
+            bpy.data.objects.remove(o, do_unlink=True)
+    bpy.ops.object.light_add(type="SUN", location=(1.2, -2, 4))
+    bpy.context.active_object.data.energy = 2.2
+    bpy.ops.object.camera_add(location=cam_loc)
+    cam = bpy.context.active_object
+    cam.rotation_euler = (Vector(look) - Vector(cam_loc)).to_track_quat("-Z", "Y").to_euler()
+    scene.camera = cam
+    return scene
+
+
+def render_preview(path, cam_loc, look, size=(900, 1100)):
+    scene = setup_preview_world(cam_loc, look, size)
+    for o in bpy.data.objects:
+        if o.type == "ARMATURE":
+            o.hide_render = True
+    scene.render.filepath = path
+    bpy.ops.render.render(write_still=True)
+    print("preview", path)
+
+
+def preview_character(rig, card, dest, with_chair=False):
+    # Play first frame of idle
+    clip = "idle_stand" if card["role"] == "teacher" else "idle_sit"
+    if rig.animation_data:
+        for tr in rig.animation_data.nla_tracks:
+            tr.mute = tr.name != clip
+    bpy.context.scene.frame_set(1)
+    bpy.context.view_layer.update()
+    if with_chair and card["role"] != "teacher":
+        wood = mat("prev_chair", (0.45, 0.28, 0.16))
+        # Character was rotated 180° and placed at origin for solo preview
+        box("prev_seat", (0.38, 0.38, 0.04), (0, 0, 0.44), wood)
+        box("prev_back", (0.38, 0.04, 0.38), (0, 0.18, 0.64), wood)
+    loc = rig.location
+    # Solo previews are built face_board=False (character faces -Y).
+    cam = (loc.x + 1.8, loc.y - 3.2, 1.25)
+    look = (loc.x, loc.y, 0.75)
+    render_preview(os.path.join(dest, f"{card['id']}_{clip}.png"), cam, look)
 
 
 # ---------------------------------------------------------------------------
@@ -989,16 +1056,20 @@ def main():
     HumanService = dynamic_import("mpfb.services.humanservice", "HumanService")
     TargetService = dynamic_import("mpfb.services.targetservice", "TargetService")
     HumanObjectProperties = dynamic_import("mpfb.entities.objectproperties", "HumanObjectProperties")
-
+    data = mpfb_data()
     dest = out_dir()
     os.makedirs(dest, exist_ok=True)
-    print("output dir", dest)
+    preview = want_preview()
+    preview_dir = os.path.join(dest, "preview")
+    if preview:
+        os.makedirs(preview_dir, exist_ok=True)
+    print("output dir", dest, "data", data, "preview", preview)
 
     bpy.context.scene.render.fps = FPS
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = 64
 
-    # Students
+    # Students at the classroom chairs, facing the board (+Y).
     clear_scene()
     roots = []
     span = 3.2
@@ -1006,26 +1077,65 @@ def main():
     for i, card in enumerate(STUDENTS):
         t = 0 if n == 1 else i / (n - 1)
         x = -span / 2 + t * span
-        print("building student", card["label"])
-        roots.append(build_one(card, HumanService, HumanObjectProperties, TargetService, origin=(x, -0.28, 0)))
+        roots.append(build_one(
+            card, HumanService, HumanObjectProperties, TargetService, data,
+            origin=(x, -0.28, 0), face_board=True,
+        ))
     export_glb(os.path.join(dest, "students.glb"), roots)
+    if preview:
+        # individual stills: temporarily solo each, with a chair
+        for rig, card in zip(roots, STUDENTS):
+            # render from the classroom camera
+            if rig.animation_data:
+                for tr in rig.animation_data.nla_tracks:
+                    tr.mute = tr.name != "idle_sit"
+            bpy.context.scene.frame_set(1)
+        # whole row
+        render_preview(
+            os.path.join(preview_dir, "students_row.png"),
+            (0, 3.6, 1.6), (0, 0, 0.8), size=(1400, 900),
+        )
+        # rebuild one-by-one for clean portraits (cheaper than hiding)
+        for card in STUDENTS:
+            clear_scene()
+            r = build_one(
+                card, HumanService, HumanObjectProperties, TargetService, data,
+                origin=(0, 0, 0), face_board=False,
+            )
+            preview_character(r, card, preview_dir, with_chair=True)
 
-    # Guests
     clear_scene()
     roots = []
     for i, card in enumerate(GUESTS):
         x = -1.0 + i * 1.0
-        print("building guest", card["label"])
-        roots.append(build_one(card, HumanService, HumanObjectProperties, TargetService, origin=(x, -0.2, 0)))
+        roots.append(build_one(
+            card, HumanService, HumanObjectProperties, TargetService, data,
+            origin=(x, -0.2, 0), face_board=True,
+        ))
     export_glb(os.path.join(dest, "guests.glb"), roots)
+    if preview:
+        for card in GUESTS:
+            clear_scene()
+            r = build_one(
+                card, HumanService, HumanObjectProperties, TargetService, data,
+                origin=(0, 0, 0), face_board=False,
+            )
+            preview_character(r, card, preview_dir, with_chair=True)
 
-    # Teacher
     clear_scene()
-    print("building teacher")
-    root = build_one(TEACHER, HumanService, HumanObjectProperties, TargetService, origin=(0, 0.05, 0))
+    root = build_one(
+        TEACHER, HumanService, HumanObjectProperties, TargetService, data,
+        origin=(0, 0.05, 0), face_board=True,
+    )
     export_glb(os.path.join(dest, "teacher.glb"), [root])
+    if preview:
+        clear_scene()
+        r = build_one(
+            TEACHER, HumanService, HumanObjectProperties, TargetService, data,
+            origin=(0, 0, 0), face_board=False,
+        )
+        preview_character(r, TEACHER, preview_dir, with_chair=False)
 
-    # Sets
     clear_scene()
     export_glb(os.path.join(dest, "classroom.glb"), build_classroom())
     clear_scene()

@@ -264,6 +264,7 @@ export function renderSettings() {
   }
   if (f.asrAutoDownload) f.asrAutoDownload.checked = s.asrAutoDownload !== false;
   if (f.classroomSim) f.classroomSim.value = s.classroomSim || "off";
+  if (f.sim3d) f.sim3d.value = s.sim3d || "auto";
   mountLocalAsr($("local-asr-box"), { onChange: () => renderSettings(), onReady: () => renderSettings() });
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
@@ -309,6 +310,7 @@ export function wireSettings() {
       asrEngine: f.asrEngine.value,
       asrAutoDownload: f.asrAutoDownload ? f.asrAutoDownload.checked : true,
       classroomSim: f.classroomSim ? f.classroomSim.value : "off",
+      sim3d: f.sim3d ? f.sim3d.value : "auto",
       perfMode: f.perfMode ? f.perfMode.value : "auto",
       boardSide: f.boardSide.value,
       facing: f.facing.value,
