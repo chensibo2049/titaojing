@@ -1,0 +1,51 @@
+# 构建 + 无头 Chrome 冒烟。公开仓库的 GitHub-hosted runner 免费。
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: 安装依赖并取 WASM
+        run: npm ci
+      - name: 构建
+        run: npm run build
+      - name: 冒烟测试
+        run: npm run smoke
+      - name: 训练脚手架（合成数据，无需 GPU）
+        run: |
+          python3 -m pip install --quiet numpy
+          python3 training/make_synthetic.py training/data/synthetic 8
+          python3 training/validate.py training/data/synthetic
+          python3 training/calibrate.py training/data/synthetic --out /tmp/cal.json
+      - name: 保留冒烟截图
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-out
+          path: .smoke-out
+          if-no-files-found: ignore
+  package:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm }
+      - run: npm ci && npm run build && python3 scripts/package.py
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

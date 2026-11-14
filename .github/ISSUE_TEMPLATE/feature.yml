@@ -1,0 +1,15 @@
+name: 功能建议
+description: 希望增加或改进的能力（非教学规则本身）
+title: "[建议] "
+labels: ["建议"]
+body:
+  - type: textarea
+    id: scene
+    attributes: { label: 使用场景, description: 谁、在什么课、怎样用到这个功能 }
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: 建议做成什么样, description: 能接受的折中也可以写 }
+    validations: { required: true }
+  - type: markdown
+    attributes: { value: "教学规则（什么样算晃动、没回视等）请改用「教学规则建议」模板。" }

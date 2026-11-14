@@ -1,0 +1,21 @@
+沉思波 · 体态镜（titaojing）
+Copyright 2026 南京市沉思波网络科技有限责任公司
+
+本软件以 Apache License 2.0 授权，许可证全文见 LICENSE 文件。
+「沉思波」「体态镜」是用于标识本项目官方版本的名称。Apache-2.0 不授予商标许可：你可以自由使用、修改和再分发本软件的代码，但未经书面同意，不得用上述名称或官方标识发布你的修改版，以免被误认为是官方版本。
+
+本软件包含或在构建时使用以下第三方组件：
+
+1. MediaPipe Tasks Vision（姿态与面部关键点模型及 WASM）
+   Copyright 并由 Google LLC 等贡献者维护
+   许可证：Apache License 2.0
+   https://github.com/google-ai-edge/mediapipe
+   模型来源：https://storage.googleapis.com/mediapipe-models/ （Pose Landmarker Lite、Face Landmarker）
+
+2. esbuild（仅用于构建，不进入浏览器运行时）
+   许可证：MIT
+   https://github.com/evanw/esbuild
+
+浏览器在使用「浏览器听写」时，还可能调用 Chrome / Edge / Safari 厂商自己的语音识别服务。那一部分不属于本软件的分发内容，由相应浏览器的隐私政策约束。
+
+训练脚手架（training/）在安装 PyTorch 等可选依赖时，还会受那些软件包自己的许可证约束。

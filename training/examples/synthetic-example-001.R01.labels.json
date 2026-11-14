@@ -1,0 +1,22 @@
+{
+  "format": "titaojing-labels",
+  "formatVersion": 1,
+  "traceId": "synthetic-example-001",
+  "rater": "R01",
+  "synthetic": true,
+  "segments": [
+    {
+      "type": "gaze_down",
+      "start": 0.8,
+      "end": 1.9
+    }
+  ],
+  "rubric": {
+    "教态": 4,
+    "视线交流": 3,
+    "板书": 4,
+    "语言表达": 3,
+    "总体": 3
+  },
+  "notes": "示例标注，合成数据。"
+}

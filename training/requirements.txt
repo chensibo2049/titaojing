@@ -1,0 +1,5 @@
+# 基线阈值校准只需要 numpy；GRU 基线需要 PyTorch（CPU 版即可）。
+# 国内可用：pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+numpy>=1.24
+torch>=2.1        # 可选：仅 train_gru.py 需要
+# onnx>=1.15      # 可选：导出 ONNX 供浏览器端 onnxruntime-web 使用

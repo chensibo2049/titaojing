@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "沉思波体态镜",
+  "identifier": "cn.chensibo.titaojing",
+  "version": "1.0.1",
+  "build": {
+    "frontendDist": "../../dist",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [{ "title": "沉思波 · 体态镜", "width": 1100, "height": 800 }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "nsis"],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "infoPlist": {
+        "NSCameraUsageDescription": "体态镜需要摄像头，才能把教态和视线画在画面上。画面留在这台电脑上。",
+        "NSMicrophoneUsageDescription": "体态镜需要麦克风来留下转写并标出水词。默认听写方式见应用内说明。"
+      },
+      "entitlements": "entitlements.plist"
+    }
+  }
+}

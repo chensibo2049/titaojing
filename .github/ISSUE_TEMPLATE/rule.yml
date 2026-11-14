@@ -1,0 +1,22 @@
+name: 教学规则建议
+description: 什么样算晃动、视线落下、没回视、水词，或整体评语是否合适
+title: "[规则] "
+labels: ["教学规则"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 涉及哪一类
+      options: [晃动 / 站位, 含胸或重心, 视线, 写板与回视, 背对学生, 来回走动, 口头禅 / 水词, 回放评语, 其他]
+    validations: { required: true }
+  - type: textarea
+    id: now
+    attributes: { label: 现在的判断是什么, description: 你看到的现象，或规则看起来怎样误判 }
+    validations: { required: true }
+  - type: textarea
+    id: should
+    attributes: { label: 按课堂经验，怎样更合适, description: 最好给出正例和反例。有轨迹 JSON（?debug=1 导出）请附上，不要附录像。 }
+    validations: { required: true }
+  - type: input
+    id: role
+    attributes: { label: 你的身份（可选）, placeholder: "例如：汉语言文学师范学生、中学语文教师、教学技能课教师" }

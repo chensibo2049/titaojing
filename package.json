@@ -1,0 +1,31 @@
+{
+  "name": "titaojing",
+  "version": "1.0.1",
+  "private": true,
+  "description": "沉思波 · 体态镜：面向师范生的试讲训练工具（教态、视线、口头禅、板书回视）",
+  "license": "Apache-2.0",
+  "homepage": "https://chensibo.cn",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "node scripts/fetch-models.mjs",
+    "fetch-models": "node scripts/fetch-models.mjs",
+    "build": "node scripts/fetch-models.mjs && node scripts/build.mjs",
+    "build:dev": "node scripts/fetch-models.mjs && node scripts/build.mjs --dev-only",
+    "serve": "python3 scripts/serve.py dist",
+    "dev": "npm run build:dev && python3 scripts/serve.py .",
+    "smoke": "node scripts/smoke.mjs",
+    "qa": "node scripts/qa-v1.mjs",
+    "package": "python3 scripts/package.py",
+    "fetch-asr": "node scripts/fetch-asr.mjs"
+  },
+  "devDependencies": {
+    "@mediapipe/tasks-vision": "0.10.32",
+    "esbuild": "^0.25.12",
+    "puppeteer-core": "^24.15.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

@@ -1,0 +1,45 @@
+# CNB 云原生构建（https://docs.cnb.cool/zh/build/configuration.html）
+# 与 GitHub Actions 对等：安装、构建、冒烟、合成数据校验。
+# 公开仓库也计入组织每月 160 核时免费额度。
+main:
+  push:
+    - name: 构建与冒烟
+      docker:
+        image: node:20-bookworm
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      stages:
+        - name: 安装 Chrome 与 Python
+          script: |
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends google-chrome-stable python3 python3-pip python3-numpy >/dev/null 2>&1 || \
+              apt-get install -y -qq --no-install-recommends chromium python3 python3-pip python3-numpy
+            ln -sf "$(command -v google-chrome-stable || command -v chromium)" /usr/local/bin/google-chrome || true
+        - name: 安装 npm 依赖
+          script: npm ci
+        - name: 构建
+          script: npm run build
+        - name: 冒烟测试
+          script: CHROME_PATH="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium)" npm run smoke
+        - name: 训练脚手架（合成数据）
+          script: |
+            python3 training/make_synthetic.py training/data/synthetic 8
+            python3 training/validate.py training/data/synthetic
+            python3 training/calibrate.py training/data/synthetic --out /tmp/cal.json
+  pull_request:
+    - name: 构建与冒烟
+      docker:
+        image: node:20-bookworm
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      stages:
+        - name: 安装 Chrome 与 Python
+          script: |
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends chromium python3 python3-pip python3-numpy || true
+            ln -sf "$(command -v chromium || command -v google-chrome)" /usr/local/bin/google-chrome || true
+        - name: 安装、构建、冒烟
+          script: |
+            npm ci
+            npm run build
+            npm run smoke

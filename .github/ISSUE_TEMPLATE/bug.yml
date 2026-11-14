@@ -1,0 +1,30 @@
+name: 故障
+description: 某一步不能用，或结果明显不对
+title: "[故障] "
+labels: ["故障"]
+body:
+  - type: input
+    id: version
+    attributes: { label: 版本号, description: 封面右下角或「关于与隐私」里的版本和构建号, placeholder: "v1.0.1 · 2026-11-14 构建" }
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes: { label: 设备, placeholder: "例如：MacBook Air M2，或 小米 14、iPhone 15" }
+    validations: { required: true }
+  - type: input
+    id: browser
+    attributes: { label: 浏览器及版本, placeholder: "例如：Chrome 130 / Safari 17 / Edge 130" }
+    validations: { required: true }
+  - type: dropdown
+    id: where
+    attributes:
+      label: 发生在哪一步
+      options: [封面, 一键演示, 允许镜头, 站位框, 试讲中, 回放与转写, 历史记录, 进步对比, 设置, 安装到桌面 / 离线, 其他]
+    validations: { required: true }
+  - type: textarea
+    id: what
+    attributes: { label: 发生了什么？你期望的是什么？, placeholder: "请避免附上含人脸的录像。如有调试轨迹，可附 titaojing-trace JSON（不含视频）。" }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: 怎样再遇到一次 }

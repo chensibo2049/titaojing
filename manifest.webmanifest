@@ -1,0 +1,26 @@
+{
+  "name": "沉思波 · 体态镜",
+  "short_name": "体态镜",
+  "description": "对着镜头试讲两三分钟，教态、视线、口头禅和板书回视会直接画在画面上。视频只留在本机。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3eee4",
+  "theme_color": "#f3eee4",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "对着镜头试讲", "url": "./#/try" },
+    { "name": "历史记录", "url": "./#/history" },
+    { "name": "一键演示", "url": "./#/demo" }
+  ]
+}
