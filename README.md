@@ -15,7 +15,7 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.4.0-A33B28?style=flat-square" alt="v1.4.0">
+  <img src="https://img.shields.io/badge/版本-v1.5.0-A33B28?style=flat-square" alt="v1.5.0">
 </p>
 
 <p align="center">
@@ -28,6 +28,18 @@
 
 <p align="center">
   <img src="docs/images/cover.jpg" alt="体态镜首页：一键演示与对着镜头试讲" width="920">
+</p>
+
+<p align="center">
+  <img src="docs/images/demo-3d.webp" alt="3D 试讲老师站在讲台前，体态镜把骨架、视线和口头禅叠在画面上" width="800">
+</p>
+
+<p align="center">
+  <a href="docs/images/demo-3d.mp4">16 秒演示（mp4）</a>
+  ·
+  <a href="docs/images/demo-3d.gif">GIF 预览</a>
+  ·
+  模拟课堂里的同学见下面说明。WebGL 较弱时会自动改用插画。
 </p>
 
 ## 为什么做这面镜子

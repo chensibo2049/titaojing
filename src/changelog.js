@@ -6,7 +6,7 @@ const SEEN_KEY = "titaojing.seenVersion";
 export const RELEASE_NOTES = [
   {
     version: "1.5.0",
-    date: "2026-11-14",
+    date: "2026-11-15",
     title: "模拟课堂与封面演示改用二改的 3D 人物",
     items: [
       "WebGL 可用时，模拟课堂、模拟路演和封面 / 一键演示默认改用我们用 Blender 二改的 3D 人物：老师站在讲台前，同学会坐在教室里，齐读和「请你来读」会带动相应动作。显卡弱、软件渲染或在设置里选择「只用插画」「流畅优先」时，自动退回原来的插画。模型按需加载。",

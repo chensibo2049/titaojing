@@ -42,7 +42,8 @@ h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(36px, 5vw, 56
 .btn-ghost { border: 1px solid var(--line-strong, rgba(27,23,18,0.28)); color: var(--ink); }
 .hero-fig { background: #161410; border-radius: 3px; overflow: hidden; box-shadow: 0 10px 24px rgba(40,28,16,0.08); }
 .hero-fig figcaption { color: #e8dfcf; font-size: 13px; padding: 10px 14px 14px; }
-.hero-fig img { width: 100%; }
+.hero-fig img, .hero-fig video { width: 100%; display: block; }
+.hero-fig video { background: #161410; }
 section { padding: 56px 0; border-top: 1px solid var(--line); }
 h2 { font-family: var(--serif); font-weight: 600; font-size: 28px; margin-bottom: 16px; }
 h3 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 0 0 8px; }
