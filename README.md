@@ -15,7 +15,7 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.5.0-A33B28?style=flat-square" alt="v1.5.0">
+  <img src="https://img.shields.io/badge/版本-v1.6.0-A33B28?style=flat-square" alt="v1.6.0">
 </p>
 
 <p align="center">

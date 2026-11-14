@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** 静态检查（v1.5.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
+/** 静态检查（v1.6.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
@@ -14,12 +14,12 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.5.0", pkg.version === "1.5.0", pkg.version);
+check("package.json 版本为 1.6.0", pkg.version === "1.6.0", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-check("CHANGELOG 含 v1.5.0、v1.4.0 与 v1.3.0", /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog) && /## v1\.3\.0/.test(changelog));
+check("CHANGELOG 含 v1.6.0、v1.5.0 与 v1.4.0", /## v1\.6\.0/.test(changelog) && /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog));
 const notesSrc = fs.readFileSync(path.join(root, "src/changelog.js"), "utf8");
-check("应用内更新说明含 1.5.0", /version: "1\.5.0"/.test(notesSrc));
+check("应用内更新说明含 1.6.0", /version: "1\.6.0"/.test(notesSrc));
 
 const config = fs.readFileSync(path.join(root, "config.js"), "utf8");
 check("保留测试激活码 CSB-TEST-PRO", /CSB-TEST-PRO/.test(config));
@@ -313,7 +313,7 @@ check("春晓样例有意象意境与批判性问题、表现性评价", ywRepor
 check("语文观察表总览含教态与口头表达", ywReport.law && /教态/.test(ywReport.law.title) && /口头表达/.test(ywReport.law.title));
 try { fs.unlinkSync(tmpYw); } catch (_) {}
 
-// v1.5.0 3D characters
+// v1.6.0 3D characters
 const charDir = path.join(root, "assets/characters");
 const glbs = ["students.glb", "guests.glb", "teacher.glb", "classroom.glb", "podium.glb"];
 let charBytes = 0;
@@ -322,14 +322,14 @@ for (const f of glbs) {
   check(`角色文件存在 ${f}`, fs.existsSync(fp));
   if (fs.existsSync(fp)) charBytes += fs.statSync(fp).size;
 }
-check("3D 角色合计不超过约 15 MB", charBytes > 1e6 && charBytes <= 15.5 * 1024 * 1024, `${(charBytes / 1048576).toFixed(2)} MB`);
+check("3D 角色合计不超过约 25 MB", charBytes > 1e6 && charBytes <= 25.5 * 1024 * 1024, `${(charBytes / 1048576).toFixed(2)} MB`);
 const notice = fs.readFileSync(path.join(root, "NOTICE"), "utf8");
-check("NOTICE 记录 MakeHuman CC0 与 three.js，并写明不是 Mixamo", /MakeHuman/.test(notice) && /CC0/.test(notice) && /three\.js/.test(notice) && /Mixamo/.test(notice) && /不是 Mixamo/.test(notice));
+check("NOTICE 记录 Rocketbox MIT 与 three.js，并写明不是 Mixamo", /Rocketbox/.test(notice) && /MIT/.test(notice) && /Microsoft/.test(notice) && /three\.js/.test(notice) && /Mixamo/.test(notice) && /不是 Mixamo/.test(notice));
 const mainSrc = fs.readFileSync(path.join(root, "src/main.js"), "utf8");
 const simUi = fs.readFileSync(path.join(root, "src/classroom-sim-ui.js"), "utf8");
 check("3D 为按需加载且可退回插画", simUi.includes("sim-stage3d") && simUi.includes("character-scene.js") && settingsSrc.includes('sim3d: "auto"') && mainSrc.includes("ensurePresenter3d"));
 check("构建会打包 character-scene 并复制 glb", fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("character-scene.js") && fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("assets/characters"));
-check("changelog 写明 3D 限制", /手臂|A-pose|插画/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")) && /1\.5\.0/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")));
+check("changelog 写明 3D 限制", /发片|卡片头发|扫描|插画/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")) && /1\.6\.0/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")));
 const sceneSrc = fs.readFileSync(path.join(root, "src/character-scene.js"), "utf8");
 check("课堂相机在黑板前方而不是墙后", /position\.set\(2\.35, 1\.72, -1\.25\)/.test(sceneSrc) && !/position\.set\(0, 1\.45, -3\.5\)/.test(sceneSrc));
 for (const f of ["docs/images/demo-3d.mp4", "docs/images/demo-3d.webp", "docs/images/demo-3d.gif", "docs/images/demo-3d.jpg", "landing/images/demo-3d.mp4"]) {

@@ -1,5 +1,6 @@
 {
-  "license": "CC0 (MakeHuman / MPFB assets), animations and tints by 沉思波 · 体态镜",
+  "license": "MIT (Microsoft Rocketbox Avatar Library, Copyright (c) 2020 Microsoft); classroom set and keyframed clips by 沉思波 · 体态镜",
+  "source": "https://github.com/microsoft/Microsoft-Rocketbox",
   "clips": {
     "student": [
       "idle_sit",
@@ -26,12 +27,68 @@
       "turn_board"
     ]
   },
+  "cast": [
+    {
+      "id": "s1",
+      "label": "林秋",
+      "role": "student",
+      "source": "Female_Adult_05"
+    },
+    {
+      "id": "s2",
+      "label": "许青",
+      "role": "student",
+      "source": "Female_Adult_08"
+    },
+    {
+      "id": "s3",
+      "label": "周南",
+      "role": "student",
+      "source": "Female_Adult_11"
+    },
+    {
+      "id": "s4",
+      "label": "陈禾",
+      "role": "student",
+      "source": "Male_Adult_09"
+    },
+    {
+      "id": "s5",
+      "label": "马言",
+      "role": "student",
+      "source": "Male_Adult_10"
+    },
+    {
+      "id": "g1",
+      "label": "嘉宾一",
+      "role": "guest",
+      "source": "Business_Male_01"
+    },
+    {
+      "id": "g2",
+      "label": "嘉宾二",
+      "role": "guest",
+      "source": "Business_Female_02"
+    },
+    {
+      "id": "g3",
+      "label": "嘉宾三",
+      "role": "guest",
+      "source": "Business_Male_07"
+    },
+    {
+      "id": "teacher",
+      "label": "试讲老师",
+      "role": "teacher",
+      "source": "Business_Female_03"
+    }
+  ],
   "files": {
     "classroom.glb": 39140,
-    "guests.glb": 4235072,
+    "guests.glb": 2830448,
     "podium.glb": 5888,
-    "students.glb": 7187996,
-    "teacher.glb": 2071140
+    "students.glb": 5890856,
+    "teacher.glb": 947896
   },
-  "totalBytes": 13539236
+  "totalBytes": 9714228
 }

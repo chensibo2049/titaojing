@@ -38,13 +38,14 @@ Copyright 2026 南京市沉思波网络科技有限责任公司
 
 训练脚手架（training/）在安装 PyTorch 等可选依赖时，还会受那些软件包自己的许可证约束。
 
-6. MakeHuman Plugin For Blender（MPFB）与 MakeHuman Community CC0 资产
-   程序本身为 AGPL-3.0；官方说明其捆绑的 MakeHuman 资产、以及按官方 MHCLO 代理拟合后导出的人物网格为 CC0。
-   本仓库发布的 `assets/characters/*.glb` 使用了 MakeHuman Community 的 CC0 资产包中的皮肤、眼睛、眉毛、睫毛、牙齿、舌头、发型与衣服（如 female/male elegantsuit、female/male casualsuit、shoes），在 Blender 中用官方 MHCLO 代理拟合到完好的底模上，再由沉思波 · 体态镜做体型宏、校色与课堂动作（默认 rig 上的原创关键帧，不是 Mixamo）。
-   构建脚本见 `scripts/characters/build_cast.py`，说明见 `docs/CHARACTERS.md`。
-   本仓库不收录 MakeHuman 原始资产包（体积很大），只收录压缩后的导出模型。
-   https://static.makehumancommunity.org/mpfb.html
-   https://www.makehumancommunity.org/
+6. Microsoft Rocketbox Avatar Library（本仓库发布的 `assets/characters/*.glb` 人物网格、贴图与官方坐姿/讲解动作）
+   Copyright (c) 2020 Microsoft
+   许可证：MIT License（见上游 LICENSE.md；允许商业使用与再分发，须保留版权声明与许可文本）
+   https://github.com/microsoft/Microsoft-Rocketbox
+   本仓库只收录经 Blender 转换、压缩（WebP 贴图、Draco 网格）并重定向到课堂动作后的 glTF，不收录完整上游资源库。
+   坐姿、讲解、张望、摊手、演示等动作来自同一套官方 Bip01 动画，经视觉重定向到各角色（官方动画的绑定姿势与角色网格并不相同）。举手、点头、齐读、转向黑板等缺失的动作由沉思波 · 体态镜在 Bip01 上补了关键帧。不是 Mixamo。Adobe Mixamo 不允许把原始资源单独再分发，本仓库不收录 Mixamo 文件。
+   构建脚本见 `scripts/characters/build_rocketbox.py`，说明见 `docs/CHARACTERS.md`。
+   v1.5.0 曾使用 MakeHuman / MPFB 的 CC0 资产；自 v1.6.0 起已替换为上述 Rocketbox 模型，仓库中不再分发 MakeHuman 网格。
 
 7. three.js（仅用于按需加载的 3D 课堂 / 讲台演示；源码在构建时打包进 assets/character-scene.js）
    Copyright 2010-2026 three.js authors
