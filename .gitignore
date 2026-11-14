@@ -12,6 +12,7 @@ assets/mediapipe/wasm/
 assets/asr/*
 !assets/asr/.gitkeep
 !assets/asr/README.md
+!assets/asr/manifest.json
 training/data/real/
 training/data/synthetic/
 training/out/

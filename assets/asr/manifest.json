@@ -1,0 +1,6 @@
+{
+  "engine": "sherpa-onnx",
+  "status": "scaffold",
+  "note": "v1.1.0 尚未完成 WASM 接入，本机听写不会被标成可用。模型文件不要提交进仓库。详见 docs/ASR.md。",
+  "files": []
+}

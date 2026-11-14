@@ -2,6 +2,7 @@
 import { esc, $ } from "./ui.js";
 import { fmtDate, fmtDur, metricsOf } from "./records.js";
 import { VERSION_LABEL } from "./version.js";
+import { buildFillerReport } from "./fillers.js";
 import { trendSvg, INDICATORS } from "./chart.js";
 
 export function buildPrintReport(session, { stillDataUrl = "", watermark = false, trend = [] } = {}) {
@@ -22,7 +23,7 @@ export function buildPrintReport(session, { stillDataUrl = "", watermark = false
       <div><p class="pr-brand">沉思波 · 体态镜</p><h1>试讲小结</h1></div>
       ${watermark ? `<span class="pr-mark">试用版</span>` : ""}
     </header>
-    <p class="pr-meta">${fmtDate(session.startedAt || Date.now())} · 时长 ${fmtDur(m.duration)} · ${session.kind === "demo" ? "一键演示样本" : "本机试讲记录"} · 面向学生约 ${Math.round((m.classRatio || 0) * 100)}%</p>
+    <p class="pr-meta">${fmtDate(session.startedAt || Date.now())} · 时长 ${fmtDur(m.duration)} · ${session.kind === "demo" ? "一键演示样本" : "本机试讲记录"}${session.profileName ? " · " + esc(session.profileName) : ""} · 面向学生约 ${Math.round((m.classRatio || 0) * 100)}%</p>
     <div class="pr-top">
       ${stillDataUrl ? `<img class="pr-still" src="${stillDataUrl}" alt="">` : ""}
       <div class="pr-side">
@@ -32,11 +33,35 @@ export function buildPrintReport(session, { stillDataUrl = "", watermark = false
       </div>
     </div>
     ${trendHtml}
+    ${fillerBlock(session)}
+    ${boardBlock(session)}
     <section class="pr-events"><h3>时间线标记</h3><table><thead><tr><th>时间</th><th>提醒</th></tr></thead><tbody>${rows}</tbody></table></section>
     <footer class="pr-foot">视频留在本机，不上传。体态与视线为单摄像头估计，仅作训练提示，不是心理或医学测评。　${esc(VERSION_LABEL)}</footer>`;
 }
 
+
+function fillerBlock(session) {
+  const rep = (session.diagnosis && session.diagnosis.fillerReport) || buildFillerReport(session);
+  if (!rep.ok) {
+    return `<section class="pr-fillers"><h3>口头禅</h3><p>${esc(rep.reason)}</p></section>`;
+  }
+  const words = (rep.words || []).map((w) => `<li>「${esc(w.word)}」 ${w.count} 次</li>`).join("") || "<li>词表里的口头禅很少。</li>";
+  const methods = (rep.methods || []).map((m) => `<p><b>${esc(m.title)}</b> ${esc(m.body)}</p>`).join("");
+  return `<section class="pr-fillers"><h3>口头禅</h3>
+    <p>共 ${rep.total} 次，约 ${rep.perMin} 次/分钟。${rep.top ? "出现最多的是「" + esc(rep.top.word) + "」。" : ""}词表可在设置里改。</p>
+    <ul>${words}</ul>
+    ${methods}</section>`;
+}
+
+function boardBlock(session) {
+  const stills = session.boardStills || [];
+  if (!stills.length) return "";
+  const imgs = stills.map((s) => `<figure><img src="${s.dataUrl}" alt="板书区静帧"><figcaption>${fmtDur(s.t)}</figcaption></figure>`).join("");
+  return `<section class="pr-board"><h3>板书静帧</h3><p>写板时截取的板书区画面，供你自己判断字迹。目前不能认出黑板上的字。</p><div class="pr-stills">${imgs}</div></section>`;
+}
+
 function labelOf(e) {
+
   if (e.type === "filler") return `口头禅「${e.word || e.label}」`;
   return e.label || e.type;
 }

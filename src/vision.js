@@ -1,18 +1,21 @@
-import { FilesetResolver, PoseLandmarker, FaceLandmarker } from "@mediapipe/tasks-vision";
+import { FilesetResolver, PoseLandmarker, FaceLandmarker, HandLandmarker } from "@mediapipe/tasks-vision";
 
 const WASM_PATH = "assets/mediapipe/wasm";
 const POSE_MODEL = "assets/mediapipe/models/pose_landmarker_lite.task";
 const FACE_MODEL = "assets/mediapipe/models/face_landmarker.task";
+const HAND_MODEL = "assets/mediapipe/models/hand_landmarker.task";
 const LOAD_TIMEOUT_MS = 90000;
 
 let fileset = null;
 let pose = null;
 let face = null;
+let hands = null;
 let initPromise = null;
 let initError = null;
-let delegate = { pose: null, face: null };
+let handsError = null;
+let delegate = { pose: null, face: null, hands: null };
 let loadMs = 0;
-const timings = { downloadMs: null, filesetMs: null, poseMs: null, faceMs: null, simd: null };
+const timings = { downloadMs: null, filesetMs: null, poseMs: null, faceMs: null, handsMs: null, simd: null };
 const progress = { loaded: 0, total: 0, phase: "idle", listeners: new Set() };
 
 export function visionStatus() {
@@ -20,7 +23,9 @@ export function visionStatus() {
     ready: !!(pose && face),
     pose: !!pose,
     face: !!face,
+    hands: !!hands,
     error: initError,
+    handsError,
     delegate: { ...delegate },
     loadMs,
     timings: { ...timings },
@@ -92,6 +97,17 @@ async function createFace(buffer, dlg) {
   });
 }
 
+async function createHands(buffer, dlg) {
+  return HandLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetBuffer: buffer, delegate: dlg },
+    runningMode: "VIDEO",
+    numHands: 2,
+    minHandDetectionConfidence: 0.45,
+    minHandPresenceConfidence: 0.45,
+    minTrackingConfidence: 0.45,
+  });
+}
+
 export function initVision() {
   if (initPromise) return initPromise;
   const t0 = performance.now();
@@ -103,11 +119,11 @@ export function initVision() {
       timings.simd = simd;
       const wasmUrl = `${WASM_PATH}/${simd ? "vision_wasm_internal.wasm" : "vision_wasm_nosimd_internal.wasm"}`;
       // Approximate sizes so the bar moves even without content-length.
+      // Hands are optional and fetched after the core models so a missing file does not block pose+face.
       const sizes = [simd ? 11453626 : 10647962, 5777746, 3758596];
       progress.total = sizes.reduce((a, b) => a + b, 0);
       progress.loaded = 0;
       const onBytes = (n) => { progress.loaded += n; emit(); };
-      // Warm the wasm into HTTP / Service Worker cache; FilesetResolver then loads it from cache.
       const [, poseBuf, faceBuf] = await Promise.all([
         fetchWithProgress(wasmUrl, sizes[0], onBytes).catch(() => null),
         fetchWithProgress(POSE_MODEL, sizes[1], onBytes),
@@ -133,11 +149,33 @@ export function initVision() {
       }
       timings.faceMs = Math.round(performance.now() - tA);
       if (pose || face) initError = pose && face ? null : initError;
+      loadMs = Math.round(performance.now() - t0);
+      emit(pose || face ? "ready" : "error");
+
+      // Optional hands: never fail the whole init.
+      try {
+        const handExpected = 7819105;
+        progress.total += handExpected;
+        const handBuf = await fetchWithProgress(HAND_MODEL, handExpected, onBytes);
+        tA = performance.now();
+        try { hands = await createHands(handBuf, delegate.pose || "GPU"); delegate.hands = delegate.pose || "GPU"; }
+        catch (e) {
+          try { hands = await createHands(handBuf, "CPU"); delegate.hands = "CPU"; }
+          catch (e2) { handsError = e2?.message || String(e2); hands = null; }
+        }
+        timings.handsMs = Math.round(performance.now() - tA);
+      } catch (e) {
+        hands = null;
+        handsError = e && e.message ? e.message : "手部模型未加载";
+        timings.handsMs = 0;
+      }
+      emit(pose || face ? "ready" : "error");
     } catch (err) {
       initError = err && err.message ? err.message : String(err);
+      loadMs = Math.round(performance.now() - t0);
+      emit("error");
     }
     loadMs = Math.round(performance.now() - t0);
-    emit(pose || face ? "ready" : "error");
     return visionStatus();
   })();
   const timeout = new Promise((resolve) => setTimeout(() => {
@@ -156,6 +194,7 @@ export function resetVision() {
   if (pose || face) return;
   initPromise = null;
   initError = null;
+  handsError = null;
   progress.phase = "idle";
 }
 
@@ -165,11 +204,12 @@ let lastTs = 0;
 
 /**
  * @param {object} opts  mirror: flip x so landmarks match a mirrored preview;
- *                       faceEvery: run face model every N frames (low-power mode).
+ *                       faceEvery: run face model every N frames (low-power mode);
+ *                       handEvery: run hand model every N frames.
  */
 export function detectVideo(video, timestampMs, opts = {}) {
-  const { mirror = false, faceEvery = 1 } = opts;
-  const out = { pose: null, face: null, matrix: null, ms: 0 };
+  const { mirror = false, faceEvery = 1, handEvery = 1 } = opts;
+  const out = { pose: null, face: null, matrix: null, hands: null, ms: 0 };
   if (!video || video.readyState < 2 || !video.videoWidth) return out;
   // MediaPipe requires strictly increasing timestamps.
   const ts = Math.max(timestampMs, lastTs + 1);
@@ -203,6 +243,30 @@ export function detectVideo(video, timestampMs, opts = {}) {
           if (m && m.data) out.matrix = Array.from(m.data);
           else if (m && m.length) out.matrix = Array.from(m);
         }
+      }
+    }
+  } catch (_) { /* frame skip */ }
+  try {
+    if (hands && (handEvery <= 1 || frameNo % handEvery === 0)) {
+      const r = hands.detectForVideo(video, ts);
+      const lists = r && (r.landmarks || r.handLandmarks);
+      if (lists && lists.length) {
+        out.hands = lists.map((hand, i) => {
+          const pts = hand.map((p) => ({
+            x: mirror ? 1 - p.x : p.x,
+            y: p.y,
+            z: p.z || 0,
+            v: p.visibility ?? 0.9,
+            visibility: p.visibility ?? 0.9,
+          }));
+          const hd = r.handedness && (r.handedness[i] || r.handednesses?.[i]);
+          const cat = Array.isArray(hd) ? hd[0] : hd;
+          let label = cat && (cat.categoryName || cat.displayName) || "";
+          if (mirror && label === "Left") label = "Right";
+          else if (mirror && label === "Right") label = "Left";
+          pts.handedness = label;
+          return pts;
+        });
       }
     }
   } catch (_) { /* frame skip */ }

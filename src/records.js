@@ -39,9 +39,23 @@ function packFrames(frames, fps = 5) {
       g: f.gaze ? [f.gaze.label, r2(f.gaze.yaw), r2(f.gaze.pitch)] : null,
       f: Object.keys(f.flags || {}).filter((k) => f.flags[k]),
       b: f.onBoard ? 1 : 0,
+      h: f.hands && f.hands.length
+        ? f.hands.map((hand) => (hand || []).flatMap((q) => [r3(q.x), r3(q.y), r2(q.v ?? q.visibility ?? 1)]))
+        : null,
     });
   }
   return out;
+}
+
+function unpackHands(h) {
+  if (!h || !h.length) return null;
+  return h.map((flat) => {
+    if (!flat) return [];
+    if (Array.isArray(flat) && flat.length && typeof flat[0] === "object") return flat;
+    const hand = [];
+    for (let i = 0; i < flat.length; i += 3) hand.push({ x: flat[i], y: flat[i + 1], z: 0, v: flat[i + 2], visibility: flat[i + 2] });
+    return hand;
+  });
 }
 
 export function unpackFrames(packed) {
@@ -59,6 +73,7 @@ export function unpackFrames(packed) {
       gaze: f.g ? { label: f.g[0], yaw: f.g[1], pitch: f.g[2], towardClass: f.g[0] === "class" } : null,
       flags,
       onBoard: !!f.b,
+      hands: unpackHands(f.h),
     };
   });
 }
@@ -96,6 +111,9 @@ export function toRecord(session, extra = {}) {
     frameResolved: session.frameResolved || null,
     sessionMode: session.sessionMode || null,
     asrEngine: session.asrEngine || null,
+    boardStills: (session.boardStills || []).map((s) => ({ t: r2(s.t), dataUrl: s.dataUrl })),
+    profileName: extra.profileName || session.profileName || "",
+    speechError: session.speechError || "",
   };
 }
 
@@ -129,6 +147,10 @@ export function fromRecord(rec) {
     frameResolved: rec.frameResolved || null,
     sessionMode: rec.sessionMode || null,
     asrEngine: rec.asrEngine || null,
+    boardStills: rec.boardStills || [],
+    profileName: rec.profileName || "",
+    speechError: rec.speechError || "",
+    fillerReport: rec.diagnosis && rec.diagnosis.fillerReport ? rec.diagnosis.fillerReport : null,
   };
 }
 

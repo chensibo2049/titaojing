@@ -15,7 +15,7 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.0.3-A33B28?style=flat-square" alt="v1.0.3">
+  <img src="https://img.shields.io/badge/版本-v1.1.0-A33B28?style=flat-square" alt="v1.1.0">
 </p>
 
 <p align="center">
@@ -55,8 +55,9 @@
 | **一键演示** | 不用打开摄像头，大约一分钟看完叠加、回放和水词，适合投影介绍。 |
 | **练习或课堂** | 练习 1–5 分钟（默认 2 分钟）；课堂 10 / 15 / 20 分钟，最长 22 分钟。 |
 | **半身或全身** | 讲台近景看视线和肩线；再远一些能看见站位、步伐，以及写板时会不会背对学生。可指定，也可自动判断。 |
-| **回放与转写** | 时间线上有标记，转写里的水词会标出，点某一句就能跳到那里。 |
-| **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频默认不上传。 |
+| **回放与转写** | 时间线上有标记，转写里的水词会标出，并给出具体改法。点某一句就能跳到那里。 |
+| **手与板书** | 能看见双手，判断是否伸向板书区、是否在写、写完是否回视。**目前不能认出黑板上的字**；写板时会留下板书区静帧，供你自己看字迹。 |
+| **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频默认不上传，只保存在这台设备的浏览器里。 |
 
 <p align="center">
   <img src="docs/images/history.jpg" alt="本机历史记录与对比" width="920">
@@ -83,7 +84,7 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 - 网页版会持续打磨，现在就可以在浏览器里用。
 - 会做便于下载、在本机使用的 Windows / macOS 电脑版（骨架在 [`apps/desktop/`](apps/desktop/)）。
-- 听写将尽量留在本机，见 [`docs/ASR.md`](docs/ASR.md)。
+- 听写将尽量留在本机，见 [`docs/ASR.md`](docs/ASR.md)。当前默认仍是浏览器听写：在中国大陆，Chrome 即使网页能打开，听写也经常连不上厂商服务；本机听写尚未接入。
 - 欢迎学校、教具和培训机构一起把这面镜子送到更多教室。
 - 以后可能会有「像评委一样的课后点评」，现在还没有；先把镜子本身做好。
 

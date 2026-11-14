@@ -89,16 +89,21 @@ function applyUpdate() {
 
 /** Ask the SW to download models now, for offline use later. */
 export async function precacheModels(onProgress) {
-  const urls = [
+  const required = [
     "assets/mediapipe/models/pose_landmarker_lite.task",
     "assets/mediapipe/models/face_landmarker.task",
     "assets/mediapipe/wasm/vision_wasm_internal.wasm",
     "assets/mediapipe/wasm/vision_wasm_internal.js",
   ];
+  const optional = ["assets/mediapipe/models/hand_landmarker.task"];
+  const urls = required.concat(optional);
   let done = 0;
   for (const u of urls) {
     const res = await fetch(u, { cache: "force-cache" });
-    if (!res.ok) throw new Error(`${u} ${res.status}`);
+    if (!res.ok) {
+      if (optional.includes(u)) { done += 1; onProgress && onProgress(done, urls.length); continue; }
+      throw new Error(`${u} ${res.status}`);
+    }
     await res.arrayBuffer();
     done += 1;
     onProgress && onProgress(done, urls.length);

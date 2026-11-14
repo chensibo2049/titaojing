@@ -1,4 +1,4 @@
-import { POSE_EDGES, POSE as P, COLORS, boardBox, podiumBox, runtime } from "./constants.js";
+import { POSE_EDGES, POSE as P, COLORS, boardBox, podiumBox, runtime, HAND_EDGES, HAND_TIPS } from "./constants.js";
 import { midHip, midShoulder, lm } from "./analyze.js";
 
 function pt(ctx, p, w, h) {
@@ -157,6 +157,35 @@ export function drawSkeleton(ctx, pose, w, h, flags = {}) {
   if (flags.boardHold && nose) pill(ctx, nose.x * w - 10, nose.y * h - 18, "写完请回看", COLORS.labelBg, COLORS.board, "right");
 }
 
+
+export function drawHands(ctx, hands, w, h, flags = {}) {
+  if (!hands || !hands.length) return;
+  ctx.save();
+  for (const hand of hands) {
+    if (!hand || !hand.length) continue;
+    const color = flags.folded ? COLORS.skeletonWarn : "rgba(143, 208, 201, 0.92)";
+    ctx.shadowColor = "rgba(143, 208, 201, 0.28)";
+    ctx.shadowBlur = 5;
+    for (const [a, b] of HAND_EDGES) {
+      const pa = hand[a] && Number.isFinite(hand[a].x) ? { x: hand[a].x * w, y: hand[a].y * h } : null;
+      const pb = hand[b] && Number.isFinite(hand[b].x) ? { x: hand[b].x * w, y: hand[b].y * h } : null;
+      const va = hand[a]?.v ?? hand[a]?.visibility ?? 1;
+      const vb = hand[b]?.v ?? hand[b]?.visibility ?? 1;
+      if (!pa || !pb || va < 0.3 || vb < 0.3) continue;
+      drawLine(ctx, pa, pb, color, 2);
+    }
+    for (let i = 0; i < hand.length; i++) {
+      const q = hand[i];
+      if (!q || (q.v ?? q.visibility ?? 1) < 0.3) continue;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(q.x * w, q.y * h, HAND_TIPS.includes(i) ? 3.4 : 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 export function drawGazeReticle(ctx, pose, gaze, w, h) {
   if (!gaze || !pose) return;
   const nose = lm(pose, P.NOSE);
@@ -257,6 +286,9 @@ export function drawLiveOverlays(ctx, frame, w, h, opts = {}) {
   if (pose) {
     drawSkeleton(ctx, pose, w, h, flags);
     drawGazeReticle(ctx, pose, gaze, w, h);
+  }
+  if (frame?.hands && frame.hands.length) {
+    drawHands(ctx, frame.hands, w, h, flags);
   }
   if (showMap) {
     const mapSize = Math.min(118, w * 0.22);

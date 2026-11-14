@@ -68,6 +68,19 @@ try {
   check("演示 → 回放", true);
   const tx = await page.$eval("#transcript-list", (e) => ({ hidden: e.hidden, marks: e.querySelectorAll("mark.shuici").length, items: e.children.length })).catch(() => null);
   check("演示回放有转写且标出了水词", tx && !tx.hidden && tx.marks > 0 && tx.items > 0, JSON.stringify(tx));
+  const filler = await page.$eval("#filler-report", (e) => e.textContent).catch(() => "");
+  check("演示回放有口头禅统计或改法", /次|停顿|口头禅|改法/.test(filler), filler.slice(0, 160));
+
+  await page.evaluate(() => { location.hash = "#/about"; });
+  await waitVisible("screen-about");
+  const about = await page.$eval("#about-changelog-body", (e) => e.textContent).catch(() => "");
+  check("关于页展示本版更新", /1\.1\.0/.test(about), about.slice(0, 120));
+  const cap = await page.$eval("#about-capabilities-list", (e) => e.textContent).catch(() => "");
+  check("关于页写明不能认出黑板上的字", /不能认出黑板上的字/.test(cap), cap.slice(0, 80));
+  await page.evaluate(() => { location.hash = "#/profile"; });
+  await waitVisible("screen-profile");
+  const prof = await page.$eval("#screen-profile", (e) => e.textContent).catch(() => "");
+  check("我的档案页说明云端尚未开通", /尚未开通/.test(prof) && /本机/.test(prof), prof.slice(0, 80));
 
   await page.goto(BASE + "?debug=1&trace=1#/try", { waitUntil: "domcontentloaded" });
   await waitVisible("screen-permission");
@@ -77,6 +90,7 @@ try {
   const mp = await page.$eval("#mp-label", (e) => e.textContent);
   check("模型加载完成", /已就绪/.test(mp), mp);
   const kbdHint = await page.$eval("#coach-kbd-hint", (e) => e.textContent);
+  check("站位页有试一下听写", !!(await page.$("#btn-speech-preflight")));
   check("站位页提示可用空格开始", /空格/.test(kbdHint || ""), kbdHint);
   await page.keyboard.press("Space");
   await waitVisible("screen-live");
@@ -90,6 +104,7 @@ try {
   const cam = await page.evaluate(() => { const s = window.__titaojingDebug.state; return { source: s.source, recFrames: s.rec ? s.rec.frames.length : 0, fps: s.frameTimes.length, vision: s.getVisionStatus() }; });
   check("镜头：调试面板收到帧并在记录轨迹", cam.source === "camera" && cam.recFrames > 20, `recFrames=${cam.recFrames}`);
   check("模型加载耗时已记录", cam.vision.timings && cam.vision.timings.downloadMs != null && cam.vision.loadMs > 0, JSON.stringify(cam.vision.timings));
+  check("姿态模型可用（手部可选，缺失不失败）", !!(cam.vision && cam.vision.pose), JSON.stringify({ pose: cam.vision && cam.vision.pose, hands: cam.vision && cam.vision.hands, handsError: cam.vision && cam.vision.handsError }));
   await page.screenshot({ path: path.join(OUT, "debug-mode.png") });
   await page.waitForFunction(() => !document.getElementById("btn-stop").disabled, { timeout: 10000 }).catch(() => {});
   const liveHint = await page.$eval("#live-kbd-hint", (e) => ({ hidden: e.hidden, text: e.textContent }));

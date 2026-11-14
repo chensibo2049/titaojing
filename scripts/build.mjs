@@ -56,6 +56,11 @@ cp("assets/favicon.svg");
 for (const f of fs.readdirSync(path.join(root, "assets/icons"))) cp(`assets/icons/${f}`);
 for (const f of ["vision_wasm_internal.js", "vision_wasm_internal.wasm", "vision_wasm_nosimd_internal.js", "vision_wasm_nosimd_internal.wasm"]) cp(`assets/mediapipe/wasm/${f}`);
 for (const f of ["pose_landmarker_lite.task", "face_landmarker.task"]) cp(`assets/mediapipe/models/${f}`);
+const handModel = "assets/mediapipe/models/hand_landmarker.task";
+if (fs.existsSync(path.join(root, handModel))) cp(handModel);
+const asrManifest = "assets/asr/manifest.json";
+if (fs.existsSync(path.join(root, asrManifest))) cp(asrManifest);
+
 
 // Host configs (harmless on hosts that ignore them)
 write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));

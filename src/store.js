@@ -1,6 +1,6 @@
 /** Local history in IndexedDB. Nothing here ever leaves the device. */
 const DB_NAME = "titaojing";
-const DB_VER = 1;
+const DB_VER = 2;
 let dbp = null;
 
 function open() {
@@ -15,6 +15,7 @@ function open() {
         s.createIndex("startedAt", "startedAt");
       }
       if (!db.objectStoreNames.contains("videos")) db.createObjectStore("videos", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("profile")) db.createObjectStore("profile", { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -118,4 +119,28 @@ export async function requestPersist() {
     if (navigator.storage && navigator.storage.persist) return await navigator.storage.persist();
   } catch (_) {}
   return false;
+}
+
+const PROFILE_ID = "local";
+
+export async function getProfile() {
+  return tx(["profile"], "readonly", (t) => reqP(t.objectStore("profile").get(PROFILE_ID))).then((r) => r || null);
+}
+
+export async function saveProfile(patch) {
+  const prev = (await getProfile()) || { id: PROFILE_ID, createdAt: Date.now() };
+  const next = {
+    id: PROFILE_ID,
+    displayName: String(patch.displayName ?? prev.displayName ?? "").trim().slice(0, 40),
+    school: String(patch.school ?? prev.school ?? "").trim().slice(0, 60),
+    dept: String(patch.dept ?? prev.dept ?? "").trim().slice(0, 40),
+    createdAt: prev.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+  await tx(["profile"], "readwrite", (t) => t.objectStore("profile").put(next));
+  return next;
+}
+
+export async function clearProfile() {
+  return tx(["profile"], "readwrite", (t) => t.objectStore("profile").delete(PROFILE_ID));
 }

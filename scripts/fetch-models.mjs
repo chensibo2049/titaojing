@@ -49,8 +49,10 @@ for (const [name, info] of Object.entries(mf.models)) {
     fs.writeFileSync(dst, buf);
     console.log(`✓ ${name}（${(buf.length / 1048576).toFixed(1)} MB）`);
   } catch (e) {
-    console.error(`✗ ${name} 下载失败：${e.message}\n  国内网络可设置 MODEL_BASE_URL 指向镜像，或从 Release 附件手动放到 assets/mediapipe/models/`);
-    problems++;
+    const required = info.required !== false;
+    const msg = `✗ ${name} 下载失败：${e.message}\n  国内网络可设置 MODEL_BASE_URL 指向镜像，或从 Release 附件手动放到 assets/mediapipe/models/`;
+    if (required) { console.error(msg); problems++; }
+    else console.warn(msg + "\n  （可选模型，跳过后面部与体态仍可运行）");
   }
 }
 

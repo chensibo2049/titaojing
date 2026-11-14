@@ -1,4 +1,5 @@
-import { POSE as P, EVENT_META, runtime, boardSign as sideSign, podiumBox } from "./constants.js";
+import { POSE as P, EVENT_META, runtime, boardSign as sideSign, podiumBox, boardBox, HAND_TIPS } from "./constants.js";
+import { buildFillerReport, fillerNextAdvice } from "./fillers.js";
 
 const mid = (a, b) =>
   a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, v: Math.min(vis(a), vis(b)) } : null;
@@ -102,7 +103,7 @@ export function extractGaze(pose, face, matrix) {
   return { label, yaw, pitch, towardClass: label === "class" };
 }
 
-export function extractPosture(pose, history) {
+export function extractPosture(pose, history, hands) {
   const flags = { sway: false, slouch: false, hip: false, folded: false, out: false, back: false, pace: false };
   const metrics = { swayAmp: 0, torsoRatio: 0, hipTilt: 0, fold: 0 };
   if (!pose) return { flags, metrics, midHip: null, midShoulder: null };
@@ -142,6 +143,15 @@ export function extractPosture(pose, history) {
     flags.folded = crossed || (wristsIn && dist(lw, rw) < shoulderW * 0.55 && dist(lw, re) < 0.18);
     metrics.fold = dist(lw, re) + dist(rw, le);
   }
+  if (hands && hands.length >= 2 && ms && mh) {
+    const wa = hands[0][0], wb = hands[1][0];
+    if (wa && wb) {
+      const bothFront = wa.y > ms.y && wb.y > ms.y && wa.y < mh.y + 0.06 && wb.y < mh.y + 0.06;
+      const close = dist(wa, wb) < shoulderW * 0.6;
+      const crossedH = (wa.x - ms.x) * (wb.x - ms.x) < 0 && Math.abs(wa.x - wb.x) < shoulderW * 0.9;
+      if (bothFront && close && crossedH) flags.folded = true;
+    }
+  }
 
   const pod = podiumBox();
   if (mh.x < pod.x0 - 0.02 || mh.x > pod.x1 + 0.02) flags.out = true;
@@ -169,6 +179,67 @@ export function extractPosture(pose, history) {
   }
 
   return { flags, metrics, midHip: mh, midShoulder: ms };
+}
+
+
+export function pointInBoard(p, pad = 0.03) {
+  if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) return false;
+  const box = boardBox();
+  return p.x >= box.x0 - pad && p.x <= box.x1 + pad && p.y >= box.y0 - pad && p.y <= box.y1 + pad;
+}
+
+/** 手（或姿态里的手腕 / 食指）是否伸向板书区。不是在认黑板上的字。 */
+export function handInBoardRegion(hands, pose) {
+  if (hands && hands.length) {
+    for (const hand of hands) {
+      if (!hand) continue;
+      if (pointInBoard(hand[0])) return true;
+      for (const i of HAND_TIPS) if (pointInBoard(hand[i])) return true;
+    }
+  }
+  if (pose) {
+    for (const i of [P.L_WRIST, P.R_WRIST, P.L_INDEX, P.R_INDEX, P.L_THUMB, P.R_THUMB]) {
+      if (pointInBoard(lm(pose, i))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 写板过程中截取板书区静帧（不是整段录像上传）。
+ * 仅在判定正在写板时采集；没有写板就不会生成。
+ */
+export function maybeCaptureBoardStill(session, video, t, { mirror = false } = {}) {
+  if (!session || !session._writing) return null;
+  session.boardStills = session.boardStills || [];
+  if (session.boardStills.length >= 8) return null;
+  const last = session._lastBoardStillAt ?? -99;
+  if (session.boardStills.length && t - last < 4.5) return null;
+  if (!video || !video.videoWidth) return null;
+  const box = boardBox();
+  const vw = video.videoWidth, vh = video.videoHeight;
+  let x0 = box.x0, x1 = box.x1;
+  if (mirror) { x0 = 1 - box.x1; x1 = 1 - box.x0; }
+  const sx = Math.max(0, Math.floor(x0 * vw));
+  const sy = Math.max(0, Math.floor(box.y0 * vh));
+  const sw = Math.min(vw - sx, Math.ceil((x1 - x0) * vw));
+  const sh = Math.min(vh - sy, Math.ceil((box.y1 - box.y0) * vh));
+  if (sw < 8 || sh < 8) return null;
+  const c = document.createElement("canvas");
+  const scale = Math.min(1, 360 / sw);
+  c.width = Math.max(1, Math.round(sw * scale));
+  c.height = Math.max(1, Math.round(sh * scale));
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  if (mirror) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
+  try { ctx.drawImage(video, sx, sy, sw, sh, 0, 0, c.width, c.height); }
+  catch (_) { return null; }
+  let dataUrl = "";
+  try { dataUrl = c.toDataURL("image/jpeg", 0.62); } catch (_) { return null; }
+  if (!dataUrl || dataUrl.length < 32) return null;
+  session._lastBoardStillAt = t;
+  session.boardStills.push({ t: Math.round(t * 100) / 100, dataUrl });
+  return dataUrl;
 }
 
 export function isFacingBoard(gaze, pose) {
@@ -228,6 +299,9 @@ export function createSession(kind) {
     _torsoBase: 0,
     _torsoLocked: false,
     _lastFillerAt: -99,
+    _sawHands: false,
+    _lastBoardStillAt: -99,
+    boardStills: [],
     speechAvailable: false,
     visionAvailable: false,
   };
@@ -256,7 +330,7 @@ function emit(session, t, type, extra = {}) {
   session.events.push({ t, type, kind: meta.kind, label: extra.label || meta.label, ...extra });
 }
 
-export function tickFrame(session, t, pose, face, gaze, posture) {
+export function tickFrame(session, t, pose, face, gaze, posture, hands) {
   const mh = posture?.midHip;
   session._hist.push({
     t,
@@ -264,13 +338,15 @@ export function tickFrame(session, t, pose, face, gaze, posture) {
     gaze: gaze?.label,
     board: isFacingBoard(gaze, pose),
     torsoRatio: posture?.metrics?.torsoRatio || 0,
+    handSeen: !!(hands && hands.length),
+    handBoard: handInBoardRegion(hands, pose),
   });
   const cutoff = t - 2.4;
   session._hist = session._hist.filter((h) => h.t >= cutoff);
 
   // Recompute sway / slouch with the just-updated window.
   if (posture) {
-    const again = extractPosture(pose, session._hist);
+    const again = extractPosture(pose, session._hist, hands);
     posture.flags.sway = again.flags.sway;
     posture.metrics.swayAmp = again.metrics.swayAmp;
     const ratio = posture.metrics.torsoRatio || again.metrics.torsoRatio;
@@ -354,7 +430,11 @@ export function tickFrame(session, t, pose, face, gaze, posture) {
     session._gazeDownSince = null;
   }
 
-  const onBoard = isFacingBoard(gaze, pose) || gaze?.label === "board";
+  if (hands && hands.length) session._sawHands = true;
+  const gazeBoard = isFacingBoard(gaze, pose) || gaze?.label === "board";
+  const handBoard = handInBoardRegion(hands, pose);
+  // 若本场已经看到过手：写板需「手在板书区」；否则仍用原来的朝向判断（手部模型未加载或距离太远）。
+  const onBoard = session._sawHands ? !!(handBoard && (gazeBoard || session._writing || handBoard)) : gazeBoard;
   if (onBoard) {
     session._boardOffSince = null;
     if (session._boardOnSince == null) session._boardOnSince = t;
@@ -394,6 +474,7 @@ export function tickFrame(session, t, pose, face, gaze, posture) {
       t,
       pose: pose ? pose.map((p) => ({ x: p.x, y: p.y, z: p.z || 0, v: vis(p) })) : null,
       face: face && face.length ? compactFace(face) : null,
+      hands: hands && hands.length ? compactHands(hands) : null,
       gaze,
       flags: { ...(flags || {}) },
       onBoard,
@@ -401,6 +482,10 @@ export function tickFrame(session, t, pose, face, gaze, posture) {
   }
 
   session.duration = t;
+}
+
+function compactHands(hands) {
+  return hands.map((hand) => (hand || []).map((p) => ({ x: p.x, y: p.y, z: p.z || 0, v: vis(p) })));
 }
 
 function compactFace(face) {
@@ -495,6 +580,9 @@ export function diagnose(session) {
 
   const lookedBackSometime = fr.some((f) => f.onBoard) && nBoard === 0 && fr.some((f) => f.onBoard);
 
+  const fillerRep = buildFillerReport(session);
+  session.fillerReport = fillerRep;
+
   // 「最提神的一点」— find something true and specific.
   let good;
   const poseRatio = fr.length ? fr.filter((f) => f.pose).length / fr.length : 0;
@@ -508,6 +596,7 @@ export function diagnose(session) {
         : "你把这一段完整地讲下来了。不过这一次画面里大部分时间没有识别到人，教态和视线的统计并不完整。",
       next: "下一次请退后一点，让腰部以上完整进入画面，光线从正面照过来，再试一次。识别稳定后，诊断才有参考价值。",
       lookedBackSometime: false,
+      fillerReport: buildFillerReport(session),
     };
     return session.diagnosis;
   }
@@ -519,7 +608,7 @@ export function diagnose(session) {
     good = "板书写完之后，你有回到学生这边来。回视这一下，四个字才算写完。";
   } else if (nSwayOnly === 0 && nHip === 0 && dur > 20) {
     good = "站姿大体稳住了，没有长时间左右晃，也没有把重心一直撂在一边。学生会先看见这份安定。";
-  } else if (nFill <= 2 && dur > 15 && (session.kind === "demo" || session.speechHeard)) {
+  } else if (nFill <= 2 && dur > 15 && (session.kind === "demo" || (session.speechHeard && session.speechAvailable !== false))) {
     good = "口头禅很少。话和话之间留得住空隙，听起来会更从容。";
   } else if (classRatio > 0.3) {
     good = "中间有一段，你是抬眼看向学生的。把这样的抬眼再多留半拍，整堂都会更稳。";
@@ -535,8 +624,8 @@ export function diagnose(session) {
     next = "走到需要走到的地方再停住。来回踱步会把学生的注意力从内容上带走。";
   } else if (nBoard > 0) {
     next = "字写完的那一刻，先转身看学生，再开口。板书是写给学生看的，回视一下，才算写完。";
-  } else if (cluster >= 3 || nFill >= 5) {
-    next = "把「然后」「就是」换成半秒的停顿。停顿看起来像从容，并不比连起来说更弱。可以先只改掉最常冒出来的那一个词。";
+  } else if (fillerRep.ok && (cluster >= 3 || nFill >= 5)) {
+    next = fillerNextAdvice(fillerRep) || "把最常冒出来的那一个词换成半拍停顿，再把那一段重讲一遍。";
   } else if (notesRatio >= 0.28 || nGaze >= 2) {
     next = "把讲稿要点缩成三行，抬眼的时间会自然变多。可以先试：每讲完一句，主动看向镜头里的“学生”停半拍。";
   } else if (nSwayOnly >= 1) {
@@ -547,6 +636,8 @@ export function diagnose(session) {
     next = "双手松开，做一次打开的手势，再自然垂在身侧。抱臂会把声音也挡在胸口。";
   } else if (nOut >= 1) {
     next = "先在讲台框里站定。走动要有目的，走到了再停，不要在边上看似随意地晃出去。";
+  } else if (!fillerRep.ok && session.kind === "camera") {
+    next = fillerRep.reason + "教态和视线仍可回看。下次开讲前可以先点「试一下听写」，确认浏览器能否出字。";
   } else if (classRatio < 0.5) {
     next = "把镜头当成第一排的学生。讲关键句时看它一眼，再低头看稿，节奏会清楚很多。";
   } else {
@@ -569,6 +660,7 @@ export function diagnose(session) {
     good,
     next,
     lookedBackSometime,
+    fillerReport: fillerRep,
   };
   return session.diagnosis;
 }

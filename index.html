@@ -39,6 +39,7 @@
           <a href="#/history">历史记录</a>
           <a href="#/compare">进步对比</a>
           <a href="#/settings">设置</a>
+          <a href="#/profile">我的档案</a>
           <a href="#/feedback">反馈问题</a>
           <a href="#/about">关于与隐私</a>
         </nav>
@@ -80,6 +81,13 @@
         </div>
       </div>
 
+      <aside class="whats-new" id="whats-new" hidden>
+        <div class="whats-new-inner">
+          <div id="whats-new-body"></div>
+          <button type="button" class="btn-mini" id="btn-dismiss-whats-new">知道了</button>
+        </div>
+      </aside>
+
       <footer class="cover-foot">
         <span>视频留在本机，不上传 · 不是心理或医学测评</span>
         <a href="#/about" class="version-link" id="cover-version">v1.0.0</a>
@@ -96,7 +104,8 @@
       <div class="plain-card">
         <p class="eyebrow">对着镜头试讲</p>
         <h2>需要使用镜头和麦克风</h2>
-        <p class="plain-lead">画面只在这台设备上分析和保存，不会上传，也不需要账号。试讲需要打开麦克风，用来留下转写并标出水词。浏览器听写在 Chrome / Edge 里可用（声音会经过浏览器厂商的语音服务，不经过沉思波）；本机识别正在准备中。</p>
+        <p class="plain-lead">画面只在这台设备的浏览器里分析。不需要账号。录像默认不保存；若勾选保存，也只写入本机历史，沉思波不会收到。练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析随录制在本机进行，结束后不会继续分析（回放已保存的记录除外）。</p>
+        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。浏览器听写在 Chrome / Edge 里可用，但声音会送到厂商的语音服务（不经过沉思波）；在中国大陆即使网页能打开，听写也经常连不上。本机听写仍在准备中，当前还不能用来转写。</p>
         <div class="perm-modes">
           <p class="field-label">这次怎么讲</p>
           <div class="seg" role="radiogroup" aria-label="试讲模式" id="perm-session-mode">
@@ -115,6 +124,7 @@
           <li>手机或电脑均可；课堂模式建议用电脑放在讲台或课桌上，镜头与胸齐或略低</li>
           <li id="perm-framing-tip">半身时站到腰部以上入画；全身时向后退，让脚也进入画面</li>
           <li>建议时长 <b id="perm-target">2 分钟</b>，板书区在画面<b id="perm-board">右侧</b>（可在设置里改）</li>
+          <li>目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生</li>
         </ul>
         <div class="seg" role="radiogroup" aria-label="选择镜头">
           <button type="button" class="seg-btn" data-facing="user" role="radio">前置镜头</button>
@@ -173,7 +183,7 @@
           </div>
           <div class="coach-copy">
             <p id="coach-tip">请把腰部以上放入框中，双肩舒展，镜头大致与眼平齐。</p>
-            <p class="coach-sub" id="coach-sub">半透框是「板书区」，可对准教室里的黑板。没有黑板也可以忽略。</p>
+            <p class="coach-sub" id="coach-sub">半透框是「板书区」，可对准教室里的黑板。没有黑板也可以忽略。目前不能认出黑板上的字，只能看手是否伸向板书区、是否在写、写完是否回视。</p>
           </div>
         </div>
       </div>
@@ -182,7 +192,10 @@
           <label class="mini-check"><input type="checkbox" id="coach-mirror"> 镜像</label>
           <select id="coach-device" class="mini-select" aria-label="选择摄像头" hidden></select>
           <span class="mic-state" id="mic-state"></span>
+          <span class="asr-state" id="coach-asr-state"></span>
+          <button type="button" class="btn-mini" id="btn-speech-preflight">试一下听写</button>
         </div>
+        <p class="preflight-result" id="speech-preflight-result" hidden></p>
         <button type="button" class="btn btn-primary btn-lg" id="btn-start-countdown">
           <span class="btn-label">开始倒计时</span>
         </button>
@@ -223,6 +236,7 @@
         </button>
         <p class="dock-note" id="dock-note">再讲一会儿就可以结束</p>
         <p class="kbd-hint" id="live-kbd-hint" hidden>也可以按 <kbd>空格</kbd> 结束</p>
+        <p class="asr-state live-asr" id="live-asr-state"></p>
       </footer>
     </section>
 
@@ -257,6 +271,15 @@
             <p class="page-note" id="transcript-empty">这一次还没有转写。请在试讲时允许麦克风；Chrome 或 Edge 里听写比较稳。</p>
             <ol class="transcript" id="transcript-list" hidden></ol>
             <p class="legend-note"><mark class="shuici">橙色下划线</mark> 是词表里的水词，点某一句可以跳到那里。</p>
+          </section>
+          <section class="filler-card" id="filler-card">
+            <h3>口头禅与改法</h3>
+            <div id="filler-report"></div>
+          </section>
+          <section class="board-stills-card" id="board-stills-card">
+            <h3>板书区静帧</h3>
+            <p class="page-note" id="board-stills-note">目前不能认出黑板上的字。若这一次有写板，下面会留下板书区的静帧，供你自己看字迹；也能看到手是否伸向板书区、是否在写、写完是否回视学生。</p>
+            <div class="board-stills" id="board-stills" hidden></div>
           </section>
           <p class="save-status" id="save-status"></p>
         </aside>
@@ -361,7 +384,8 @@
             <select name="facing"><option value="user">前置（自拍）</option><option value="environment">后置（请同伴拿着拍）</option></select>
           </label>
           <label class="field check"><input type="checkbox" name="mirror"> <span>镜像显示（像照镜子，前置镜头建议打开）</span></label>
-          <label class="field check"><input type="checkbox" name="saveVideo"> <span>把录像存进本机历史（默认关；每分钟约 5–20 MB）</span></label>
+          <label class="field check"><input type="checkbox" name="saveVideo"> <span>把录像存进本机历史（默认关；每分钟约 5–20 MB）。录像只留在这台设备的浏览器里，可在历史记录中删除。</span></label>
+          <p class="fs-note">练习可选 1 / 2 / 3 / 5 分钟，课堂可选 10 / 15 / 20 分钟，到时会提示，最长再加 2 分钟、不超过 22 分钟。分析只在录制期间于本机进行，结束后不会继续分析，除非你回放已保存的记录。</p>
         </fieldset>
         <fieldset>
           <legend>提醒灵敏度</legend>
@@ -373,7 +397,7 @@
           <label class="field">
             <span>口头禅词表（用空格、逗号或换行分隔）</span>
             <textarea name="fillers" rows="3"></textarea>
-            <small>例如：然后 就是 对吧 那个 这个这个。最多 60 个，每个不超过 8 个字。</small>
+            <small>例如：然后 就是 对吧 那个 这个这个。最多 60 个，每个不超过 8 个字。词表可随时改；回放里会按这个表统计次数，并给出对应的改法（例如用半拍停顿代替「然后」）。</small>
           </label>
           <label class="field">
             <span>语音识别语言</span>
@@ -383,7 +407,7 @@
               <option value="zh-HK">粤语（zh-HK）</option>
               <option value="en-US">英语（en-US，英语试讲）</option>
             </select>
-            <small>先尽量使用完整转写（不只是弹出口头禅）。Chrome / Edge 的浏览器听写需联网，声音会经过厂商的语音服务。本机识别（声音不出本机）在下载模型后可用，见 docs/ASR.md。</small>
+            <small>Chrome / Edge 的浏览器听写会把声音送到厂商的语音服务（不经过沉思波）。在中国大陆即使网页能打开，听写也经常连不上，这不是电脑没网。本机听写仍在准备中，当前版本还不能用它转写。</small>
           </label>
           <label class="field">
             <span>转写方式</span>
@@ -465,6 +489,45 @@
       </form>
     </section>
 
+
+    <!-- PROFILE -->
+    <section id="screen-profile" class="screen screen-page" data-screen="profile" hidden>
+      <header class="sub-head page-head">
+        <a class="text-back" href="#/">封面</a>
+        <h2 class="page-title">我的档案</h2>
+        <span class="head-spacer"></span>
+      </header>
+      <div class="page-body about-body" id="profile-body">
+        <section class="about-card">
+          <h3>本机练习档案</h3>
+          <p>可选。保存在这台设备的这个浏览器里，不经过沉思波。不填写也可以直接练习。以后的试讲记录可以附上这里的称呼。</p>
+          <p class="fs-note" id="profile-local-state"></p>
+          <form id="profile-form" class="settings-form" autocomplete="off">
+            <label class="field"><span>称呼</span><input type="text" id="profile-name" name="displayName" maxlength="40" placeholder="例如：王老师"></label>
+            <label class="field"><span>学校或单位（可选）</span><input type="text" id="profile-school" name="school" maxlength="60" placeholder="只留在本机"></label>
+            <label class="field"><span>院系或教研组（可选）</span><input type="text" id="profile-dept" name="dept" maxlength="40"></label>
+            <div class="page-actions">
+              <button type="submit" class="btn btn-primary"><span class="btn-label">保存档案</span></button>
+              <button type="button" class="btn btn-ghost" id="btn-clear-profile" hidden>清除本机档案</button>
+              <span class="save-hint" id="profile-local-hint" role="status"></span>
+            </div>
+          </form>
+        </section>
+        <section class="about-card" id="cloud-auth-card">
+          <h3>云端账号（尚未开通）</h3>
+          <p id="profile-cloud-state">云端账号会在服务端就绪后开通；现在可以先在本机建立练习档案，记录仍留在这台设备。</p>
+          <form id="cloud-auth-form" class="settings-form" autocomplete="off">
+            <label class="field"><span>邮箱</span><input type="email" name="email" maxlength="80" placeholder="将来用于云端账号"></label>
+            <label class="field"><span>密码</span><input type="password" name="password" maxlength="80" placeholder="不会保存在这台设备上" autocomplete="new-password"></label>
+            <div class="page-actions">
+              <button type="submit" class="btn btn-secondary"><span class="btn-label">注册或登录（尚未接通）</span></button>
+            </div>
+            <p class="page-note" id="cloud-auth-msg" role="status"></p>
+          </form>
+        </section>
+      </div>
+    </section>
+
     <!-- ABOUT -->
     <section id="screen-about" class="screen screen-page" data-screen="about" hidden>
       <header class="sub-head page-head">
@@ -478,12 +541,22 @@
           <p>面向师范生和课堂教师的试讲训练工具。对着镜头讲一段课，教态、视线、口头禅和写板后的回视会直接画在画面上；结束后可以回放、看转写，并把水词标出来。</p>
           <dl class="kv" id="about-version"></dl>
         </section>
+        <section class="about-card" id="about-changelog">
+          <div id="about-changelog-body"></div>
+        </section>
+        <section class="about-card" id="about-capabilities">
+          <h3>能看到什么</h3>
+          <ul class="plain-list" id="about-capabilities-list"></ul>
+        </section>
         <section class="about-card">
-          <h3>隐私</h3>
+          <h3>隐私与时长</h3>
           <ul class="plain-list">
-            <li><b>视频默认不上传。</b>画面分析都在这台设备的浏览器里完成。没有账号。历史保存在本机浏览器中，可随时删除。录像默认不保存。</li>
-            <li><b>转写：</b>默认使用浏览器自带的听写（Chrome / Edge 会把声音送到厂商的语音服务，不经过沉思波）。本机识别（声音不出本机）在下载模型后可选，见使用说明。</li>
-            <li><b>体验计划默认关闭。</b>只有你主动勾选后，才可能把口头禅词表、转写文本、教态摘要和少量截图排进本机待发送队列；<b>录像和音频默认不会进入队列</b>。当前版本尚未配置上传地址，因此即使入队也不会发到任何服务器。可在下方查看、删除队列，或随时关闭。</li>
+            <li><b>录像和历史只留在这台设备。</b>画面分析都在本机浏览器里完成。录像只有你勾选「把录像存进本机历史」才会写入 IndexedDB，默认关闭。可在「历史记录」里删除单次记录、只删录像，或全部删除。</li>
+            <li><b>能录多久、分析多久。</b>练习 1–5 分钟，课堂 10 / 15 / 20 分钟，到时会提示，硬性上限 22 分钟。分析随录制在本机进行，时长与这一次录音相同；结束后不会继续分析，除非你稍后回放已经保存在本机的记录。</li>
+            <li><b>转写是例外。</b>使用浏览器听写时，Chrome / Edge 会把声音送到<b>厂商</b>的语音服务，不经过沉思波。在中国大陆即使网页能打开，听写也经常连不上。本机听写（声音留在本机）仍在准备中，当前还不能用来转写。</li>
+            <li id="about-asr-state"></li>
+            <li><b>沉思波默认不接收任何数据。</b>只有同时打开体验计划、并且管理员在配置里填写了上传地址，才可能发出词表、转写、摘要和少量截图。当前上传地址为空，因此什么也不会发出。录像和音频默认不会进入队列。</li>
+            <li><b>不需要账号才能练习。</b>可选的本机练习档案存在这台设备上，见「我的档案」。云端注册登录尚未开通。</li>
             <li><b>反馈不会自动发送。</b>「反馈问题」只生成文字和文件，由你自己决定是否发出，且不含视频、声音或图片。</li>
             <li>本页面不使用统计脚本、广告或第三方 Cookie，不从国外 CDN 加载资源。</li>
           </ul>
@@ -520,7 +593,7 @@
         </section>
         <section class="about-card">
           <h3>开源组件</h3>
-          <p>姿态与面部关键点：Google MediaPipe Tasks Vision（Apache License 2.0），模型文件随本程序本地提供。</p>
+          <p>姿态、面部与手部关键点：Google MediaPipe Tasks Vision（Apache License 2.0），模型文件随本程序本地提供。手部模型加载失败时，体态和视线仍可运行。</p>
           <p class="page-note">© 沉思波 chensibo.cn</p>
         </section>
       </div>
@@ -544,8 +617,10 @@
       <h2 id="consent-title">开始之前</h2>
       <p>沉思波 · 体态镜是一面给试讲用的镜子：对着镜头讲一段课，教态、视线、口头禅和板书对位会画在画面上。它不是评分标准，也不是心理或医学评估。</p>
       <ul class="plain-list">
-        <li>视频和历史默认只留在这台设备上，不上传。</li>
-        <li>转写需要麦克风。用浏览器听写时，Chrome / Edge 会把声音送到厂商的语音服务（不经过沉思波）。</li>
+        <li>视频和历史只留在这台设备的浏览器里（IndexedDB）。录像默认不保存，只有你勾选后才写入；可在历史记录里删除。沉思波不会收到这些内容，除非你打开体验计划并且配置了上传地址（当前为空，不会发出）。</li>
+        <li>练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析在录制期间于本机进行，结束后不会继续分析，除非你回放已保存的记录。</li>
+        <li>转写需要麦克风。用浏览器听写时，Chrome / Edge 会把声音送到厂商的语音服务（不经过沉思波）；在中国大陆即使网页能打开，听写也经常连不上。</li>
+        <li>目前不能认出黑板上的字；能看到手、判断是否伸向板书区、是否在写、写完是否回视学生。</li>
         <li>体态来自单个摄像头的估计，受光线和构图影响，只作训练提示。</li>
       </ul>
       <label class="check-line experience-opt">

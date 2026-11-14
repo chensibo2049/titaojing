@@ -46,5 +46,8 @@ window.TITAOJING_CONFIG = {
   // 请求体为 JSON，字段见 src/experience.js（fillers / transcript / summary / screenshots），不含录像和音频。
   experienceEndpoint: "",
   experienceMaxScreenshots: 3,
-  experienceSampleRate: 1
+  experienceSampleRate: 1,
+
+  // 云端账号服务地址。留空（默认）时，注册 / 登录表单只作说明，不会发送邮箱或密码。
+  authEndpoint: ""
 };

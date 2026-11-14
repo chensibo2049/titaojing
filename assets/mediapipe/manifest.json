@@ -1,16 +1,25 @@
 {
-  "_说明": "MediaPipe 资源清单。模型（.task）随仓库提交；WASM 由 scripts/fetch-models.mjs 从 npm 包 @mediapipe/tasks-vision 复制。升级 MediaPipe 时请同时更新 package.json、sw.js 的 MODEL_CACHE 和这里的 sha256。",
+  "_说明": "MediaPipe 资源清单。模型（.task）随仓库提交；WASM 由 scripts/fetch-models.mjs 从 npm 包 @mediapipe/tasks-vision 复制。升级 MediaPipe 时请同时更新 package.json、sw.js 的 MODEL_CACHE 和这里的 sha256。手部模型可选：缺失或加载失败时，体态和视线仍可运行。",
   "tasksVisionVersion": "0.10.32",
   "models": {
     "pose_landmarker_lite.task": {
       "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
       "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "required": true
     },
     "face_landmarker.task": {
       "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
       "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "required": true
+    },
+    "hand_landmarker.task": {
+      "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+      "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      "license": "Apache-2.0",
+      "required": false,
+      "note": "官方 float16 手部关键点模型（21 点 × 最多两只手）。没有单独的 lite 文件名，体积约 7.5 MB。"
     }
   },
   "wasm": {

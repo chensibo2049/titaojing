@@ -1,6 +1,6 @@
 {
   "name": "titaojing",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "private": true,
   "description": "沉思波 · 体态镜（OpenJing）：一面给试讲与表达用的镜子",
   "license": "Apache-2.0",
@@ -15,6 +15,7 @@
     "build:dev": "node scripts/fetch-models.mjs && node scripts/build.mjs --dev-only",
     "serve": "python3 scripts/serve.py dist",
     "dev": "npm run build:dev && python3 scripts/serve.py .",
+    "test": "node scripts/check-v11.mjs",
     "smoke": "node scripts/smoke.mjs",
     "qa": "node scripts/qa-v1.mjs",
     "package": "python3 scripts/package.py",

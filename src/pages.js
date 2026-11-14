@@ -8,9 +8,11 @@ import { collectDiagnostics, diagnosticsToText } from "./diagnostics.js";
 import { pwaState, promptInstall, precacheModels } from "./pwa.js";
 import { trendSvg, INDICATORS } from "./chart.js";
 import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version.js";
-import { asrStatus } from "./asr.js";
+import { asrStatus, describeAsrEngine } from "./asr.js";
 import { getConsent, setExperience, experienceOn } from "./consent.js";
 import { listQueue, clearQueue, flushQueue, describeItem, deleteItem, experienceConfig } from "./experience.js";
+import { currentNotes, notesHtml } from "./changelog.js";
+import { renderProfile, wireProfile } from "./profile.js";
 
 const KIND_LABEL = { camera: "真实试讲", demo: "一键演示" };
 
@@ -253,9 +255,11 @@ export function renderSettings() {
   f.asrEngine.value = s.asrEngine || "auto";
   const asr = asrStatus();
   const ah = $("asr-engine-hint");
-  if (ah) ah.textContent = asr.sherpa
-    ? "已检测到本机识别模型。"
-    : "尚未安装本机识别模型，将使用浏览器听写（Chrome / Edge 需联网）。安装方法见 docs/ASR.md。";
+  if (ah) {
+    if (asr.sherpa) ah.textContent = "本机听写可用，声音会留在这台设备上。";
+    else if (asr.sherpaFiles) ah.textContent = "已找到本机识别文件，但当前版本还不能用它转写，仍会使用浏览器听写。";
+    else ah.textContent = "本机听写尚未接入。将使用浏览器听写：Chrome / Edge 会把声音送到厂商的服务；在中国大陆即使网页能打开，听写也经常连不上。";
+  }
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
   f.mirror.checked = s.mirror;
@@ -424,7 +428,27 @@ export function renderAbout() {
         ? "可以把体态镜安装到桌面，打开更快，首次加载后可离线使用。"
         : `首次加载后可离线使用${st.sw.controlled ? "（离线缓存已启用）" : ""}。Chrome / Edge 可在地址栏右侧的安装图标或菜单「安装应用」中安装。`;
   renderExperience();
+  const notes = currentNotes();
+  const ch = $("about-changelog-body");
+  if (ch) ch.innerHTML = notes ? notesHtml(notes, { heading: "本版更新" }) : "";
+  const cap = $("about-capabilities-list");
+  if (cap) {
+    cap.innerHTML = [
+      "晃动、含胸、重心偏了、抱臂、走出讲台；全身构图下还会看是否来回走动、写板时是否整个人背对学生。",
+      "视线落下（低头看稿），以及写完板书是否回视学生。",
+      "口头禅：按设置里的词表统计（默认识别「然后」「就是说」「嗯、啊、呃」等），回放里给出次数和具体改法。",
+      "能看见双手（每只手 21 个点），用来辅助判断写板和抱臂。手部模型加载失败时，体态和视线仍可运行。",
+      "目前不能认出黑板上的字。能看到手是否伸向板书区、是否在写、写完是否回视学生；写板时会留下板书区静帧，供你自己看字迹。",
+    ].map((s) => `<li>${s}</li>`).join("");
+  }
+  const asrLine = $("about-asr-state");
+  if (asrLine) {
+    const d = describeAsrEngine(asrStatus().preferred);
+    asrLine.innerHTML = `<b>当前听写：</b>${esc(d.label)}。${esc(d.detail)}`;
+  }
 }
+
+export { renderProfile };
 
 export function wireAbout() {
   $("opt-experience")?.addEventListener("change", async (e) => {
@@ -460,4 +484,5 @@ export function wirePages() {
   wireSettings();
   wireFeedback();
   wireAbout();
+  wireProfile();
 }

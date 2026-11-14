@@ -1,6 +1,6 @@
 /**
- * 转写入口：优先本机识别（sherpa-onnx，需先 npm run fetch-asr），否则用浏览器听写。
- * 回放页展示完整转写，并用水词词表标亮。详见 docs/ASR.md。
+ * 转写入口：若本机识别真正可用则优先使用，否则用浏览器听写。
+ * 当前版本本机识别尚未接入，startSherpa 会如实回退。详见 docs/ASR.md。
  */
 import { startSpeech, speechSupported } from "./speech.js";
 import { sherpaAvailable, startSherpa } from "./asr-sherpa.js";
@@ -15,8 +15,19 @@ export function asrStatus() {
     webspeech,
     preferred: sherpa.ok ? "sherpa" : webspeech ? "webspeech" : "none",
     local: sherpa.ok,
+    sherpaFiles: !!sherpa.filesOk,
   };
 }
+
+export function describeAsrEngine(engine, status = asrStatus()) {
+  if (engine === "sherpa" && status.sherpa) return { key: "sherpa", label: "本机听写", detail: "声音留在这台设备，不经过沉思波，也不经过浏览器厂商。" };
+  if (engine === "webspeech" || (engine !== "none" && status.webspeech)) {
+    return { key: "webspeech", label: "浏览器听写", detail: "Chrome / Edge 会把声音送到厂商的语音服务，不经过沉思波。在中国大陆即使网页能打开，听写也经常连不上。" };
+  }
+  if (status.sherpaFiles) return { key: "unavailable", label: "本机听写尚未接入", detail: "已找到模型文件，但当前版本还不能用它转写。" };
+  return { key: "unavailable", label: "听写不可用", detail: status.sherpaDetail || "当前浏览器没有网页听写，本机听写也尚未接入。" };
+}
+
 
 /** 开始转写。engine: auto | sherpa | webspeech。返回与 startSpeech 相同的控制句柄，外加 engine 字段。 */
 export function startAsr(opts = {}) {

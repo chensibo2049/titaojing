@@ -1,11 +1,11 @@
 import { EVENT_META, STAGE_W, STAGE_H, setRuntime } from "./constants.js";
 import { renderScene, coverPose, landmarksFromRig, faceFromRig, applyShot, buildRig } from "./teacher.js";
 import { captionAt, fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
-import { createSession, tickFrame, addFiller, addTranscript, extractGaze, extractPosture, diagnose, frameAt } from "./analyze.js";
+import { createSession, tickFrame, addFiller, addTranscript, extractGaze, extractPosture, diagnose, frameAt, maybeCaptureBoardStill } from "./analyze.js";
 import { drawLiveOverlays, drawCoachSilhouette, resizeCanvasTo } from "./overlays.js";
 import { initVision, detectVideo, visionStatus, onVisionProgress, resetVision } from "./vision.js";
-import { speechSupported } from "./speech.js";
-import { startAsr, highlightFillerHtml, asrStatus } from "./asr.js";
+import { speechSupported, preflightSpeech } from "./speech.js";
+import { startAsr, highlightFillerHtml, asrStatus, describeAsrEngine } from "./asr.js";
 import { inspectSherpa } from "./asr-sherpa.js";
 import { exportSummary } from "./export.js";
 import { getSettings, saveSettings, timing, SESSION_MODES, FRAME_MODES } from "./settings.js";
@@ -13,11 +13,14 @@ import { getLicense } from "./license.js";
 import { preflight, openCamera, listCameras, stopStream as stopTracks, streamFacing, keepAwake, errorCopy, envInfo } from "./camera.js";
 import { putSession, putVideo, listSessions, getSession, getVideo, deleteSession, requestPersist } from "./store.js";
 import { toRecord, fromRecord, metricsOf, fmtDate, fmtShortDate, fmtDur } from "./records.js";
+import { currentProfileName } from "./profile.js";
+import { hasUnseenNotes, currentNotes, notesHtml, markVersionSeen } from "./changelog.js";
+import { buildFillerReport } from "./fillers.js";
 import { installErrorCapture, logEvent, setLastSessionStats } from "./diagnostics.js";
 import { initPwa, pwaState, onPwaChange, promptInstall } from "./pwa.js";
 import { buildPrintReport, printReport } from "./report.js";
 import { $, esc, toast, modal, fitStage, copyText } from "./ui.js";
-import { renderHistory, renderCompare, renderSettings, renderFeedback, renderAbout, trendPoints, wirePages } from "./pages.js";
+import { renderHistory, renderCompare, renderSettings, renderFeedback, renderAbout, renderProfile, trendPoints, wirePages } from "./pages.js";
 import { VERSION_LABEL, APP_VERSION } from "./version.js";
 import { initDebug, debugEnabled, debugFrame, debugSpeech, debugSessionStart, debugSessionEnd } from "./debug.js";
 import { hasAcceptedTerms, acceptTerms, experienceOn } from "./consent.js";
@@ -25,9 +28,9 @@ import { maybeEnqueue } from "./experience.js";
 
 installErrorCapture();
 
-const SCREEN_IDS = ["cover", "permission", "error", "coach", "live", "replay", "history", "compare", "settings", "feedback", "about"];
+const SCREEN_IDS = ["cover", "permission", "error", "coach", "live", "replay", "history", "compare", "settings", "feedback", "about", "profile"];
 const screens = Object.fromEntries(SCREEN_IDS.map((k) => [k, $(`screen-${k}`)]));
-const PAGES = ["history", "compare", "settings", "feedback", "about"];
+const PAGES = ["history", "compare", "settings", "feedback", "about", "profile"];
 
 let mode = "cover"; // cover | demo | coach | camera | replay | page
 let session = null;
@@ -117,6 +120,7 @@ function route() {
     if (page === "settings") renderSettings(ctx);
     if (page === "feedback") renderFeedback(ctx);
     if (page === "about") renderAbout(ctx);
+    if (page === "profile") renderProfile(ctx);
     screens[page].scrollTop = 0;
     return;
   }
@@ -166,9 +170,21 @@ function startCoverLoop() {
   coverRaf = requestAnimationFrame(tick);
 }
 
+function renderWhatsNew() {
+  const box = $("whats-new");
+  const body = $("whats-new-body");
+  if (!box || !body) return;
+  if (!hasUnseenNotes()) { box.hidden = true; return; }
+  const notes = currentNotes();
+  if (!notes) { box.hidden = true; return; }
+  body.innerHTML = notesHtml(notes, { heading: "本版更新" });
+  box.hidden = false;
+}
+
 async function renderCover() {
   const lic = getLicense();
   $("cover-version").textContent = `${VERSION_LABEL} · ${lic.label}`;
+  renderWhatsNew();
   const s = getSettings();
   const modeLab = s.sessionMode === "classroom" ? "课堂" : "练习";
   $("cover-note").textContent = `演示约一分钟，不必等候模型加载。当前是${modeLab}模式，建议时长 ${s.targetMin} 分钟。半身请站到腰部以上入画；全身请再退远一些，让脚也进入画面。`;
@@ -206,6 +222,7 @@ function startDemo() {
   $("live-scene").hidden = false;
   $("hud-caption").hidden = false;
   $("speech-banner").hidden = true;
+  if ($("live-asr-state")) $("live-asr-state").hidden = true;
   $("timer-hint").textContent = "演示约 00:55";
   $("btn-stop").disabled = true;
   $("dock-note").textContent = "演示进行中，也可随时跳过到回放";
@@ -285,8 +302,9 @@ function finishDemo() {
   saveToHistory(session).then((st) => { renderSaveStatus(st); enqueueIfConsented(session); });
 }
 
-function updateFlagsHUD(flags = {}, gaze, onBoard) {
+function updateFlagsHUD(flags = {}, gaze, onBoard, hands) {
   const chips = [];
+  if (hands && hands.length) chips.push(["看见双手", "ok"]);
   if (gaze?.label === "class") chips.push(["面向学生", "ok"]);
   if (gaze?.label === "notes") chips.push(["视线在讲稿上", "warn"]);
   if (gaze?.label === "ceiling") chips.push(["视线向上", "warn"]);
@@ -299,7 +317,7 @@ function updateFlagsHUD(flags = {}, gaze, onBoard) {
   if (flags.out) chips.push(["走出讲台", "warn"]);
   if (flags.back) chips.push(["背对学生写板", "warn"]);
   if (flags.pace) chips.push(["来回走动", "warn"]);
-  const html = chips.slice(0, 3).map(([t, k]) => `<span class="flag-chip ${k}">${t}</span>`).join("");
+  const html = chips.slice(0, 4).map(([t, k]) => `<span class="flag-chip ${k}">${t}</span>`).join("");
   const host = $("hud-flags");
   if (host.innerHTML !== html) host.innerHTML = html;
 }
@@ -430,7 +448,9 @@ async function startCoach() {
   $("coach-mirror").checked = s.mirror;
   attachVideo(video, mediaStream);
   $("mic-state").textContent = micOn ? "麦克风已开启，将留下转写并标出水词" : "麦克风未开启：这一次没有转写，也统计不了口头禅。建议返回并允许麦克风。";
-  $("coach-sub").textContent = `半透框是「板书区」（画面${s.boardSide === "left" ? "左" : "右"}侧），可对准教室里的黑板。没有黑板也可以忽略。`;
+  setAsrStatusLabel($("coach-asr-state"));
+  const sub = $("coach-sub");
+  if (sub) sub.textContent = `半透框是「板书区」（画面${s.boardSide === "left" ? "左" : "右"}侧），可对准教室里的黑板。没有黑板也可以忽略。目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生。`;
   const canvas = $("coach-canvas");
   setRuntime({ boardSide: s.boardSide, sens: s.sens, frameMode: s.frameMode });
   const loop = () => {
@@ -480,7 +500,7 @@ function watchModels() {
       $("mp-label").textContent = "正在启动教态模型…";
       $("mp-fill").style.width = "96%";
     } else {
-      $("mp-label").textContent = `正在下载教态模型 ${p.pct}%（约 21 MB，只需一次）`;
+      $("mp-label").textContent = `正在下载教态模型 ${p.pct}%（体态约 21 MB，手部另约 8 MB，只需一次）`;
       $("mp-fill").style.width = `${Math.max(3, p.pct * 0.95)}%`;
     }
   });
@@ -545,7 +565,10 @@ async function startCameraLive() {
   keepAwake(true);
   startRecording();
   session.speechAvailable = speechSupported() && micOn;
+  session.speechError = "";
+  currentProfileName().then((n) => { if (n && session) session.profileName = n; }).catch(() => {});
   debugSessionStart({ kind: "camera", camera: camLabel, mic: micOn, aspect: session.aspect });
+  const asrLive = $("live-asr-state");
   if (micOn) {
     speechHandle = startAsr({
       engine: s.asrEngine,
@@ -566,12 +589,32 @@ async function startCameraLive() {
       },
       onDebug: debugEnabled() ? debugSpeech : null,
       onHeard: () => { session.speechHeard = true; },
-      onStatus: (st) => { if (!st.ok) { banner(st.message, 8000); session.speechAvailable = false; logEvent("speech", st.message); } },
+      onStatus: (st) => {
+        if (st && st.engine) session.asrEngine = st.engine;
+        setAsrStatusLabel(asrLive, st && st.engine, st && st.ok === false ? "当前不可用" : "");
+        if (!st.ok) {
+          session.speechError = st.message || "";
+          banner(st.message, st.sticky ? 0 : 8000);
+          if (st.sticky || st.engine === "none") session.speechAvailable = false;
+          logEvent("speech", st.message);
+        }
+      },
     });
+    setAsrStatusLabel(asrLive, speechHandle && speechHandle.engine);
   } else {
+    session.speechAvailable = false;
+    setAsrStatusLabel(asrLive, "none", "未开麦克风");
     banner("麦克风未开启，这次不统计口头禅。教态和视线仍在分析。", 6000);
   }
   loopCamera();
+}
+
+function setAsrStatusLabel(el, engine, extra = "") {
+  if (!el) return;
+  const d = describeAsrEngine(engine || asrStatus().preferred);
+  el.textContent = extra ? `听写：${d.label}（${extra}）` : `听写：${d.label}`;
+  el.title = d.detail;
+  el.hidden = false;
 }
 
 let bannerTimer = 0;
@@ -580,7 +623,7 @@ function banner(msg, ms = 6000) {
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(bannerTimer);
-  if (ms) bannerTimer = setTimeout(() => { el.hidden = true; }, ms);
+  if (ms && ms > 0) bannerTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
 function pickMime() {
@@ -648,15 +691,17 @@ function loopCamera() {
     const t = (now - liveStart) / 1000;
     fitStage($("live-stage"), videoAspectOf(video));
     resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
-    const det = detectVideo(video, now, { mirror: session.mirror, faceEvery });
+    const handEvery = faceEvery > 1 ? faceEvery : 1;
+    const det = detectVideo(video, now, { mirror: session.mirror, faceEvery, handEvery });
     const gaze = extractGaze(det.pose, det.face, det.matrix);
-    const posture = extractPosture(det.pose, session._hist);
-    tickFrame(session, t, det.pose, det.face, gaze, posture);
+    const posture = extractPosture(det.pose, session._hist, det.hands);
+    tickFrame(session, t, det.pose, det.face, gaze, posture, det.hands);
     const last = session.frames[session.frames.length - 1];
-    const frame = { pose: det.pose, gaze, flags: posture.flags, onBoard: last ? last.onBoard : false };
+    const frame = { pose: det.pose, gaze, flags: posture.flags, onBoard: last ? last.onBoard : false, hands: det.hands };
+    if (session._writing) maybeCaptureBoardStill(session, video, t, { mirror: session.mirror });
     drawLiveOverlays(overlay.getContext("2d"), frame, overlay.width, overlay.height, { showMap: s.showMap });
-    updateFlagsHUD(frame.flags, gaze, frame.onBoard);
-    if (debugEnabled()) debugFrame({ source: "camera", t, det, gaze, flags: frame.flags, onBoard: frame.onBoard, faceEvery, events: session.events });
+    updateFlagsHUD(frame.flags, gaze, frame.onBoard, det.hands);
+    if (debugEnabled()) debugFrame({ source: "camera", t, det, gaze, flags: frame.flags, onBoard: frame.onBoard, faceEvery, events: session.events, hands: det.hands ? det.hands.length : 0 });
 
     // performance watch
     totalFrames += 1;
@@ -806,7 +851,7 @@ async function saveToHistory(sess, { withVideo = false } = {}) {
         for (const old of excess) { await deleteSession(old.id); out.replaced += 1; }
       }
     }
-    const rec = toRecord(sess);
+    const rec = toRecord(sess, { profileName: sess.profileName || "" });
     let blob = null;
     if (withVideo && sess.videoBlob && lic.features.saveVideo) {
       blob = sess.videoBlob;
@@ -928,14 +973,63 @@ function renderDiagnosis(sess) {
   $("diag-good").textContent = d.good;
   $("diag-next").textContent = d.next;
   const bits = [fmtDate(sess.startedAt || Date.now()), `时长 ${fmt(sess.duration)}`, sess.kind === "demo" ? "一键演示样本" : "真实试讲"];
+  if (sess.profileName) bits.push(sess.profileName);
   if (sess.kind === "camera" && sess.speechAvailable === false) bits.push("本次未听写口头禅");
-  else if (sess.kind === "camera" && sess.speechHeard === false) bits.push("没听到语音，口头禅可能未统计");
+  else if (sess.kind === "camera" && sess.speechHeard === false) bits.push("没听到语音，口头禅无法可靠统计");
   if (sess.kind === "camera" && sess.visionAvailable === false) bits.push("本次未分析体态");
   else if (sess.kind === "camera" && Number.isFinite(d.poseRatio)) bits.push(`识别到人 ${Math.round(d.poseRatio * 100)}%`);
   if (sess.frameResolved) bits.push(sess.frameResolved === "full" ? "全身构图" : "半身构图");
   if (sess.sessionMode === "classroom") bits.push("课堂模式");
   $("diag-meta").textContent = bits.join(" · ");
   renderTranscript(sess);
+  renderFillerReport(sess);
+  renderBoardStills(sess);
+}
+
+
+function renderFillerReport(sess) {
+  const host = $("filler-report");
+  if (!host) return;
+  const rep = (sess.diagnosis && sess.diagnosis.fillerReport) || buildFillerReport(sess);
+  if (!rep.ok) {
+    host.innerHTML = `<p class="filler-reason">${esc(rep.reason)}</p>`;
+    return;
+  }
+  const words = (rep.words || []).map((w) => {
+    const t0 = w.times && w.times[0];
+    const jump = Number.isFinite(t0) ? `<button type="button" data-jump="${t0}">${fmt(t0)} 起</button>` : "";
+    return `<li><span>「${esc(w.word)}」 <b>${w.count}</b> 次</span>${jump}</li>`;
+  }).join("") || "<li>词表里的口头禅很少。</li>";
+  const methods = (rep.methods || []).map((m) => `<div class="filler-method"><b>${esc(m.title)}</b>${esc(m.body)}</div>`).join("");
+  const top = rep.top ? `出现最多的是「${esc(rep.top.word)}」。` : "";
+  host.innerHTML = `<div class="filler-stats"><span>共 <b>${rep.total}</b> 次</span><span>约 <b>${rep.perMin}</b> 次/分钟</span><span>${top}</span></div>
+    <ul class="filler-words">${words}</ul>
+    ${methods}
+    <p class="page-note">词表可在设置里增删。上面的改法针对这一次实际出现的词。</p>`;
+  host.querySelectorAll("[data-jump]").forEach((b) => b.addEventListener("click", () => {
+    const t = Number(b.getAttribute("data-jump"));
+    if (Number.isFinite(t)) { stopReplayPlay(); seekReplay(t); }
+  }));
+}
+
+function renderBoardStills(sess) {
+  const host = $("board-stills");
+  const note = $("board-stills-note");
+  if (!host) return;
+  const stills = sess.boardStills || [];
+  if (!stills.length) {
+    host.hidden = true;
+    host.innerHTML = "";
+    if (note) note.textContent = "目前不能认出黑板上的字。这一次没有采集到写板时的静帧。若有写板，会在手伸向板书区时留下板书区截图，供你自己看字迹；也能看到写完是否回视学生。";
+    return;
+  }
+  if (note) note.textContent = "目前不能认出黑板上的字。下面是写板时截取的板书区画面，点一张可跳到该时刻，请自己判断字迹。";
+  host.hidden = false;
+  host.innerHTML = stills.map((s) => `<figure data-t="${s.t}"><img src="${s.dataUrl}" alt="板书区静帧"><figcaption>${fmt(s.t)}</figcaption></figure>`).join("");
+  host.querySelectorAll("figure").forEach((fig) => fig.addEventListener("click", () => {
+    const t = Number(fig.getAttribute("data-t"));
+    if (Number.isFinite(t)) { stopReplayPlay(); seekReplay(t); }
+  }));
 }
 
 function renderTranscript(sess) {
@@ -951,7 +1045,7 @@ function renderTranscript(sess) {
       empty.hidden = false;
       empty.textContent = sess.kind === "demo"
         ? "演示样本的转写按讲稿生成，水词已标出。"
-        : (sess.speechAvailable ? "这一次听写没有留下句子。可在 Chrome 或 Edge 里再试，并允许麦克风。" : "这一次没有转写。请允许麦克风；Chrome 或 Edge 的听写比较稳。本机识别准备好之后，声音可以留在这台设备上。");
+        : (sess.speechAvailable ? "这一次听写没有留下句子。可先点「试一下听写」，或改用 Microsoft Edge。" : "这一次没有可用的听写，口头禅无法统计。Chrome / Edge 的听写在中国大陆经常连不上厂商服务，即便网页已经打开。本机听写仍在准备中。");
     }
     return;
   }
@@ -1047,7 +1141,7 @@ function paintReplay(t) {
   const fr = session.kind === "demo" ? frameAt(session, t) : frameLerp(session, t);
   const pose = fr?.pose || (session.kind === "demo" ? sampleDemo(t).pose : null);
   const gaze = fr?.gaze || (pose ? extractGaze(pose, null, null) : null);
-  drawLiveOverlays(overlay.getContext("2d"), { pose, gaze, flags: fr?.flags || {}, onBoard: fr?.onBoard }, overlay.width, overlay.height, { showMap: true });
+  drawLiveOverlays(overlay.getContext("2d"), { pose, gaze, flags: fr?.flags || {}, onBoard: fr?.onBoard, hands: fr?.hands || null }, overlay.width, overlay.height, { showMap: true });
   setPlayhead(t);
 }
 
@@ -1252,6 +1346,24 @@ function onReady() {
   inspectSherpa().catch(() => {});
   initDebug({ getVisionStatus: visionStatus, getEnv: envInfo, getSettings });
 
+  $("btn-dismiss-whats-new")?.addEventListener("click", () => {
+    markVersionSeen();
+    const box = $("whats-new");
+    if (box) box.hidden = true;
+  });
+  $("btn-speech-preflight")?.addEventListener("click", async () => {
+    const out = $("speech-preflight-result");
+    const btn = $("btn-speech-preflight");
+    if (btn) btn.disabled = true;
+    if (out) { out.hidden = false; out.textContent = "正在试听，请对着麦克风说一两句话…"; }
+    try {
+      const r = await preflightSpeech({ lang: getSettings().speechLang, seconds: 4 });
+      if (out) out.textContent = r.reason;
+    } catch (e) {
+      if (out) out.textContent = "试听没能完成，请改用 Chrome 或 Edge，并允许麦克风。";
+    }
+    if (btn) btn.disabled = false;
+  });
   $("btn-demo").addEventListener("click", () => navigate("#/demo"));
   $("btn-camera").addEventListener("click", () => navigate("#/try"));
   document.querySelectorAll("[data-go=cover]").forEach((b) => b.addEventListener("click", () => navigate("#/")));
