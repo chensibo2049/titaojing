@@ -78,7 +78,13 @@ try {
   check("模型加载完成", /已就绪/.test(mp), mp);
   await page.click("#btn-start-countdown");
   await waitVisible("screen-live");
-  await sleep(Number(process.env.SMOKE_LIVE_MS || 18000));
+  // GitHub-hosted runners are slower than a laptop; wait until enough pose
+  // frames are recorded instead of assuming a fixed 18s is enough.
+  const liveMs = Number(process.env.SMOKE_LIVE_MS || 45000);
+  await page.waitForFunction(() => {
+    const s = window.__titaojingDebug && window.__titaojingDebug.state;
+    return s && s.source === "camera" && s.rec && s.rec.frames.length > 20;
+  }, { timeout: liveMs }).catch(() => {});
   const cam = await page.evaluate(() => { const s = window.__titaojingDebug.state; return { source: s.source, recFrames: s.rec ? s.rec.frames.length : 0, fps: s.frameTimes.length, vision: s.getVisionStatus() }; });
   check("镜头：调试面板收到帧并在记录轨迹", cam.source === "camera" && cam.recFrames > 20, `recFrames=${cam.recFrames}`);
   check("模型加载耗时已记录", cam.vision.timings && cam.vision.timings.downloadMs != null && cam.vision.loadMs > 0, JSON.stringify(cam.vision.timings));
