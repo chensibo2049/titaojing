@@ -78,7 +78,7 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 也可以先打开[在线介绍页](https://chensibo2049.github.io/titaojing/landing/)，或直接[在浏览器里试用](https://chensibo2049.github.io/titaojing/)（必须是 https，才能调用摄像头）。
 
-不要双击 `index.html`（`file://` 下不能用镜头）。手机测试与课堂摆放见 [`docs/CAMERA_DEBUG.md`](docs/CAMERA_DEBUG.md)、[`docs/CLASSROOM.md`](docs/CLASSROOM.md)。排错可在网址后加 `?debug=1`。
+不要双击 `index.html`（`file://` 下不能用镜头）。手机测试与课堂摆放见 [`docs/CAMERA_DEBUG.md`](docs/CAMERA_DEBUG.md)、[`docs/CLASSROOM.md`](docs/CLASSROOM.md)。第一次完整试讲，可以照着 [10 分钟试讲练习单](docs/PRACTICE.md) 来。排错可在网址后加 `?debug=1`。
 
 ## 接下来怎么走
 

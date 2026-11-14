@@ -16,6 +16,7 @@
     "serve": "python3 scripts/serve.py dist",
     "dev": "npm run build:dev && python3 scripts/serve.py .",
     "test": "node scripts/check-v11.mjs",
+    "check-docs": "node scripts/check-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
     "qa": "node scripts/qa-v1.mjs",
     "package": "python3 scripts/package.py",
