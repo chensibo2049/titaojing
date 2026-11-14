@@ -115,6 +115,7 @@ export function toRecord(session, extra = {}) {
     profileName: extra.profileName || session.profileName || "",
     speechError: session.speechError || "",
     simLog: session.simLog || null,
+    stemRequirement: session.stemRequirement || (session.settingsSnapshot && session.settingsSnapshot.stemRequirement) || "",
   };
 }
 
@@ -153,6 +154,7 @@ export function fromRecord(rec) {
     speechError: rec.speechError || "",
     fillerReport: rec.diagnosis && rec.diagnosis.fillerReport ? rec.diagnosis.fillerReport : null,
     simLog: rec.simLog || null,
+    stemRequirement: rec.stemRequirement || (rec.settings && rec.settings.stemRequirement) || "",
   };
 }
 

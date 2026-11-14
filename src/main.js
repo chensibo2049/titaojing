@@ -382,6 +382,8 @@ function openPermission() {
     b.classList.toggle("on", on);
     b.setAttribute("aria-checked", on ? "true" : "false");
   });
+  const stemEl = $("perm-stem");
+  if (stemEl) stemEl.value = s.stemRequirement || "";
   $("media-error").hidden = true;
 }
 
@@ -556,7 +558,10 @@ async function startCameraLive() {
   session.frameMode = s.frameMode;
   session.sessionMode = s.sessionMode;
   session.asrEngine = s.asrEngine;
-  session.settingsSnapshot = { boardSide: s.boardSide, sens: { ...s.sens }, mirror: s.mirror, targetMin: s.targetMin, speechLang: s.speechLang, facing: s.facing, frameMode: s.frameMode, sessionMode: s.sessionMode, fillers: s.fillers.slice(), asrEngine: s.asrEngine, classroomSim: s.classroomSim || "off" };
+  const stem = (($("perm-stem") && $("perm-stem").value) || "").trim().slice(0, 800);
+  session.stemRequirement = stem;
+  if (stem !== (s.stemRequirement || "")) saveSettings({ stemRequirement: stem });
+  session.settingsSnapshot = { boardSide: s.boardSide, sens: { ...s.sens }, mirror: s.mirror, targetMin: s.targetMin, speechLang: s.speechLang, facing: s.facing, frameMode: s.frameMode, sessionMode: s.sessionMode, fillers: s.fillers.slice(), asrEngine: s.asrEngine, classroomSim: s.classroomSim || "off", stemRequirement: stem };
   session.thumb = "";
   fillerSeen = new Set();
   paused = false;

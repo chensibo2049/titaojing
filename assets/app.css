@@ -1614,3 +1614,29 @@ mark.shuici, .shuici {
     max-height: 46%;
   }
 }
+
+
+/* 开讲页题干、语文观察表 */
+.perm-stem { margin: 14px 0 4px; }
+.perm-stem textarea {
+  width: 100%;
+  min-height: 4.6em;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #faf7f0;
+  color: var(--ink);
+  border-radius: 2px;
+}
+.ob-law { background: #f6f1e6; border-left: 3px solid var(--cinnabar); }
+.ob-checks { list-style: none; padding: 0; margin: 8px 0 0; }
+.ob-checks li { margin: 0 0 10px; }
+.ob-checks label { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; }
+.ob-check-title { font-weight: 600; }
+.ob-credit { font-size: 12px; color: var(--ink-faint); margin-top: 18px; }
+@media print {
+  .ob-hint, .ob-kicker-lead { color: #444; }
+  .plain-actions, .live-dock, nav, .ob-jump { /* keep jumps visible as text */ }
+}

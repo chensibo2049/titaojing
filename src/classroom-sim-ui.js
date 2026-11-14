@@ -21,10 +21,12 @@ function avatarSvg(p, i) {
   const c = pal(p.id, i);
   const hand = p.state === "hand";
   const speak = p.state === "speaking" || p.state === "asking";
+  const reading = p.state === "reading";
+  const standRead = p.state === "stand_read";
   const conf = p.state === "confused";
   const dist = p.state === "distracted";
-  const tilt = conf ? -8 : dist ? 10 : 0;
-  const mouth = speak ? `M 42 58 Q 50 64 58 58` : `M 43 58 Q 50 61 57 58`;
+  const tilt = conf ? -8 : dist ? 10 : reading ? 4 : 0;
+  const mouth = (speak || reading || standRead) ? `M 42 58 Q 50 64 58 58` : `M 43 58 Q 50 61 57 58`;
   const eyeL = dist ? `<circle cx="42" cy="46" r="1.6" fill="${c.ink}"/>` : `<ellipse cx="42" cy="46" rx="1.8" ry="2.1" fill="${c.ink}"/>`;
   const eyeR = dist ? `<circle cx="58" cy="46" r="1.6" fill="${c.ink}"/>` : `<ellipse cx="58" cy="46" rx="1.8" ry="2.1" fill="${c.ink}"/>`;
   const brow = conf
@@ -43,14 +45,20 @@ function avatarSvg(p, i) {
         <path d="M26 86 C20 70 22 52 28 40" fill="none" stroke="${c.shirt}" stroke-width="7" stroke-linecap="round"/>
         <circle cx="29" cy="36" r="5" fill="${c.skin}" stroke="${c.ink}" stroke-width="1"/>
       </g>`
-    : `<path d="M28 90 C22 96 20 108 24 118" fill="none" stroke="${c.shirt}" stroke-width="7" stroke-linecap="round"/>`;
+    : (reading || standRead)
+      ? `<g>
+          <path d="M34 90 C38 86 42 82 46 78" fill="none" stroke="${c.shirt}" stroke-width="6" stroke-linecap="round"/>
+          <rect x="44" y="70" width="12" height="16" rx="1" fill="#f4efe4" stroke="${c.ink}" stroke-width="1"/>
+        </g>`
+      : `<path d="M28 90 C22 96 20 108 24 118" fill="none" stroke="${c.shirt}" stroke-width="7" stroke-linecap="round"/>`;
   const mark = conf
     ? `<text x="76" y="28" font-size="14" font-family="Noto Serif CJK SC, Songti SC, serif" fill="${c.ink}">？</text>`
     : dist
       ? `<text x="74" y="26" font-size="11" font-family="Noto Sans CJK SC, sans-serif" fill="#8a7a68">…</text>`
       : "";
+  const lift = standRead ? -14 : 0;
   return `<svg class="sim-avatar-svg" viewBox="0 0 100 128" width="72" height="92" aria-hidden="true">
-    <g transform="rotate(${tilt} 50 70)">
+    <g transform="translate(0 ${lift}) rotate(${tilt} 50 70)">
       <ellipse cx="50" cy="118" rx="28" ry="6" fill="#e6d8c4" opacity="0.7"/>
       ${armUp}
       <path d="M24 86 C24 118 76 118 76 86 L70 78 C64 92 36 92 30 78 Z" fill="${c.shirt}" stroke="${c.ink}" stroke-width="1.2"/>
@@ -65,12 +73,28 @@ function avatarSvg(p, i) {
   </svg>`;
 }
 
+export function seatsHtml(people, mode = "class") {
+  return (people || []).map((p, i) => {
+    const cls = `sim-seat is-${p.state}${p.bubble ? " has-bubble" : ""}`;
+    const bubble = p.bubble ? `<div class="sim-bubble"><p>${esc(p.bubble)}</p></div>` : "";
+    return `<div class="${cls}" aria-label="${esc(p.name)}，${stateLabel(p)}">
+      ${avatarSvg(p, i)}
+      <span class="sim-name">${esc(p.name)}</span>
+      <span class="sim-meta">${esc(p.seat || p.role || "")} · ${stateLabel(p)}</span>
+      ${bubble}
+    </div>`;
+  }).join("");
+}
+
 function stateLabel(p) {
   return ({
     idle: "在听",
     hand: "举手",
     speaking: "在回答",
     asking: "在提问",
+    reading: "齐读",
+    stand_read: "在朗读",
+    listening: "在听读",
     confused: "有些困惑",
     distracted: "稍稍走神",
   })[p.state] || "在听";

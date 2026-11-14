@@ -25,3 +25,4 @@ training/calibration.json
 !training/examples/**
 .env
 .env.*
+.shot-v14/

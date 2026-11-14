@@ -1,5 +1,6 @@
 /** 把观察记录画成评课表式的纸面记录：只摆事实，不做好坏评分。 */
 import { buildObserveReport } from "./observe.js";
+import { buildYuwenReport, NOTES_CREDIT } from "./yuwen.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -124,6 +125,160 @@ function simSection(session) {
     <h3 class="ob-sec-title">模拟互动</h3>
     <p class="ob-kicker-lead">练习用模拟。下列次数来自本机规则，不是真实课堂。</p>
     ${row("模拟互动", hint, body)}
+  </section>`;
+}
+
+
+const YUWEN_LAW_HINT = "先看教态与口头表达。下面把已有的姿态、视线、手势、语速、停顿和提问汇在一起，仍然不作好坏打分。";
+
+function checkList(items) {
+  if (!items || !items.length) return "";
+  return `<ul class="ob-checks">${items.map((it) =>
+    `<li><label><input type="checkbox" class="ob-check"> <span class="ob-check-title">${esc(it.title)}</span></label>
+       <p class="ob-hint">${esc(it.hint || "")}</p></li>`
+  ).join("")}</ul>`;
+}
+
+function yuwenSection(session) {
+  const y = buildYuwenReport(session);
+  const credit = `<p class="ob-kicker-lead">方法提示${esc(y.credit)}。能定位的列出原话和时刻，看不出的用自查清单。仍然不作评分。</p>`;
+
+  const law = y.law;
+  const pres = [];
+  if (law.presence.gaze) {
+    const g = law.presence.gaze;
+    pres.push(`面向学生约 ${num(g.classRatio * 100, 0)}% 的可判时段；视线左 ${num(g.leftRatio * 100, 0)}%、中 ${num(g.midRatio * 100, 0)}%、右 ${num(g.rightRatio * 100, 0)}%。`);
+  }
+  if (law.presence.gestures) pres.push(`手势约 ${law.presence.gestures.count} 次。`);
+  if (law.presence.hands) {
+    const h = law.presence.hands;
+    if (h.longStill) pres.push(`双手有超过约 8 秒几乎不动的时段（${h.stillSpans.filter((s) => s.duration >= 8).map((s) => fmt(s.t) + " 起，约 " + num(s.duration) + " 秒").join("；")}）。`);
+    else if (h.alwaysMoving) pres.push(`可判时段里手部移动约占 ${num(h.movingRatio * 100, 0)}%，较少出现明显停住。`);
+    else pres.push(`可判时段里手部移动约占 ${num(h.movingRatio * 100, 0)}%。`);
+  }
+  if (!pres.length) pres.push(y.motionKnown ? "姿态记录不足，教态这一侧无法从画面计算。" : "没有足够的姿态或视线记录，教态请对照录像自查。");
+  const sp = [];
+  if (law.speech.rate) sp.push(`整段约 ${num(law.speech.rate.cpm, 0)} 字/分。`);
+  if (law.speech.pauses) sp.push(`停顿 ${law.speech.pauses.count} 处，平均 ${num(law.speech.pauses.mean)} 秒。`);
+  if (law.speech.questions) sp.push(`问句 ${law.speech.questions.count} 处（开放 ${law.speech.questions.open}，封闭 ${law.speech.questions.closed}），问后平均等候 ${num(law.speech.questions.meanWait)} 秒。`);
+  const lawBody = `<p class="ob-lead">${esc(pres.join(""))}</p><p>${y.hasSpeech ? esc(sp.join("")) : ""}</p>
+    <p class="ob-hint">姿态是否放松，请对照录像自查。停顿是技术，问完、读完、写完，都要敢把时间留出来。</p>`;
+
+  const talkBody = y.talk
+    ? `<p class="ob-lead">面向学生的用语约占转写字数的 ${num(y.talk.addressedRatio * 100, 0)}%（${y.talk.addressedLines} / ${y.talk.lineCount} 句里出现了称呼、点名或请学生说）。</p>
+       ${y.talk.items.length ? jumpList(y.talk.items.slice(0, 12), (it) => esc(it.text)) : "<p class='ob-empty'>没有记下面向学生的用语。</p>"}`
+    : "";
+
+  const openBody = y.hasSpeech
+    ? (y.openHits.length
+      ? `<p class="ob-lead">开放问题用语 ${y.openHits.length} 处。</p>${jumpList(y.openHits, (it) => `「${esc(it.phrase)}」${esc(it.text)}`)}`
+      : `<p class="ob-empty">没有出现「谁来说说」「你怎么看」「你觉得」。</p>`)
+    : "";
+
+  const nameBody = y.hasSpeech
+    ? (y.nameHits.length
+      ? `<p class="ob-lead">点名用语 ${y.nameHits.length} 处。</p>${jumpList(y.nameHits, (it) => `「${esc(it.phrase)}」${esc(it.text)}`)}`
+      : `<p class="ob-empty">没有出现「请你」「请这位」或按姓名点名的用语。</p>`)
+    : "";
+
+  const virtBody = y.virtualDialogue
+    ? `<p class="ob-lead">问句 ${y.virtualDialogue.questionCount} 处。${y.virtualDialogue.meets ? "已满 3 次。" : "还不满 3 次。"}有生无生结合时，提问也不宜太少。</p>`
+    : "";
+
+  let stemBody = "";
+  let stemMissing = "";
+  if (!y.hasSpeech) stemMissing = y.speechWhy;
+  else if (!y.stem) stemMissing = "开讲页没有粘贴题干要求，这一栏请对照考题自查。下次可在开讲页把题干 2–3 条贴进去。";
+  else {
+    const c = y.stemCoverage;
+    stemBody = `<p class="ob-lead">题干原文：「${esc(y.stem)}」</p>
+      <p>对上的词 ${c.covered.length} 个${c.missing.length ? `，尚未在转写里出现：${c.missing.map((w) => "「" + esc(w) + "」").join("、")}` : "，题干里抽出的词都在转写中出现过"}。</p>
+      ${c.covered.length ? `<ul class="ob-pills">${c.covered.map((k) => `<li><button type="button" class="ob-jump" data-jump="${(k.times && k.times[0]) || 0}">${esc(k.word)}</button></li>`).join("")}</ul>` : ""}`;
+  }
+
+  const readBody = y.reading
+    ? `<p class="ob-lead">朗读提示 ${y.reading.count} 处，用到的形式：${y.reading.forms.length ? y.reading.forms.join("、") : "尚未记下"}。${y.reading.meetsTarget ? "次数和形式变化都达到了「至少三次、换种办法」。" : "目标是至少三次，并且变换形式。"}</p>
+       ${y.reading.items.length ? jumpList(y.reading.items, (it) => `${esc(it.label)} · 「${esc(it.cue)}」${esc(it.text)}`) : ""}`
+    : "";
+
+  const modelBody = y.modelRead
+    ? (y.modelRead.items.length
+      ? `<p class="ob-lead">范读段 ${y.modelRead.count} 处，并记下该段大约字/分和停顿次数（按转写粗算，不是评分）。</p>
+         ${jumpList(y.modelRead.items, (it) => `「${esc(it.cue)}」约 ${num(it.cpm, 0)} 字/分，停顿 ${it.pauseCount} 处`)}`
+      : `<p class="ob-empty">没有出现「我来读」「听老师读」「跟着老师读」。</p>`)
+    : "";
+
+  const guideBody = y.hasSpeech
+    ? (y.guides.length
+      ? `<p class="ob-lead">朗读指导用语 ${y.guides.length} 处。</p>${jumpList(y.guides, (it) => `「${esc(it.phrase)}」${esc(it.text)}`)}`
+      : `<p class="ob-empty">没有出现「读出」「重音」「停顿」「读慢一点」「入情」。</p>`)
+    : "";
+
+  const boardAuto = y.board && y.board.available
+    ? `<p class="ob-lead">写板 ${y.board.spans.length} 段。</p>
+       ${y.board.spans.map((sp) =>
+         `<div class="ob-board-span"><button type="button" class="ob-jump" data-jump="${sp.t}">${fmt(sp.t)}</button>
+            约 ${num((sp.end || sp.t) - sp.t)} 秒
+            ${sp.keywords.length ? " · " + sp.keywords.map((k) => esc(k.word)).join("、") : " · 附近转写里没有抽出重复的词。"}
+            ${sp.quotes.length ? `<p class="ob-quote">「${esc(sp.quotes[0].text)}」</p>` : ""}</div>`
+       ).join("")}`
+    : (y.hasSpeech ? `<p class="ob-empty">这一次没有记下写板时段，请对照录像自查板书过程。</p>` : "");
+
+  const swapBody = y.swaps
+    ? `<p class="ob-lead">换字比较 ${y.swaps.compares.length} 处${y.swaps.directs.length ? `；「为什么不用……用……」这类直接给结论 ${y.swaps.directs.length} 处` : ""}。</p>
+       ${y.swaps.compares.length ? jumpList(y.swaps.compares, (it) => esc(it.text)) : "<p class='ob-empty'>没有出现「换成」「改成」「如果把……换成」。</p>"}
+       ${y.swaps.directs.length ? jumpList(y.swaps.directs, (it) => `直接给结论 · ${esc(it.text)}`) : ""}`
+    : "";
+
+  const procBody = y.process
+    ? `<p class="ob-lead">${y.process.jumps.length ? `在问句之前出现了「十分经典 / 非常好 / 表达了作者……的思想感情」${y.process.jumps.length} 处。` : "没有在问句之前记下「十分经典」「非常好」或「表达了作者……的思想感情」。"}
+       ${y.process.translations.length ? `出现了「翻译」${y.process.translations.length} 处，可改成「谁来说说这句话什么含义」。` : "没有出现「翻译」。"}
+       ${y.process.lineByLine ? "短时间内多次出现「翻译」或「意思是」，请留意是不是句句翻译。" : ""}</p>
+       ${y.process.jumps.length ? jumpList(y.process.jumps, (it) => `「${esc(it.phrase)}」${esc(it.text)}`) : ""}
+       ${y.process.translations.length ? jumpList(y.process.translations, (it) => `「翻译」${esc(it.text)}`) : ""}`
+    : "";
+
+  const flavourBody = y.hasSpeech
+    ? `<p class="ob-lead">情感 / 入情用语 ${y.flavour.length} 处；意象、意境、想象、情感 ${y.poetry.length} 处；批判性问题 ${y.critical.length} 处。</p>
+       ${y.flavour.length ? jumpList(y.flavour, (it) => `「${esc(it.phrase)}」${esc(it.text)}`) : "<p class='ob-empty'>没有记下「入情入境」或情感类用语。</p>"}
+       ${y.poetry.length ? jumpList(y.poetry, (it) => `「${esc(it.phrase)}」${esc(it.text)}`) : ""}
+       ${y.critical.length ? jumpList(y.critical, (it) => `「${esc(it.phrase)}」${esc(it.text)}`) : "<p class='ob-empty'>没有出现「你同意吗」「有没有不同看法」。</p>"}`
+    : "";
+
+  const evalBody = y.hasSpeech
+    ? (y.evals.length
+      ? `<p class="ob-lead">表现性评价用语 ${y.evals.length} 处。</p>${jumpList(y.evals, (it) => `「${esc(it.phrase)}」${esc(it.text)}`)}`
+      : `<p class="ob-empty">没有出现「读得好在哪」「你抓住了」一类评在点上的话。</p>`)
+    : "";
+
+  const pauseHint = y.pauses
+    ? `<p class="ob-lead">停顿 ${y.pauses.count} 处，平均 ${num(y.pauses.mean)} 秒${y.pauses.longest ? `，最长 ${num(y.pauses.longest.duration)} 秒（${fmt(y.pauses.longest.t)}）` : ""}。</p>`
+    : "";
+
+  return `<section class="ob-section ob-yuwen" id="ob-yuwen">
+    <h3 class="ob-sec-title">语文试讲观察表</h3>
+    ${credit}
+    <article class="ob-row ob-law">
+      <header><h4>${esc(law.title)}</h4><p class="ob-hint">可以从这个角度看什么：${esc(YUWEN_LAW_HINT)}</p></header>
+      <div class="ob-body">${lawBody}</div>
+    </article>
+    ${row("以生为本、师生对话", "把对话还给学生，少唱独角戏，师生对话才显出民主。", talkBody, { missing: y.speechWhy })}
+    ${row("开放问题", "多用「谁来说说」「你怎么看」「你觉得」，把思考权交给学生。", openBody, { missing: y.speechWhy })}
+    ${row("点名", "要点名，照顾到不同的学生，不要只问全班齐答。", nameBody, { missing: y.speechWhy })}
+    ${row("有生无生结合", "虚拟师生互动也要像真的对话：提问不少于 3 个，有问有候有评。", virtBody, { missing: y.speechWhy })}
+    ${row("紧扣题干", "试讲要求里写了什么就落实什么，题干里的 2–3 条，课上要对得上。", stemBody, { missing: stemMissing })}
+    ${row("朗读次数与形式", "齐读、点读、范读、分角色，目标至少三次，每次换一种办法。", readBody, { missing: y.speechWhy })}
+    ${row("范读的语速与停顿", "听老师读、我来读的那一段，语速要稳，停顿要留给诗句喘气。", modelBody, { missing: y.speechWhy })}
+    ${row("朗读指导", "要说出「读出」「重音」「停顿」「读慢一点」「入情」，不要读完就过。", guideBody, { missing: y.speechWhy })}
+    ${row("板书过程", "写板的时机要跟讲解中的关键词对上，让学生看见思考是怎么写上去的。", boardAuto, { missing: y.hasSpeech ? "" : y.speechWhy })}
+    ${row("主板书、副板书、彩笔与布局", "主板书承题干与结构，副板书随课堂生成；重点字词用彩色粉笔标出；先想好位置再写。", `<p class="ob-lead">这几项要从板书画面里自查，软件无法代看。</p>${checkList(y.boardChecklists)}`)}
+    ${row("炼字、换字比较", "用「换成」「改成」「如果把 X 换成 Y」来比；少说「为什么不用……用……」这种自问自答。", swapBody, { missing: y.speechWhy })}
+    ${row("重过程，不直接给结论", "别一上来就说「十分经典」「非常好」「表达了作者……的思想感情」。不要说「翻译」，改成「谁来说说这句话什么含义」。不要句句翻译。", procBody, { missing: y.speechWhy })}
+    ${row("节奏停顿", "停顿是技术。问完、读完、写完，都要敢把时间留出来。", pauseHint, { missing: y.speechWhy })}
+    ${row("语文味与诗歌", "课里要有情感词，要能入情入境。高中诗歌要抓住意象、意境、想象、情感；并问：你同意吗，有没有不同看法。", flavourBody, { missing: y.speechWhy })}
+    ${row("学法五看与几对关系", "学法五看：篇、段、句、词、意。还要言文结合，做减法，看共性也看个性，虚实、面点结合，抽象与具象互转。", `<p class="ob-lead">这些要从教学过程里自查。</p>${checkList(y.methodDetails)}`)}
+    ${row("教-学-评一致与表现性评价", "学生读完、答完，要评在点上：读得好在哪、你抓住了……。", evalBody, { missing: y.speechWhy })}
+    <p class="ob-credit">方法提示${esc(NOTES_CREDIT)}。完整条文也写在 docs/YUWEN_RUBRIC.md，可打印。</p>
   </section>`;
 }
 
@@ -288,6 +443,7 @@ export function renderObserveSheet(host, session, opts = {}) {
       ${row("讲解方式", "看举例、类比、追问各用了几次、出现在何时。", styleBody, { missing: report.speechWhy })}
       ${row("激励与启发", "看「很好」「不错」「谢谢」「大家想一想」出现的位置。", cheerBody, { missing: report.speechWhy })}
     </section>
+    ${yuwenSection(session)}
     ${simSection(session)}
   `;
 

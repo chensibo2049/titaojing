@@ -15,7 +15,7 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.3.0-A33B28?style=flat-square" alt="v1.3.0">
+  <img src="https://img.shields.io/badge/版本-v1.4.0-A33B28?style=flat-square" alt="v1.4.0">
 </p>
 
 <p align="center">
@@ -57,7 +57,8 @@
 | **半身或全身** | 讲台近景看视线和肩线；再远一些能看见站位、步伐，以及写板时会不会背对学生。可指定，也可自动判断。 |
 | **回放与转写** | 时间线上有标记，转写里的水词会标出，并给出具体改法。点某一句就能跳到那里。 |
 | **手与板书** | 能看见双手，判断是否伸向板书区、是否在写、写完是否回视。**目前不能认出黑板上的字**；写板时会留下板书区静帧，供你自己看字迹。 |
-| **模拟课堂（练习用）** | 默认关闭。打开后，画面旁会出现几位虚拟同学或路演嘉宾，按你的话举手、回答或提问，用来练点名、追问和应对提问。全部在本机演算，不联网。题库是一份可编辑的 JSON，见 [`docs/SIM_CLASS.md`](docs/SIM_CLASS.md)。 |
+| **观察记录与语文试讲观察表** | 回放页按评课表列出语气词、停顿、语速、站位、提问等，只摆事实，不做好坏评分。语文试讲另有一张观察表：能从转写里定位的给出原话和时刻，看不出的用自查清单；方法提示来自师范生备考笔记。开讲页可把题干 2–3 条粘进去，用来对照「紧扣题干」。说明与打印稿见 [`docs/YUWEN_RUBRIC.md`](docs/YUWEN_RUBRIC.md)。 |
+| **模拟课堂（练习用）** | 默认关闭。打开后，画面旁会出现几位虚拟同学或路演嘉宾，按你的话举手、回答或提问，用来练点名、追问和应对提问。说「齐读」会全班齐读，说「请你来读」会有一位同学站起来读。全部在本机演算，不联网。题库是一份可编辑的 JSON，见 [`docs/SIM_CLASS.md`](docs/SIM_CLASS.md)。 |
 | **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频默认不上传，只保存在这台设备的浏览器里。 |
 
 <p align="center">

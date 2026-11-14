@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** 静态检查（v1.3.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
+/** 静态检查（v1.4.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
@@ -14,12 +14,12 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.3.0", pkg.version === "1.3.0", pkg.version);
+check("package.json 版本为 1.4.0", pkg.version === "1.4.0", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-check("CHANGELOG 含 v1.3.0 与 v1.2.0", /## v1\.3\.0/.test(changelog) && /## v1\.2\.0/.test(changelog));
+check("CHANGELOG 含 v1.4.0 与 v1.3.0", /## v1\.4\.0/.test(changelog) && /## v1\.3\.0/.test(changelog));
 const notesSrc = fs.readFileSync(path.join(root, "src/changelog.js"), "utf8");
-check("应用内更新说明含 1.3.0", /version: "1\.3.0"/.test(notesSrc));
+check("应用内更新说明含 1.4.0", /version: "1\.4.0"/.test(notesSrc));
 
 const config = fs.readFileSync(path.join(root, "config.js"), "utf8");
 check("保留测试激活码 CSB-TEST-PRO", /CSB-TEST-PRO/.test(config));
@@ -101,6 +101,8 @@ const bankPath = path.join(root, "assets/classroom/banks.json");
 check("模拟课堂题库文件存在且可编辑", fs.existsSync(bankPath));
 const bank = JSON.parse(fs.readFileSync(bankPath, "utf8"));
 check("题库含学生、对错回答和路演常见问题", Array.isArray(bank.class && bank.class.students) && bank.class.students.length >= 4 && bank.class.students.length <= 6 && (bank.class.answers || []).some((a) => a.kind === "correct") && (bank.class.answers || []).some((a) => a.kind === "wrong" || a.kind === "partial") && ["差异化", "收费", "用户是谁", "下一步计划", "团队分工"].every((k) => (bank.roadshow.questions || []).some((q) => q.topic === k)), JSON.stringify({ students: (bank.class.students || []).length, answers: (bank.class.answers || []).map((a) => a.kind), topics: (bank.roadshow.questions || []).map((q) => q.topic) }));
+check("开讲页可粘贴题干要求", index.includes("perm-stem") && index.includes("题干要求"));
+check("有可打印的语文试讲观察表说明", fs.existsSync(path.join(root, "docs/YUWEN_RUBRIC.md")) && fs.readFileSync(path.join(root, "docs/YUWEN_RUBRIC.md"), "utf8").includes("来自师范生备考笔记"));
 check("开讲页可开关模拟课堂且标明练习用", index.includes("perm-classroom-sim") && index.includes("练习用模拟") && index.includes('data-sim="off"'));
 check("设置里模拟课堂默认可关", /classroomSim/.test(settingsSrc) && settingsSrc.includes('classroomSim: "off"'));
 
@@ -269,7 +271,48 @@ check("路演讲完后嘉宾会提出常见问题", asked?.action === "ask" && a
 road.feedTranscript("谢谢老师，关于这一点我们是这样考虑的。", 48, true);
 const sum = road.summarize();
 check("路演回应时长会记入日志", sum.askCount >= 1 && sum.replyCount >= 1 && sum.replyDurations[0] >= 7 && sum.interactions >= 2, JSON.stringify(sum));
+
+const chorus = simMod.createSim("class", bank, { random: det });
+const chAct = chorus.feedTranscript("请大家齐读题目。", 8, true);
+check("说齐读会进入全班齐读", chAct?.action === "group_read" && chorus.snapshot(8).people.every((p) => p.state === "reading"), JSON.stringify(chAct && { action: chAct.action, states: chorus.snapshot(8).people.map((p) => p.state) }));
+const point = simMod.createSim("class", bank, { random: det });
+const pAct = point.feedTranscript("请你来读", 10, true);
+check("说请你来读会有一位同学站起来读", pAct?.action === "stand_read" && point.snapshot(10).people.filter((p) => p.state === "stand_read").length === 1, JSON.stringify(pAct && { action: pAct.action, who: pAct.person && pAct.person.name, states: point.snapshot(10).people.map((p) => [p.name, p.state]) }));
+const namedRead = simMod.createSim("class", bank, { random: det });
+const nAct = namedRead.feedTranscript("请林秋来读", 11, true);
+check("叫姓名来读可点到对应同学", nAct?.action === "stand_read" && nAct.person && nAct.person.name === "林秋" && namedRead.snapshot(11).people.find((p) => p.name === "林秋").state === "stand_read", JSON.stringify(nAct && nAct.person));
 try { fs.unlinkSync(tmpSim); } catch (_) {}
+
+
+const tmpYw = path.join(os.tmpdir(), "titaojing-yuwen-test.mjs");
+await esbuild.build({
+  entryPoints: [path.join(root, "src/yuwen.js")],
+  bundle: true,
+  format: "esm",
+  outfile: tmpYw,
+  logLevel: "silent",
+  platform: "neutral",
+});
+const yw = await import(pathToFileURL(tmpYw).href);
+check("语文备考笔记是 23 条", yw.YUWEN_NOTES.length === 23 && yw.NOTES_CREDIT === "来自师范生备考笔记", String(yw.YUWEN_NOTES.length));
+const chun = yw.sampleChunxiaoTranscript();
+const stem = yw.sampleChunxiaoStem();
+const ywReport = yw.buildYuwenReport({ kind: "camera", duration: 190, transcript: chun, frames: [], speechAvailable: true, speechHeard: true, stemRequirement: stem });
+check("春晓样例能统计开放问题", ywReport.openHits.some((h) => h.phrase === "谁来说说") && ywReport.openHits.some((h) => h.phrase === "你怎么看") && ywReport.openHits.some((h) => h.phrase === "你觉得"), JSON.stringify(ywReport.openHits.map((h) => h.phrase)));
+check("春晓样例有点名", ywReport.nameHits.some((h) => /林秋|请你/.test(h.phrase + h.text)), JSON.stringify(ywReport.nameHits.map((h) => h.phrase)));
+check("春晓样例提问不少于 3 次", ywReport.virtualDialogue && ywReport.virtualDialogue.meets && ywReport.questions.count >= 3, JSON.stringify(ywReport.questions && { count: ywReport.questions.count, open: ywReport.questions.open }));
+const forms = ywReport.reading.forms.join(",");
+check("春晓样例朗读不少于三次且形式有变化", ywReport.reading.count >= 3 && ywReport.reading.meetsTarget && ["齐读", "点读", "范读", "分角色"].every((f) => ywReport.reading.forms.includes(f)), JSON.stringify(ywReport.reading));
+check("春晓样例记下范读段", ywReport.modelRead.count >= 1, JSON.stringify(ywReport.modelRead.items.map((i) => ({ cue: i.cue, cpm: Math.round(i.cpm) }))));
+check("春晓样例朗读指导用语齐全", ["读出", "重音", "停顿", "读慢一点", "入情"].every((p) => ywReport.guides.some((g) => g.phrase === p)), JSON.stringify(ywReport.guides.map((g) => g.phrase)));
+check("春晓样例能检出换字比较与直接给结论", ywReport.swaps.compares.length >= 1 && ywReport.swaps.directs.length >= 1, JSON.stringify(ywReport.swaps));
+check("春晓样例在问句前标出「十分经典」或「思想感情」", ywReport.process.jumps.some((j) => /十分经典|思想感情|表达了作者/.test(j.phrase)), JSON.stringify(ywReport.process.jumps));
+check("春晓样例标出「翻译」", ywReport.process.translations.length >= 1, JSON.stringify(ywReport.process.translations));
+check("春晓样例覆盖题干里的春晓与处处闻啼鸟", ywReport.stemCoverage.available && ywReport.stemCoverage.covered.some((k) => k.word.includes("春晓") || k.word === "春晓") && ywReport.stemCoverage.covered.some((k) => k.word.includes("处处闻啼鸟") || k.word === "处处闻啼鸟"), JSON.stringify(ywReport.stemCoverage.covered.map((k) => k.word)));
+check("春晓样例有意象意境与批判性问题、表现性评价", ywReport.poetry.some((h) => h.phrase === "意象") && ywReport.critical.some((h) => h.phrase === "你同意吗") && ywReport.evals.some((h) => h.phrase === "读得好在哪") && ywReport.evals.some((h) => h.phrase === "你抓住了"), JSON.stringify({ poetry: ywReport.poetry.map((h) => h.phrase), critical: ywReport.critical.map((h) => h.phrase), evals: ywReport.evals.map((h) => h.phrase) }));
+check("语文观察表总览含教态与口头表达", ywReport.law && /教态/.test(ywReport.law.title) && /口头表达/.test(ywReport.law.title));
+try { fs.unlinkSync(tmpYw); } catch (_) {}
+
 
 try { fs.unlinkSync(tmp); } catch (_) {}
 

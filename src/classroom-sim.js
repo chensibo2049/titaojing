@@ -21,6 +21,10 @@ export const DEFAULT_BANK = {
     ],
     askCues: ["谁来回答", "请这位同学", "有没有同学", "大家说说", "谁来讲", "请同学"],
     pickCues: ["请你", "就你", "请这位"],
+    readChorusCues: ["齐读", "全班一起读", "我们一起读"],
+    readPointCues: ["请你来读", "请这位同学读", "请同学来读", "请同学读"],
+    readModelCues: ["我来读", "听老师读", "跟着老师读"],
+    readRoleCues: ["分角色", "男生读", "女生读"],
     answers: [
       { id: "a1", kind: "correct", text: "老师，我的理解是：刚才讲的要点，就是前面反复强调的那一句。" },
       { id: "a2", kind: "partial", text: "我只记住了一半。前半句好像是对的，后面那一步我还没跟上。" },
@@ -75,6 +79,10 @@ export function normalizeBank(raw) {
   if (cls.students.length < 4) cls.students = base.class.students.slice();
   cls.askCues = list(cls.askCues, base.class.askCues);
   cls.pickCues = list(cls.pickCues, base.class.pickCues);
+  cls.readChorusCues = list(cls.readChorusCues, base.class.readChorusCues);
+  cls.readPointCues = list(cls.readPointCues, base.class.readPointCues);
+  cls.readModelCues = list(cls.readModelCues, base.class.readModelCues);
+  cls.readRoleCues = list(cls.readRoleCues, base.class.readRoleCues);
   cls.answers = Array.isArray(cls.answers) && cls.answers.length ? cls.answers : base.class.answers.slice();
   road.guests = Array.isArray(road.guests) && road.guests.length ? road.guests.slice(0, 3) : base.roadshow.guests.slice();
   if (road.guests.length < 3) {
@@ -181,6 +189,37 @@ export function createSim(mode, bank, opts = {}) {
 
   const person = (id) => people.find((p) => p.id === id);
   const raised = () => people.filter((p) => p.state === "hand").map((p) => p.id);
+
+  const groupRead = (t, cue) => {
+    for (const p of people) {
+      p.state = "reading";
+      p.bubble = "齐读";
+    }
+    pushLog({ t, type: "read", label: "齐读", text: cue || "齐读" });
+  };
+
+  const standRead = (id, t, cue) => {
+    for (const p of people) {
+      if (p.state === "reading" || p.state === "stand_read" || p.state === "listening" || p.state === "hand") {
+        p.state = "idle";
+        p.bubble = "";
+      }
+    }
+    const p = person(id) || people[0];
+    if (!p) return null;
+    p.state = "stand_read";
+    p.bubble = "朗读";
+    pushLog({ t, type: "read", label: "点读", who: p.id, text: cue || "请你来读" });
+    return p;
+  };
+
+  const listenModel = (t, cue) => {
+    for (const p of people) {
+      p.state = "listening";
+      p.bubble = "";
+    }
+    pushLog({ t, type: "read", label: "范读", text: cue || "听老师读" });
+  };
 
   const setState = (ids, state) => {
     for (const p of people) {
@@ -313,6 +352,22 @@ export function createSim(mode, bank, opts = {}) {
       if (compact) spokenSinceSegment += compact.length;
 
       if (m === "class") {
+        const chorus = matchCue(raw, b.class.readChorusCues) || matchCue(raw, b.class.readRoleCues);
+        if (chorus) {
+          groupRead(t, chorus);
+          return { action: "group_read", cue: chorus };
+        }
+        const pointRead = matchCue(raw, b.class.readPointCues) || (/请[\u4e00-\u9fff]{1,4}来读/.test(compact) || /请[\u4e00-\u9fff]{1,4}读/.test(compact) ? "请你来读" : null);
+        if (pointRead) {
+          const target = findPickTarget(raw, people, people.map((p) => p.id)) || (people[0] && people[0].id);
+          const who = standRead(target, t, pointRead);
+          return { action: "stand_read", person: who, cue: pointRead };
+        }
+        const model = matchCue(raw, b.class.readModelCues);
+        if (model) {
+          listenModel(t, model);
+          return { action: "model_read", cue: model };
+        }
         if (matchCue(raw, b.class.askCues)) {
           raiseHands(t);
           return { action: "raise" };
@@ -343,7 +398,7 @@ export function createSim(mode, bank, opts = {}) {
       const events = [];
       const silence = extras.silence != null ? extras.silence : (t - lastSpeechAt);
       const cpm = extras.cpm != null ? extras.cpm : 0;
-      const busy = people.some((p) => p.state === "speaking" || p.state === "asking" || p.state === "hand");
+      const busy = people.some((p) => p.state === "speaking" || p.state === "asking" || p.state === "hand" || p.state === "reading" || p.state === "stand_read");
 
       if (!busy && silence >= SILENCE_CONFUSED_SEC && lastSpeechAt > 0) {
         const already = people.filter((p) => p.state === "confused" || p.state === "distracted");

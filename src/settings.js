@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   saveVideo: false,
   showMap: true,
   classroomSim: "off",  // off | class | roadshow（练习用模拟，默认关）
+  stemRequirement: "",  // 开讲页选填的题干要求，供语文观察表对照
 };
 
 let cache = null;
@@ -63,6 +64,7 @@ export function normalize(raw) {
   s.facing = s.facing === "environment" ? "environment" : "user";
   if (!["zh-CN", "zh-TW", "zh-HK", "en-US"].includes(s.speechLang)) s.speechLang = "zh-CN";
   s.classroomSim = ["class", "roadshow"].includes(s.classroomSim) ? s.classroomSim : "off";
+  s.stemRequirement = String(s.stemRequirement || "").slice(0, 800);
   return s;
 }
 
