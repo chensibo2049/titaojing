@@ -24,6 +24,10 @@ header {
   padding: 22px 0; border-bottom: 1px solid var(--line);
 }
 .brand { font-family: var(--serif); font-weight: 600; letter-spacing: 0.08em; }
+.brand em { font-style: normal; font-family: var(--sans); font-weight: 500; font-size: 12px; letter-spacing: 0.12em; color: var(--ink-faint); margin-left: 10px; vertical-align: middle; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.grid-3 article { background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
+.grid-3 p { color: var(--ink-soft); font-size: 15px; }
 nav { display: flex; gap: 22px; font-size: 14px; }
 nav a { color: var(--ink-soft); text-decoration: none; }
 nav a:hover { color: var(--cinnabar); }
@@ -52,7 +56,7 @@ h3 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 0 0 8
 .note { font-size: 14px; color: var(--ink-faint); margin-top: 18px; }
 footer { padding: 36px 0 48px; font-size: 13px; color: var(--ink-faint); border-top: 1px solid var(--line); }
 @media (max-width: 800px) {
-  .hero, .grid-2, .steps { grid-template-columns: 1fr; }
+  .hero, .grid-2, .grid-3, .steps { grid-template-columns: 1fr; }
   nav { gap: 14px; font-size: 13px; }
   .hero { padding: 36px 0; }
 }

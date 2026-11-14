@@ -61,6 +61,7 @@ for (const f of ["pose_landmarker_lite.task", "face_landmarker.task"]) cp(`asset
 write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));
 write("vercel.json", fs.readFileSync(path.join(root, "deploy/vercel.json"), "utf8"));
 write("version.json", JSON.stringify({ name: "沉思波 · 体态镜", version, buildId, buildDate }, null, 2) + "\n");
+write(".nojekyll", "");
 
 // landing page (static, Chinese)
 const landSrc = path.join(root, "landing");

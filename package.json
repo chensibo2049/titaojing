@@ -1,10 +1,10 @@
 {
   "name": "titaojing",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
-  "description": "沉思波 · 体态镜：面向师范生的试讲训练工具（教态、视线、口头禅、板书回视）",
+  "description": "沉思波 · 体态镜（OpenJing）：一面给试讲与表达用的镜子",
   "license": "Apache-2.0",
-  "homepage": "https://chensibo.cn",
+  "homepage": "https://chensibo2049.github.io/titaojing/",
   "engines": {
     "node": ">=18"
   },

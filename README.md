@@ -1,97 +1,102 @@
-# 沉思波 · 体态镜
+<p align="center">
+  <img src="assets/icons/icon-512.png" width="96" height="96" alt="体态镜">
+</p>
 
-对着镜头讲一段课。教态、视线、口头禅和写板后的回视，会像运动训练一样，直接画在画面上。讲完可以回放，转写里的水词会标出来。
+<h1 align="center">体态镜 · OpenJing</h1>
 
-面向师范生，也可以给把电脑放在讲台上的教师用。练习模式几分钟即可；课堂模式支持 10 到 20 分钟。
+<p align="center">
+  <strong>一面给试讲用的镜子</strong><br>
+  把电脑放在讲台或课桌上，对着镜头讲一段课。<br>
+  教态、视线和口头禅会直接画在画面上，讲完即可回看。
+</p>
 
-- 纯静态网页：没有后端、没有账号。
-- 视频默认只留在本机，不上传。
-- 姿态与面部模型（Google MediaPipe）随程序提供或在安装时校验后放入，不访问国外 CDN。
-- 可安装到手机桌面或电脑（PWA），打开过一次后可以离线使用（转写除外，见下）。
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/许可-Apache_2.0-2F6F4E?style=flat-square" alt="Apache License 2.0"></a>
+  &nbsp;
+  <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/版本-v1.0.2-A33B28?style=flat-square" alt="v1.0.2">
+</p>
 
-> 体态与视线来自单个摄像头的估计，只作训练提示，不是精确测量，也不是心理或医学评估。
+<p align="center">
+  <a href="https://chensibo2049.github.io/titaojing/landing/">产品介绍</a>
+  &nbsp;·&nbsp;
+  <a href="https://chensibo2049.github.io/titaojing/">在线打开</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/chensibo2049/titaojing/issues">反馈问题</a>
+</p>
 
-![封面](docs/images/cover.jpg)
+<p align="center">
+  <img src="docs/images/cover.jpg" alt="体态镜首页：一键演示与对着镜头试讲" width="920">
+</p>
 
-**English (short).** Titaojing (体态镜, “a posture mirror for teaching practice”) is an open-source, in-browser trainer for student teachers and classroom lecturers. It overlays posture, gaze, filler words and “look-back after writing on the board” on a live camera view, then offers a marked replay and a transcript with filler words highlighted. Video stays on the device by default. This is a classroom training tool, not an “AI product.” See the Chinese sections below for setup, privacy, and contributing. Licensed under Apache-2.0.
+## 为什么做这面镜子
 
----
+最近在路演和表达上，我总觉得差点意思。去参加职业规划赛，才发现台上的人都很专业。那段时间和我的对象一起「以赛促学」，专门练表达。练着练着，就做出了这面给试讲用的镜子，想开源出来，和大家一起用、一起改。
 
-## 功能
+由[南京市沉思波网络科技有限责任公司](https://chensibo.cn)发起。作者同时是江苏第二师范学院汉语言文学师范专业的学生。产品里不使用大学校徽。
 
-| 模块 | 说明 |
+## 给谁用
+
+- **教师面试、试讲**：把一段课讲完，再自己看教态、视线和口头禅。
+- **教师资格证面试**：练习模式几分钟就能反复练同一处。
+- **表达与演讲**：路演、职规赛、课堂发言，凡是需要把一段话讲清楚的场合，都可以对着镜子练。
+
+我们会**重点打磨电脑端**：电脑放在讲台或课桌上就能练，不必再找手机支架。手机同样可以用，只是长期练习时，电脑更方便。
+
+## 你能看见什么
+
+<p align="center">
+  <img src="docs/images/replay.jpg" alt="回放：时间线标记、转写和水词" width="920">
+</p>
+
+|  |  |
 |---|---|
-| 一键演示 | 不开摄像头，约一分钟看完叠加、回放、转写和水词标记，适合投影 |
-| 对着镜头试讲 | 前置 / 后置、镜像；练习（短）或课堂（10–20 分钟）；半身 / 全身 / 自动判断构图 |
-| 回放 | 时间线标记、两句说明、完整转写（水词标出，可跳转）、和上一次对比 |
-| 历史与对比 | 本机保存；任选两次比较；趋势图 |
-| 设置 | 模式与时长、构图、灵敏度、口头禅词表、听写语言与引擎、板书区位置 |
-| 导出 | 小结图片、打印 / PDF、历史 JSON |
-| 体验计划 | 默认关闭。主动参加后，才可能把词表、转写、摘要和少量截图排进本机队列；录像默认不上传。当前未配置上传地址，不会发到任何服务器 |
+| **一键演示** | 不用打开摄像头，大约一分钟看完叠加、回放和水词，适合投影介绍。 |
+| **练习或课堂** | 练习 1–5 分钟（默认 2 分钟）；课堂 10 / 15 / 20 分钟，最长 22 分钟。 |
+| **半身或全身** | 讲台近景看视线和肩线；再远一些能看见站位、步伐，以及写板时会不会背对学生。可指定，也可自动判断。 |
+| **回放与转写** | 时间线上有标记，转写里的水词会标出，点某一句就能跳到那里。 |
+| **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频默认不上传。 |
 
-产品介绍页（纸色、课堂光线，不是科技宣传）：打开仓库里的 `landing/`，或构建后的 `dist/landing/`。
+<p align="center">
+  <img src="docs/images/history.jpg" alt="本机历史记录与对比" width="920">
+</p>
 
-## 本地运行
+> 画面来自单个摄像头的估计，只作训练提示，不是精确测量，也不是心理或医学评估。
 
-需要 Python 3 和现代浏览器（推荐 Chrome / Edge）。
+## 三步开始
+
+需要 Python 3，以及 Chrome 或 Edge。
 
 ```bash
 npm install          # 首次；国内可先 npm config set registry https://registry.npmmirror.com
-npm run build
 ./start.sh           # macOS / Linux。Windows 用 start.bat
 ```
 
-终端会打印**实际网址**（默认 http://127.0.0.1:8765/ ）。若 8765 已被占用，会自动改用 8766、8767……一直试到 8785，请打开终端里那一行，不要假定端口。也可 `./start.sh 9000` 或 `PORT=9000 ./start.sh`。
+终端会打印实际网址（默认 [http://127.0.0.1:8765/](http://127.0.0.1:8765/)）。若 8765 已被占用，会自动改用后面的空闲端口，请打开终端里的那一行。也可 `./start.sh 9000`。
 
-不要双击 `index.html`（`file://` 下不能用镜头）。手机测试必须是 **https**，见 [`docs/CAMERA_DEBUG.md`](docs/CAMERA_DEBUG.md)、[`docs/CLASSROOM.md`](docs/CLASSROOM.md)。
+也可以先打开[在线介绍页](https://chensibo2049.github.io/titaojing/landing/)，或直接[在浏览器里试用](https://chensibo2049.github.io/titaojing/)（必须是 https，才能调用摄像头）。
 
-开发调试：`npm run dev`（源码目录，不注册离线缓存）。排错可在网址后加 `?debug=1`。
+不要双击 `index.html`（`file://` 下不能用镜头）。手机测试与课堂摆放见 [`docs/CAMERA_DEBUG.md`](docs/CAMERA_DEBUG.md)、[`docs/CLASSROOM.md`](docs/CLASSROOM.md)。排错可在网址后加 `?debug=1`。
 
-## 构图、时长与转写
+## 接下来怎么走
 
-- **半身**：腰部以上，电脑放在讲台上近拍。**全身**：从头到脚，镜头再远一些或放在教室侧前方，能看见站位、步伐，以及写板时是否背对学生。可指定，也可开讲后自动判断。
-- **练习**：1–5 分钟（默认 2 分钟）。**课堂**：10 / 15 / 20 分钟，最长再加 2 分钟（不超过 22 分钟）。
-- **转写**目前默认使用浏览器听写（Chrome / Edge 需联网，声音会经过厂商服务）。回放里可以看到全文和水词。本机中文识别（sherpa-onnx）已留下接口和下载脚本，接入后声音可以留在本机，见 [`docs/ASR.md`](docs/ASR.md)。
+- 网页版会持续打磨，现在就可以在浏览器里用。
+- 会做便于下载、在本机使用的 Windows / macOS 电脑版（骨架在 [`apps/desktop/`](apps/desktop/)）。
+- 听写将尽量留在本机，见 [`docs/ASR.md`](docs/ASR.md)。
+- 欢迎学校、教具和培训机构一起把这面镜子送到更多教室。
+- 以后可能会有「像评委一样的课后点评」，现在还没有；先把镜子本身做好。
 
-## 构建与目录
+路线说明见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。使用中的想法，欢迎直接开 [Issue](https://github.com/chensibo2049/titaojing/issues)。
 
-```bash
-npm run build        # 生成 dist/（含落地页 dist/landing/）
-npm run smoke        # 无头 Chrome 冒烟
-python3 scripts/package.py   # 打测试包到 release/
-```
+## 开源协议
 
-```
-index.html            页面（中文界面）
-config.js             试用 / 正式开关、体验计划上传地址（默认空）
-src/                  主程序：镜头、关键点、规则、转写、回放、同意与体验计划
-assets/mediapipe/     模型（入库）与 WASM（npm 安装时校验复制）
-training/             轨迹训练脚手架（合成数据可跑通）
-landing/              产品介绍页
-docs/                 使用、调试、训练、发布与隐私
-apps/desktop|mobile   Tauri / Capacitor 外壳骨架（尚未出安装包）
-```
+[Apache License 2.0](LICENSE)。与项目所用的 MediaPipe 许可兼容，也方便后续的商业合作与赞助：其他人可以在保留声明的前提下使用、修改和再分发，专利授权是明确写进协议里的。品牌名「沉思波」「体态镜」「OpenJing」不随许可证授予商标权。第三方说明见 [`NOTICE`](NOTICE)。
 
-版本号在 `package.json`。发版前改版本号并写 `CHANGELOG.md`。
+参与前请阅读 [贡献指南](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)、[隐私说明](docs/PRIVACY.md) 和 [安全说明](docs/SECURITY.md)。
 
-## 部署
+主仓库在 GitHub。国内镜像与托管比较见 [`docs/REPO_HOSTING.md`](docs/REPO_HOSTING.md)。
 
-把 `dist/` 全部文件放到任意 **https** 静态主机。详见 [`docs/DEPLOY.md`](docs/DEPLOY.md)（nginx、腾讯云 COS / EdgeOne、Vercel 等）。介绍页在 `/landing/`。
+---
 
-## 开源与协作
-
-Apache-2.0（与 MediaPipe 兼容），第三方说明见 `NOTICE`。品牌名「沉思波 · 体态镜」不随许可证授予商标权。
-
-请先读 [`CONTRIBUTING.md`](CONTRIBUTING.md)、[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)、[`docs/PRIVACY.md`](docs/PRIVACY.md)、[`docs/SECURITY.md`](docs/SECURITY.md)。
-
-代码托管建议：GitHub 作主仓库（Issue、PR、Release），CNB（cnb.cool）作国内镜像和国内 CI。比较见 [`docs/REPO_HOSTING.md`](docs/REPO_HOSTING.md)。本仓库已整理好，尚未配置远程地址，也尚未推送。
-
-训练路线（关键点规则校准与小模型，而不是重训姿态模型）：[`docs/TRAINING.md`](docs/TRAINING.md)。平台规划（网页、Tauri 桌面、Capacitor 应用、微信小程序的限制）：[`docs/ROADMAP.md`](docs/ROADMAP.md)。
-
-## 隐私（摘要）
-
-视频默认不上传。历史在本机。浏览器听写会把声音送到厂商服务；本机识别接入后可避免这一点。体验计划默认关闭，见 [`docs/PRIVACY.md`](docs/PRIVACY.md)。
-
-## 许可
-
-[Apache License 2.0](LICENSE)。发起：南京市沉思波网络科技有限责任公司；作者同时是江苏第二师范学院汉语言文学师范专业学生。产品中不使用大学校徽。
+**English.** OpenJing (体态镜, “a practice mirror for teaching and speaking”) is an open-source, in-browser trainer. Put a laptop on the desk or podium, give a short lesson, and see posture, gaze and filler words drawn on the video. Replay and history stay on the device by default. This is a classroom training tool, not a generic “AI product.” Licensed under Apache 2.0.
