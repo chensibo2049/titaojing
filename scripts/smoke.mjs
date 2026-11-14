@@ -76,7 +76,9 @@ try {
   await page.waitForFunction(() => /已就绪|没能加载|太慢/.test(document.getElementById("mp-label").textContent), { timeout: 90000 }).catch(() => {});
   const mp = await page.$eval("#mp-label", (e) => e.textContent);
   check("模型加载完成", /已就绪/.test(mp), mp);
-  await page.click("#btn-start-countdown");
+  const kbdHint = await page.$eval("#coach-kbd-hint", (e) => e.textContent);
+  check("站位页提示可用空格开始", /空格/.test(kbdHint || ""), kbdHint);
+  await page.keyboard.press("Space");
   await waitVisible("screen-live");
   // GitHub-hosted runners are slower than a laptop; wait until enough pose
   // frames are recorded instead of assuming a fixed 18s is enough.
@@ -90,7 +92,9 @@ try {
   check("模型加载耗时已记录", cam.vision.timings && cam.vision.timings.downloadMs != null && cam.vision.loadMs > 0, JSON.stringify(cam.vision.timings));
   await page.screenshot({ path: path.join(OUT, "debug-mode.png") });
   await page.waitForFunction(() => !document.getElementById("btn-stop").disabled, { timeout: 10000 }).catch(() => {});
-  await page.click("#btn-stop");
+  const liveHint = await page.$eval("#live-kbd-hint", (e) => ({ hidden: e.hidden, text: e.textContent }));
+  check("试讲中提示可用空格结束", liveHint && !liveHint.hidden && /空格/.test(liveHint.text || ""), JSON.stringify(liveHint));
+  await page.keyboard.press("Space");
   await waitVisible("screen-replay", 15000);
   await sleep(800);
   const trace = await page.evaluate(() => window.__titaojingDebug.getTrace());

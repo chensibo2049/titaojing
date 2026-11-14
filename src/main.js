@@ -200,6 +200,8 @@ function startDemo() {
   showScreen("live");
   fitStage($("live-stage"), STAGE_W / STAGE_H);
   $("btn-skip-demo").hidden = false;
+  const liveHint = $("live-kbd-hint");
+  if (liveHint) liveHint.hidden = true;
   $("live-video").hidden = true;
   $("live-scene").hidden = false;
   $("hud-caption").hidden = false;
@@ -497,6 +499,7 @@ async function switchCamera(deviceId) {
 }
 
 async function startCameraLive() {
+  if (mode === "camera" || mode === "finishing") return;
   cancelAnimationFrame(raf);
   mode = "camera";
   const s = getSettings();
@@ -517,6 +520,8 @@ async function startCameraLive() {
   showScreen("live");
   applyMirror(s.mirror);
   $("btn-skip-demo").hidden = true;
+  const liveHint = $("live-kbd-hint");
+  if (liveHint) liveHint.hidden = false;
   $("live-video").hidden = false;
   $("live-scene").hidden = true;
   $("hud-caption").hidden = true;
@@ -1199,6 +1204,48 @@ function showConsentIfNeeded() {
   }, { once: true });
 }
 
+
+function isTextEntry(el) {
+  if (!el || el === document.body || el === document.documentElement) return false;
+  const tag = (el.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
+
+function onDocumentKey(e) {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (isTextEntry(e.target)) return;
+  const modal = $("modal");
+  if (modal && !modal.hidden) {
+    if (e.key === "Escape") modal.hidden = true;
+    return;
+  }
+  const veil = $("consent-veil");
+  if (veil && !veil.hidden) return;
+
+  const space = e.key === " " || e.key === "Spacebar";
+  const enter = e.key === "Enter";
+
+  // 电脑放在讲台上时，按空格即可开始 / 结束，不必走回去点按钮。
+  if (mode === "coach" && (space || enter)) {
+    const btn = $("btn-start-countdown");
+    if (btn && !btn.disabled && !btn.hidden) {
+      e.preventDefault();
+      startCameraLive();
+    }
+    return;
+  }
+
+  if (mode === "camera" && space) {
+    const pauseVeil = $("pause-veil");
+    if (pauseVeil && !pauseVeil.hidden) return;
+    e.preventDefault();
+    const btn = $("btn-stop");
+    if (btn && !btn.disabled) finishCamera();
+  }
+}
+
 function onReady() {
   if (location.protocol === "file:") $("file-warning").hidden = false;
   showConsentIfNeeded();
@@ -1287,7 +1334,7 @@ function onReady() {
   $("btn-install").addEventListener("click", promptInstall);
   wirePages();
   $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) $("modal").hidden = true; });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("modal").hidden) $("modal").hidden = true; });
+  document.addEventListener("keydown", onDocumentKey);
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && mode === "camera") pauseLive();
