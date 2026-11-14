@@ -44,6 +44,9 @@ try {
   await page.evaluateOnNewDocument(() => {
     try {
       localStorage.setItem("titaojing.consent.v1", JSON.stringify({ termsAccepted: true, experience: false, termsAcceptedAt: "2000-01-01T00:00:00.000Z" }));
+      const s = JSON.parse(localStorage.getItem("titaojing.settings.v1") || "{}");
+      s.asrAutoDownload = false;
+      localStorage.setItem("titaojing.settings.v1", JSON.stringify(s));
     } catch (_) {}
   });
 
@@ -70,6 +73,8 @@ try {
   check("演示回放有转写且标出了水词", tx && !tx.hidden && tx.marks > 0 && tx.items > 0, JSON.stringify(tx));
   const filler = await page.$eval("#filler-report", (e) => e.textContent).catch(() => "");
   check("演示回放有口头禅统计或改法", /次|停顿|口头禅|改法/.test(filler), filler.slice(0, 160));
+  const obs = await page.$eval("#observe-sheet", (e) => ({ hidden: e.hidden, text: e.textContent })).catch(() => null);
+  check("演示回放有观察记录和整节课", obs && !obs.hidden && /观察记录/.test(obs.text) && /整节课/.test(obs.text) && /依据你的原话定位/.test(obs.text), obs && obs.text ? obs.text.replace(/\s+/g, " ").slice(0, 160) : "missing");
 
   await page.evaluate(() => { location.hash = "#/about"; });
   await waitVisible("screen-about");
@@ -82,7 +87,7 @@ try {
   await waitVisible("screen-settings");
   await page.waitForSelector("#local-asr-box .la-get, #local-asr-box .la-del, #local-asr-box .la-text", { timeout: 10000 }).catch(() => {});
   const la = await page.$eval("#local-asr-box", (e) => e.textContent).catch(() => "");
-  check("设置页可下载本机听写（写明体积）", /下载本机听写（约 \d+ MB/.test(la), la.replace(/\s+/g, " ").slice(0, 120));
+  check("设置页可下载本机听写（写明体积）", /下载本机听写（约 \d+ MB|点此下载听写包/.test(la), la.replace(/\s+/g, " ").slice(0, 120));
   check("设置页有流畅度选项", !!(await page.$('select[name="perfMode"]')));
   const engineOk = await page.evaluate(async () => (await fetch("assets/asr/engine/asr-worker.js")).ok && (await fetch("assets/asr/engine/sherpa-onnx-wasm-main-vad-asr.wasm", { method: "HEAD" })).ok);
   check("本机听写引擎随网站发布", engineOk);
@@ -93,6 +98,16 @@ try {
 
   await page.goto(BASE + "?debug=1&trace=1#/try", { waitUntil: "domcontentloaded" });
   await waitVisible("screen-permission");
+  const permSim = await page.$eval("#perm-sim-box", (e) => e.textContent).catch(() => "");
+  const simOff = await page.$eval('#perm-classroom-sim [data-sim="off"]', (e) => e.classList.contains("on")).catch(() => false);
+  check("开讲页可开关模拟课堂，默认不开，并标明练习用", /模拟学生/.test(permSim) && /模拟路演/.test(permSim) && /练习用模拟/.test(permSim) && simOff, permSim.replace(/\s+/g, " ").slice(0, 160));
+  const bankOk = await page.evaluate(async () => {
+    const r = await fetch("assets/classroom/banks.json");
+    if (!r.ok) return false;
+    const j = await r.json();
+    return Array.isArray(j.class && j.class.students) && j.class.students.length >= 4;
+  });
+  check("发布包含可编辑的模拟课堂题库", bankOk);
   await page.click("#btn-allow-media");
   await waitVisible("screen-coach", 15000);
   await page.waitForFunction(() => /已就绪|没能加载|太慢/.test(document.getElementById("mp-label").textContent), { timeout: 90000 }).catch(() => {});

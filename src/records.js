@@ -114,6 +114,7 @@ export function toRecord(session, extra = {}) {
     boardStills: (session.boardStills || []).map((s) => ({ t: r2(s.t), dataUrl: s.dataUrl })),
     profileName: extra.profileName || session.profileName || "",
     speechError: session.speechError || "",
+    simLog: session.simLog || null,
   };
 }
 
@@ -151,6 +152,7 @@ export function fromRecord(rec) {
     profileName: rec.profileName || "",
     speechError: rec.speechError || "",
     fillerReport: rec.diagnosis && rec.diagnosis.fillerReport ? rec.diagnosis.fillerReport : null,
+    simLog: rec.simLog || null,
   };
 }
 

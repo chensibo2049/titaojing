@@ -7,7 +7,7 @@ import { initVision, detectVideo, visionStatus, onVisionProgress, resetVision, s
 import { speechSupported, preflightSpeech } from "./speech.js";
 import { startAsr, highlightFillerHtml, asrStatus, describeAsrEngine } from "./asr.js";
 import { inspectSherpa, preflightSherpa, prewarmSherpa, dropWarmSherpa } from "./asr-sherpa.js";
-import { mountLocalAsr, localDownloadRunning } from "./asr-ui.js";
+import { mountLocalAsr, localDownloadRunning, maybeAutoDownload, autoDownloadBlockedReason } from "./asr-ui.js";
 import { exportSummary } from "./export.js";
 import { getSettings, saveSettings, timing, SESSION_MODES, FRAME_MODES } from "./settings.js";
 import { getLicense } from "./license.js";
@@ -24,6 +24,9 @@ import { $, esc, toast, modal, fitStage, copyText } from "./ui.js";
 import { renderHistory, renderCompare, renderSettings, renderFeedback, renderAbout, renderProfile, trendPoints, wirePages } from "./pages.js";
 import { VERSION_LABEL, APP_VERSION } from "./version.js";
 import { initDebug, debugEnabled, debugFrame, debugSpeech, debugSessionStart, debugSessionEnd } from "./debug.js";
+import { renderObserveSheet } from "./observe-ui.js";
+import { recentCharsPerMin } from "./classroom-sim.js";
+import { startClassroomSim, stopClassroomSim, feedClassroomSim, tickClassroomSim, isSimActive, summarizeClassroomSim } from "./classroom-sim-ui.js";
 import { hasAcceptedTerms, acceptTerms, experienceOn } from "./consent.js";
 import { maybeEnqueue } from "./experience.js";
 
@@ -84,6 +87,9 @@ function stopEverything({ keepPreview = false } = {}) {
   paused = false;
   $("pause-veil").hidden = true;
   if (speechHandle) { speechHandle.stop(); speechHandle = null; }
+  stopClassroomSim();
+  const wrap = $("live-wrap");
+  if (wrap) wrap.classList.remove("has-sim");
   if (recorder && recorder.state !== "inactive") { try { recorder.stop(); } catch (_) {} }
   recorder = null;
   keepAwake(false);
@@ -371,6 +377,11 @@ function openPermission() {
   const cb = $("perm-save-video");
   cb.checked = s.saveVideo && lic.features.saveVideo;
   cb.disabled = !lic.features.saveVideo || !envInfo().hasRecorder;
+  document.querySelectorAll("#perm-classroom-sim .seg-btn").forEach((b) => {
+    const on = (b.dataset.sim || "off") === (s.classroomSim || "off");
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+  });
   $("media-error").hidden = true;
 }
 
@@ -545,7 +556,7 @@ async function startCameraLive() {
   session.frameMode = s.frameMode;
   session.sessionMode = s.sessionMode;
   session.asrEngine = s.asrEngine;
-  session.settingsSnapshot = { boardSide: s.boardSide, sens: { ...s.sens }, mirror: s.mirror, targetMin: s.targetMin, speechLang: s.speechLang, facing: s.facing, frameMode: s.frameMode, sessionMode: s.sessionMode, fillers: s.fillers.slice(), asrEngine: s.asrEngine };
+  session.settingsSnapshot = { boardSide: s.boardSide, sens: { ...s.sens }, mirror: s.mirror, targetMin: s.targetMin, speechLang: s.speechLang, facing: s.facing, frameMode: s.frameMode, sessionMode: s.sessionMode, fillers: s.fillers.slice(), asrEngine: s.asrEngine, classroomSim: s.classroomSim || "off" };
   session.thumb = "";
   fillerSeen = new Set();
   paused = false;
@@ -564,6 +575,14 @@ async function startCameraLive() {
   $("timer-hint").textContent = `建议 ${fmt(liveTiming.suggested)}`;
   $("btn-stop").disabled = true;
   $("dock-note").textContent = `大约 ${liveTiming.minStop} 秒后可以结束，最长 ${fmt(liveTiming.max)}`;
+  const wrap = $("live-wrap");
+  stopClassroomSim();
+  if (s.classroomSim === "class" || s.classroomSim === "roadshow") {
+    if (wrap) wrap.classList.add("has-sim");
+    startClassroomSim(s.classroomSim, { now: () => (liveStart ? (performance.now() - liveStart) / 1000 : 0) }).catch(() => {});
+  } else if (wrap) {
+    wrap.classList.remove("has-sim");
+  }
 
   const video = $("live-video");
   await attachVideo(video, mediaStream);
@@ -603,6 +622,7 @@ async function startCameraLive() {
       onTranscript: (seg) => {
         if (!speechOpen()) return;
         addTranscript(session, speechT(seg), seg.text, !!seg.final);
+        if (isSimActive()) feedClassroomSim(seg.text, speechT(seg), !!seg.final);
       },
       onDebug: debugEnabled() ? debugSpeech : null,
       onHeard: () => { session.speechHeard = true; },
@@ -660,22 +680,12 @@ function banner(msg, ms = 6000, extra = null) {
   txt.textContent = msg;
   el.appendChild(txt);
   if (extra && extra.localOffer && !asrStatus().sherpa) {
-    const box = document.createElement("div");
-    box.className = "banner-local";
-    el.appendChild(box);
-    mountLocalAsr(box, {
-      compact: true,
-      onReady: () => {
-        // 正在试讲：立刻改用本机听写
-        if (speechHandle && speechHandle.switchToLocal) {
-          speechHandle.switchToLocal();
-          session && (session.asrEngine = "sherpa", session.speechError = "", session.speechAvailable = true);
-          setAsrStatusLabel($("live-asr-state"), "sherpa", "载入中");
-          speechHandle.ready && speechHandle.ready.then((r) => setAsrStatusLabel($("live-asr-state"), "sherpa", r && r.ok ? "" : "当前不可用"));
-          setTimeout(() => { el.hidden = true; }, 4000);
-        }
-      },
-    });
+    const note = document.createElement("span");
+    note.className = "banner-local-note";
+    if (localDownloadRunning()) note.textContent = "听写包正在角落里下载，好了会自动换上本机听写。";
+    else if (autoDownloadBlockedReason() === "saveData") note.textContent = "可点右下角「听写包」下载本机听写，声音只留在这台设备上。";
+    else note.textContent = "可点右下角的听写包，在这台设备上下载并改用本机听写。";
+    el.appendChild(note);
     const close = document.createElement("button");
     close.type = "button";
     close.className = "btn-mini banner-close";
@@ -787,6 +797,13 @@ function loopCamera() {
     if (now - lastUiAt > 250) {
       lastUiAt = now;
       setClock(t, liveTiming.suggested);
+      if (isSimActive()) {
+        const last = session.transcript && session.transcript[session.transcript.length - 1];
+        const silence = last ? t - last.t : 0;
+        const cpm = recentCharsPerMin(session.transcript, t);
+        const fr = session.frames[session.frames.length - 1];
+        tickClassroomSim(t, { silence, cpm, pose: fr && fr.pose });
+      }
       $("btn-stop").disabled = t < liveTiming.minStop;
       $("dock-note").textContent = t < liveTiming.minStop
         ? `再讲 ${Math.ceil(liveTiming.minStop - t)} 秒就可以结束`
@@ -949,6 +966,10 @@ async function finishCamera() {
     session.thumb = makeThumb(drawVideoInto(v, session.mirror), last, session.aspect);
   }
   session.speechHeard = !!session.speechHeard;
+  if (isSimActive()) session.simLog = summarizeClassroomSim();
+  stopClassroomSim();
+  const liveWrap = $("live-wrap");
+  if (liveWrap) liveWrap.classList.remove("has-sim");
   session.stats = { ...(session.stats || {}), speechHeard: session.speechHeard, pauses: pauseCount, durationSec: Math.round(session.duration), speech: session.speechAvailable, recorded: !!session.videoBlob, recordedMB: session.videoBlob ? Math.round(session.videoBlob.size / 1e5) / 10 : 0 };
   diagnose(session);
   setLastSessionStats({ ...session.stats, counts: session.diagnosis.counts });
@@ -1127,6 +1148,12 @@ function renderDiagnosis(sess) {
   renderTranscript(sess);
   renderFillerReport(sess);
   renderBoardStills(sess);
+  const sheet = $("observe-sheet");
+  if (sheet) {
+    renderObserveSheet(sheet, sess, {
+      onJump: (t) => { stopReplayPlay(); seekReplay(t); },
+    });
+  }
 }
 
 
@@ -1487,7 +1514,17 @@ function onReady() {
   if (location.protocol === "file:") $("file-warning").hidden = false;
   showConsentIfNeeded();
   inspectSherpa().then(() => { setAsrStatusLabel($("coach-asr-state")); }).catch(() => {});
+  maybeAutoDownload().catch(() => {});
   initDebug({ getVisionStatus: visionStatus, getEnv: envInfo, getSettings });
+  window.__titaojingClassroom = {
+    start: startClassroomSim,
+    stop: stopClassroomSim,
+    feed: feedClassroomSim,
+    tick: tickClassroomSim,
+    active: isSimActive,
+    summarize: summarizeClassroomSim,
+  };
+
 
   $("btn-dismiss-whats-new")?.addEventListener("click", () => {
     markVersionSeen();
@@ -1544,6 +1581,10 @@ function onReady() {
     openPermission();
   }));
   $("perm-save-video").addEventListener("change", (e) => saveSettings({ saveVideo: e.target.checked }));
+  document.querySelectorAll("#perm-classroom-sim .seg-btn").forEach((b) => b.addEventListener("click", () => {
+    saveSettings({ classroomSim: b.dataset.sim || "off" });
+    openPermission();
+  }));
   $("btn-allow-media").addEventListener("click", async () => {
     const ok = await requestMedia();
     if (ok) startCoach();

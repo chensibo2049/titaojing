@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="沉思波 · 体态镜：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。面向师范生和课堂教师的试讲训练工具，视频只留在本机。">
+  <meta name="description" content="沉思波 · 体态镜（OpenPodium）：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。面向师范生和课堂教师的试讲训练工具，视频只留在本机。">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -11,7 +11,7 @@
   <meta name="application-name" content="体态镜">
   <meta name="theme-color" content="#f3eee4">
   <meta name="format-detection" content="telephone=no">
-  <title>体态镜 · 沉思波</title>
+  <title>体态镜 · OpenPodium</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/icons/icon-192.png" sizes="192x192" type="image/png">
@@ -34,7 +34,7 @@
     <!-- COVER -->
     <section id="screen-cover" class="screen screen-cover" data-screen="cover">
       <header class="cover-head">
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <nav class="cover-nav" aria-label="主菜单">
           <a href="#/history">历史记录</a>
           <a href="#/compare">进步对比</a>
@@ -47,7 +47,6 @@
 
       <div class="cover-layout">
         <div class="cover-copy">
-          <p class="eyebrow">师范生试讲训练</p>
           <h1>试讲体态镜</h1>
           <p class="lead">对着镜头讲一段课。教态、视线、口头禅和板书对位，会像运动训练一样，直接画在画面上。练习模式几分钟即可；也可以把电脑放在讲台上，讲上 10 到 20 分钟再回看。</p>
           <ul class="cover-points">
@@ -98,14 +97,14 @@
     <section id="screen-permission" class="screen screen-plain" data-screen="permission" hidden>
       <header class="sub-head">
         <button type="button" class="text-back" data-go="cover">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <span class="head-spacer"></span>
       </header>
       <div class="plain-card">
         <p class="eyebrow">对着镜头试讲</p>
         <h2>需要使用镜头和麦克风</h2>
         <p class="plain-lead">画面只在这台设备的浏览器里分析。不需要账号。录像默认不保存；若勾选保存，也只写入本机历史，沉思波不会收到。练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析随录制在本机进行，结束后不会继续分析（回放已保存的记录除外）。</p>
-        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：下载一次中文模型（约 90 MB）后，声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商，不用连外网。没下载时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
+        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：进入页面后会在后台下载听写包（约 90 MB，一次即可，可在设置里关掉）。声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商。没下载完时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
         <div class="perm-modes">
           <p class="field-label">这次怎么讲</p>
           <div class="seg" role="radiogroup" aria-label="试讲模式" id="perm-session-mode">
@@ -131,6 +130,15 @@
           <button type="button" class="seg-btn" data-facing="environment" role="radio">后置镜头</button>
         </div>
         <label class="check-line"><input type="checkbox" id="perm-save-video"> 把这次录像也存进本机历史（占空间，默认不存）</label>
+        <div class="perm-sim" id="perm-sim-box">
+          <p class="field-label">模拟课堂 <span class="perm-sim-tag">练习用模拟</span></p>
+          <div class="seg" role="radiogroup" aria-label="模拟课堂" id="perm-classroom-sim">
+            <button type="button" class="seg-btn" data-sim="off" role="radio">不开</button>
+            <button type="button" class="seg-btn" data-sim="class" role="radio">模拟学生</button>
+            <button type="button" class="seg-btn" data-sim="roadshow" role="radio">模拟路演</button>
+          </div>
+          <p class="fs-note" id="perm-sim-hint">默认不开。打开后，讲的时候旁边会出现几位虚拟同学或嘉宾，按您说的话举手、回答或提问。全部在本机按规则演算，不联网。回答有对的，也有不完整或有误的，方便练习追问。</p>
+        </div>
         <div class="plain-actions">
           <button type="button" class="btn btn-primary" id="btn-allow-media">
             <span class="btn-label">允许镜头与麦克风</span>
@@ -145,7 +153,7 @@
     <section id="screen-error" class="screen screen-plain" data-screen="error" hidden>
       <header class="sub-head">
         <button type="button" class="text-back" data-go="cover">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <span class="head-spacer"></span>
       </header>
       <div class="plain-card">
@@ -169,7 +177,7 @@
     <section id="screen-coach" class="screen screen-stage" data-screen="coach" hidden>
       <header class="stage-head">
         <button type="button" class="text-back" id="btn-coach-back">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <button type="button" class="text-back subtle" id="btn-switch-cam" hidden>切换镜头</button>
       </header>
       <div class="stage-wrap" id="coach-wrap">
@@ -206,7 +214,7 @@
     <!-- LIVE (demo + camera) -->
     <section id="screen-live" class="screen screen-stage" data-screen="live" hidden>
       <header class="stage-head">
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <span class="live-timer" id="live-timer"><i class="live-dot"></i><span id="live-clock">00:00</span><span class="timer-hint" id="timer-hint">建议 02:00</span></span>
         <button type="button" class="text-back subtle" id="btn-skip-demo" hidden>跳过</button>
       </header>
@@ -229,6 +237,7 @@
             </div>
           </div>
         </div>
+        <aside id="classroom-sim" class="classroom-sim" hidden aria-label="练习用模拟课堂"></aside>
       </div>
       <footer class="stage-dock">
         <button type="button" class="btn btn-stop btn-lg" id="btn-stop" disabled>
@@ -244,7 +253,7 @@
     <section id="screen-replay" class="screen screen-replay" data-screen="replay" hidden>
       <header class="stage-head">
         <button type="button" class="text-back" id="btn-replay-home">封面</button>
-        <span class="brand-mark">沉思波 · 体态镜</span>
+        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
         <a class="text-back subtle" href="#/history" id="btn-replay-history">历史记录</a>
       </header>
       <div class="replay-layout">
@@ -307,6 +316,7 @@
           </div>
         </div>
       </div>
+      <div id="observe-sheet" class="observe-sheet" hidden></div>
     </section>
 
     <!-- HISTORY -->
@@ -418,7 +428,17 @@
             </select>
             <small id="asr-engine-hint"></small>
           </label>
+          <label class="field check"><input type="checkbox" name="asrAutoDownload"> <span>进入页面后在后台自动下载听写包（约 90 MB，一次即可）。开了浏览器的省流量时不会自动开始，角落里会留一枚「点此下载」。下载不打断浏览，换页也不中断。</span></label>
           <div class="field" id="local-asr-box"></div>
+          <label class="field">
+            <span>模拟课堂（练习用模拟，默认不开）</span>
+            <select name="classroomSim">
+              <option value="off">不开</option>
+              <option value="class">模拟学生（4–6 位虚拟同学）</option>
+              <option value="roadshow">模拟路演（3 位嘉宾／评委）</option>
+            </select>
+            <small>打开后，试讲画面旁边会出现虚拟同学或嘉宾，按您的话举手、回答或提问。全部在本机演算，不联网。题库是一份普通 JSON（assets/classroom/banks.json），老师可直接改。不是真实课堂。</small>
+          </label>
         </fieldset>
         <fieldset>
           <legend>流畅度</legend>
@@ -628,7 +648,7 @@
     <div class="consent-card" role="dialog" aria-labelledby="consent-title" aria-modal="true">
       <p class="eyebrow">使用说明</p>
       <h2 id="consent-title">开始之前</h2>
-      <p>沉思波 · 体态镜是一面给试讲用的镜子：对着镜头讲一段课，教态、视线、口头禅和板书对位会画在画面上。它不是评分标准，也不是心理或医学评估。</p>
+      <p>沉思波 · 体态镜（OpenPodium）是一面给试讲用的镜子：对着镜头讲一段课，教态、视线、口头禅和板书对位会画在画面上。它不是评分标准，也不是心理或医学评估。</p>
       <ul class="plain-list">
         <li>视频和历史只留在这台设备的浏览器里（IndexedDB）。录像默认不保存，只有你勾选后才写入；可在历史记录里删除。沉思波不会收到这些内容，除非你打开体验计划并且配置了上传地址（当前为空，不会发出）。</li>
         <li>练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析在录制期间于本机进行，结束后不会继续分析，除非你回放已保存的记录。</li>
@@ -645,6 +665,7 @@
       </div>
     </div>
   </div>
+  <div id="asr-dl-chip" class="asr-dl-chip" hidden></div>
   <script src="assets/app.bundle.js?v=__BUILD_ID__"></script>
 </body>
 </html>

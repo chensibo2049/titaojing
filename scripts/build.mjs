@@ -62,6 +62,10 @@ const asrManifest = "assets/asr/manifest.json";
 if (fs.existsSync(path.join(root, asrManifest))) cp(asrManifest);
 // 本机听写引擎（sherpa-onnx WASM + Silero VAD）；中文模型不随网站发布，由浏览器按需下载。
 for (const f of fs.readdirSync(path.join(root, "assets/asr/engine"))) cp(`assets/asr/engine/${f}`);
+const classroomDir = path.join(root, "assets/classroom");
+if (fs.existsSync(classroomDir)) {
+  for (const f of fs.readdirSync(classroomDir)) cp(`assets/classroom/${f}`);
+}
 
 
 // Host configs (harmless on hosts that ignore them)

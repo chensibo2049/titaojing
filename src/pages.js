@@ -260,8 +260,10 @@ export function renderSettings() {
   if (ah) {
     if (asr.sherpa) ah.textContent = "本机听写已下载：「自动」会用本机听写，声音留在这台设备上。";
     else if (!asr.sherpaSupported) ah.textContent = "这个浏览器不能运行本机听写，只能用浏览器听写（Chrome / Edge 会把声音送到厂商的服务；在中国大陆经常连不上）。";
-    else ah.textContent = `本机听写还没下载（${asr.sherpaSize}，一次即可）。下载前「自动」会用浏览器听写；它连不上时，横幅里也能直接下载。`;
+    else ah.textContent = `本机听写还没下载（${asr.sherpaSize}，一次即可）。下载前「自动」会用浏览器听写；进入页面后会在后台下载听写包，角落里可以看到进度。`;
   }
+  if (f.asrAutoDownload) f.asrAutoDownload.checked = s.asrAutoDownload !== false;
+  if (f.classroomSim) f.classroomSim.value = s.classroomSim || "off";
   mountLocalAsr($("local-asr-box"), { onChange: () => renderSettings(), onReady: () => renderSettings() });
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
@@ -305,6 +307,8 @@ export function wireSettings() {
       targetMin: Number(f.targetMin.value),
       frameMode: f.frameMode.value,
       asrEngine: f.asrEngine.value,
+      asrAutoDownload: f.asrAutoDownload ? f.asrAutoDownload.checked : true,
+      classroomSim: f.classroomSim ? f.classroomSim.value : "off",
       perfMode: f.perfMode ? f.perfMode.value : "auto",
       boardSide: f.boardSide.value,
       facing: f.facing.value,
@@ -444,6 +448,7 @@ export function renderAbout() {
       "本机听写：下载一次中文模型（约 90 MB）后，在浏览器里离线转写普通话，声音不离开这台设备。单字语气词（嗯、啊）多数能写出，但很短、很轻的一声可能漏掉。",
       "能看见双手（每只手 21 个点），用来辅助判断写板和抱臂。手部模型加载失败时，体态和视线仍可运行。",
       "目前不能认出黑板上的字。能看到手是否伸向板书区、是否在写、写完是否回视学生；写板时会留下板书区静帧，供你自己看字迹。",
+      "模拟课堂（练习用，默认关）：可在开讲页打开虚拟同学或路演嘉宾，按你的话举手、回答或提问。全部在本机按规则演算，不联网，不是真实课堂。",
     ].map((s) => `<li>${s}</li>`).join("");
   }
   const asrLine = $("about-asr-state");

@@ -36,7 +36,7 @@ self.addEventListener("message", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith("titaojing-") && !k.startsWith("titaojing-asr-model-") && k !== SHELL_CACHE && k !== MODEL_CACHE && k !== ASR_ENGINE_CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith("titaojing-") && !k.startsWith("titaojing-asr-model-") && k !== SHELL_CACHE && k !== MODEL_CACHE && k !== ASR_ENGINE_CACHE && k !== "titaojing-asr-bf").map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -104,4 +104,26 @@ self.addEventListener("fetch", (event) => {
     if (res.ok && res.type === "basic") c.put(req, res.clone());
     return res;
   })());
+});
+
+const ASR_BF_CACHE = "titaojing-asr-bf";
+
+async function stashBackgroundFetch(registration) {
+  const recs = await registration.matchAll();
+  const cache = await caches.open(ASR_BF_CACHE);
+  for (const rec of recs) {
+    try {
+      const res = await rec.responseReady;
+      if (res && res.ok) await cache.put(rec.request, res.clone());
+    } catch (_) {}
+  }
+  const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const c of clients) c.postMessage({ type: "ASR_BF_DONE" });
+}
+
+self.addEventListener("backgroundfetchsuccess", (event) => {
+  event.waitUntil(stashBackgroundFetch(event.registration));
+});
+self.addEventListener("backgroundfetchfail", (event) => {
+  event.waitUntil(stashBackgroundFetch(event.registration));
 });

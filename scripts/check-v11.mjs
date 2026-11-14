@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** 静态检查（v1.2.0）与口头禅报告单元测试（不启动浏览器）。 */
+/** 静态检查（v1.3.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
@@ -14,12 +14,12 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.2.0", pkg.version === "1.2.0", pkg.version);
+check("package.json 版本为 1.3.0", pkg.version === "1.3.0", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-check("CHANGELOG 含 v1.2.0 与 v1.1.0", /## v1\.2\.0/.test(changelog) && /## v1\.1\.0/.test(changelog));
+check("CHANGELOG 含 v1.3.0 与 v1.2.0", /## v1\.3\.0/.test(changelog) && /## v1\.2\.0/.test(changelog));
 const notesSrc = fs.readFileSync(path.join(root, "src/changelog.js"), "utf8");
-check("应用内更新说明含 1.2.0", /version: "1\.2\.0"/.test(notesSrc));
+check("应用内更新说明含 1.3.0", /version: "1\.3.0"/.test(notesSrc));
 
 const config = fs.readFileSync(path.join(root, "config.js"), "utf8");
 check("保留测试激活码 CSB-TEST-PRO", /CSB-TEST-PRO/.test(config));
@@ -82,6 +82,29 @@ check("Service Worker 升级时不删除已下载的听写模型", /titaojing-as
 const settingsSrc = fs.readFileSync(path.join(root, "src/settings.js"), "utf8");
 check("设置含流畅度（自动 / 流畅优先 / 精细优先）", /perfMode/.test(settingsSrc) && index.includes("流畅优先") && index.includes("精细优先"));
 
+
+const landing = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
+const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+const manifest = fs.readFileSync(path.join(root, "manifest.webmanifest"), "utf8");
+check("公开英文名为 OpenPodium", /OpenPodium/.test(index) && /OpenPodium/.test(landing) && /OpenPodium/.test(readme) && /OpenPodium/.test(manifest) && /OpenPodium/.test(pkg.description));
+const ojHits = [];
+for (const f of ["index.html", "landing/index.html", "README.md", "manifest.webmanifest", "package.json", "src/changelog.js"]) {
+  const txt = fs.readFileSync(path.join(root, f), "utf8");
+  if (txt.includes("OpenJing")) ojHits.push(f);
+}
+check("现行文案不再使用 OpenJing（历史更新记录除外）", ojHits.length === 0, ojHits.join(", "));
+check("中文名仍为体态镜", /体态镜/.test(index) && /体态镜/.test(landing));
+check("设置含自动下载听写包", /asrAutoDownload/.test(settingsSrc) && index.includes("asrAutoDownload"));
+check("下载模块支持 Range 并行与续传", /DEFAULT_PARALLEL/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")) && /planRanges/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")) && /chunkStore/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")));
+check("页面含观察记录容器", index.includes("observe-sheet"));
+const bankPath = path.join(root, "assets/classroom/banks.json");
+check("模拟课堂题库文件存在且可编辑", fs.existsSync(bankPath));
+const bank = JSON.parse(fs.readFileSync(bankPath, "utf8"));
+check("题库含学生、对错回答和路演常见问题", Array.isArray(bank.class && bank.class.students) && bank.class.students.length >= 4 && bank.class.students.length <= 6 && (bank.class.answers || []).some((a) => a.kind === "correct") && (bank.class.answers || []).some((a) => a.kind === "wrong" || a.kind === "partial") && ["差异化", "收费", "用户是谁", "下一步计划", "团队分工"].every((k) => (bank.roadshow.questions || []).some((q) => q.topic === k)), JSON.stringify({ students: (bank.class.students || []).length, answers: (bank.class.answers || []).map((a) => a.kind), topics: (bank.roadshow.questions || []).map((q) => q.topic) }));
+check("开讲页可开关模拟课堂且标明练习用", index.includes("perm-classroom-sim") && index.includes("练习用模拟") && index.includes('data-sim="off"'));
+check("设置里模拟课堂默认可关", /classroomSim/.test(settingsSrc) && settingsSrc.includes('classroomSim: "off"'));
+
+
 const speech = fs.readFileSync(path.join(root, "src/speech.js"), "utf8");
 check("network 错误说明不是电脑没网", /不是你没联网/.test(speech) && !/语音识别需要联网（浏览器自带服务）\.当前听不到口头禅/.test(speech));
 
@@ -124,6 +147,129 @@ check("「然后」给出停顿改法", withWords.methods.some((m) => /停顿/.t
 check("「就是说」给出过渡改法", withWords.methods.some((m) => /也就是|具体来说/.test(m.body)));
 const next = fillerNextAdvice(withWords);
 check("诊断用建议与报告一致", /停顿|然后/.test(next), next);
+
+
+// 下载分段规划
+const tmpDl = path.join(os.tmpdir(), "titaojing-asr-download-test.mjs");
+await esbuild.build({
+  entryPoints: [path.join(root, "src/asr-download.js")],
+  bundle: true,
+  format: "esm",
+  outfile: tmpDl,
+  logLevel: "silent",
+  platform: "node",
+});
+const dl = await import(pathToFileURL(tmpDl).href);
+const ranges = dl.planRanges(20, 8);
+check("planRanges 按块切开", ranges.length === 3 && ranges[0].start === 0 && ranges[2].end === 19, JSON.stringify(ranges));
+const store = new Map();
+const chunkStore = {
+  async get(k) { return store.get(k) || null; },
+  async put(k, blob) { store.set(k, blob); },
+  async clear(prefix) { for (const k of [...store.keys()]) if (k.startsWith(prefix)) store.delete(k); },
+};
+const payload = Uint8Array.from({ length: 64 }, (_, i) => (i * 7) & 255);
+const sha = await dl.sha256Hex(payload.buffer);
+const { createServer } = await import("node:http");
+const server = createServer((req, res) => {
+  const range = req.headers.range;
+  if (range) {
+    const m = range.match(/bytes=(\d+)-(\d+)/);
+    const start = Number(m[1]), end = Number(m[2]);
+    const slice = payload.subarray(start, end + 1);
+    res.writeHead(206, { "Content-Range": `bytes ${start}-${end}/${payload.length}`, "Content-Length": String(slice.length), "Accept-Ranges": "bytes" });
+    res.end(Buffer.from(slice));
+    return;
+  }
+  res.writeHead(200, { "Content-Length": String(payload.length) });
+  res.end(Buffer.from(payload));
+});
+const port = await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server.address().port)));
+const url = `http://127.0.0.1:${port}/model.bin`;
+const got = await dl.fetchFile({ url, bytes: payload.length, sha256: sha, chunkStore, parallel: 4, chunk: 16, fileId: "t" });
+check("本地 Range 并行下载并校验 sha256", got.mode === "parallel" && got.blob.size === payload.length && (await dl.sha256Hex(await got.blob.arrayBuffer())) === sha, got.mode);
+// 续传：预置第一段
+await chunkStore.clear("t");
+const first = await dl.fetchFile({ url, bytes: payload.length, sha256: sha, chunkStore, parallel: 4, chunk: 16, fileId: "t" });
+check("续传写入了分段缓存", store.size === 0, "cleared after success size=" + store.size); // fetchFile clears after success
+// 中途缓存：手动放入第一段再下
+const r0 = dl.planRanges(payload.length, 16)[0];
+store.set(dl.rangeKey("resume", r0.start, r0.end), new Blob([payload.subarray(r0.start, r0.end + 1)]));
+const resumed = await dl.fetchFile({ url, bytes: payload.length, sha256: sha, chunkStore, parallel: 4, chunk: 16, fileId: "resume" });
+check("预置分段后能续成完整文件", resumed.blob.size === payload.length, String(resumed.blob.size));
+server.close();
+try { fs.unlinkSync(tmpDl); } catch (_) {}
+
+// 整节课文本分析
+const tmpOb = path.join(os.tmpdir(), "titaojing-observe-test.mjs");
+await esbuild.build({
+  entryPoints: [path.join(root, "src/observe.js")],
+  bundle: true,
+  format: "esm",
+  outfile: tmpOb,
+  logLevel: "silent",
+  platform: "neutral",
+  external: [],
+});
+const ob = await import(pathToFileURL(tmpOb).href);
+const sample = ob.sampleLessonTranscript();
+const dur = 110;
+const points = ob.extractKeyPoints(sample);
+check("重点提取命中提示语", points.some((p) => p.cue === "重点是") && points.some((p) => p.cue === "大家注意") && points.some((p) => p.cue === "总结一下"), JSON.stringify(points.map((p) => p.cue)));
+const kws = ob.extractKeywords(sample);
+check("关键词抽出勾股定理或斜边", kws.some((k) => /勾股定理|斜边|直角/.test(k.word)), JSON.stringify(kws.slice(0, 6)));
+const qs = ob.findQuestions(sample, dur);
+check("提问区分封闭与开放", qs.closed >= 1 && qs.open >= 2 && qs.count >= 4, JSON.stringify({ closed: qs.closed, open: qs.open, count: qs.count, waits: qs.items.map((i) => [i.kind, i.cue, i.wait]) }));
+const tr = ob.findTransitions(sample);
+check("衔接过渡找到三处用语", ["接下来", "我们再看", "刚才说到"].every((p) => tr.some((x) => x.phrase === p)), JSON.stringify(tr.map((x) => x.phrase)));
+const echo = ob.echoHeadTail(sample, dur);
+check("首尾呼应能对上斜边或勾股", echo.overlap.some((k) => /斜边|勾股|直角/.test(k.word)), JSON.stringify(echo.overlap));
+const styles = ob.explainStyles(sample);
+const styleCount = Object.fromEntries(styles.map((g) => [g.key, g.items.length]));
+check("举例、类比、追问都能定位", styleCount.example >= 1 && styleCount.analogy >= 1 && styleCount.probe >= 1, JSON.stringify(styleCount));
+const cheers = ob.encouragements(sample);
+check("激励用语找到很好、不错、谢谢、大家想一想", ["很好", "不错", "谢谢", "大家想一想"].every((p) => cheers.some((x) => x.phrase === p)), JSON.stringify(cheers.map((x) => x.phrase)));
+const particles = ob.countParticles(sample);
+check("语气词里能单独数到「那么」或「就是」", particles.total >= 1, JSON.stringify(particles));
+const report = ob.buildObserveReport({ kind: "camera", duration: dur, transcript: sample, frames: [], speechAvailable: true, speechHeard: true });
+check("有转写时整节课层可用", report.hasSpeech && report.lesson.keyPoints.length >= 2 && report.lesson.questions.count >= 4);
+const silent = ob.buildObserveReport({ kind: "camera", duration: 60, transcript: [], frames: [], speechAvailable: false, speechHeard: false });
+check("无转写时标明原因且不假装有重点", !silent.hasSpeech && !!silent.speechWhy && silent.lesson.keyPoints == null, silent.speechWhy);
+try { fs.unlinkSync(tmpOb); } catch (_) {}
+
+const tmpSim = path.join(os.tmpdir(), "titaojing-sim-test.mjs");
+await esbuild.build({
+  entryPoints: [path.join(root, "src/classroom-sim.js")],
+  bundle: true,
+  format: "esm",
+  outfile: tmpSim,
+  logLevel: "silent",
+});
+const simMod = await import(pathToFileURL(tmpSim).href);
+const det = () => 0.3; // 稳定随机，便于断言
+const cls = simMod.createSim("class", bank, { random: det });
+check("说谁来回答会举手", cls.feedTranscript("有没有同学愿意回答一下？", 12, true)?.action === "raise" && cls.snapshot(12).people.filter((p) => p.state === "hand").length >= 3);
+const called = cls.feedTranscript("请你来讲", 16, true);
+check("说请你会点名并给出题库回答", called?.action === "call" && called.answer && called.answer.text && ["correct", "partial", "wrong"].includes(called.answer.kind), JSON.stringify(called && { action: called.action, kind: called.answer && called.answer.kind }));
+const byName = simMod.createSim("class", bank, { random: det });
+byName.feedTranscript("谁来回答", 4, true);
+const named = byName.feedTranscript("请林秋来说", 6, true);
+check("叫姓名可点到对应同学", named?.action === "call" && named.person && named.person.name === "林秋", JSON.stringify(named && named.person));
+const quiet = simMod.createSim("class", bank, { random: det });
+quiet.feedTranscript("我们先看这一页。", 2, true);
+quiet.tick(11, { silence: 9, cpm: 40 });
+check("安静超过八秒会有同学困惑或走神", quiet.snapshot(11).people.some((p) => p.state === "confused" || p.state === "distracted"), JSON.stringify(quiet.snapshot(11).people.map((p) => p.state)));
+const fast = simMod.createSim("class", bank, { random: det });
+fast.feedTranscript("一二三四五六七八九十", 1, true);
+fast.tick(3, { silence: 0.2, cpm: 320 });
+check("语速很快时会有同学困惑", fast.snapshot(3).people.some((p) => p.state === "confused"), JSON.stringify(fast.snapshot(3).people.map((p) => p.state)));
+const road = simMod.createSim("roadshow", bank, { random: det });
+const asked = road.feedTranscript("大家有什么问题，欢迎提问。", 40, true);
+check("路演讲完后嘉宾会提出常见问题", asked?.action === "ask" && asked.pending && ["差异化", "收费", "用户是谁", "下一步计划", "团队分工"].includes(asked.pending.question.topic), JSON.stringify(asked && asked.pending && asked.pending.question));
+road.feedTranscript("谢谢老师，关于这一点我们是这样考虑的。", 48, true);
+const sum = road.summarize();
+check("路演回应时长会记入日志", sum.askCount >= 1 && sum.replyCount >= 1 && sum.replyDurations[0] >= 7 && sum.interactions >= 2, JSON.stringify(sum));
+try { fs.unlinkSync(tmpSim); } catch (_) {}
 
 try { fs.unlinkSync(tmp); } catch (_) {}
 

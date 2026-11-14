@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   targetMin: 2,
   frameMode: "auto",         // auto | half | full
   asrEngine: "auto",         // auto | webspeech | sherpa
+  asrAutoDownload: true,     // 进入页面后在后台下载听写包
   perfMode: "auto",          // auto | smooth（流畅优先）| detail（精细优先）
   sens: { posture: "mid", gaze: "mid", filler: "mid", board: "mid" },
   fillers: FILLERS.slice(),
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS = {
   deviceId: "",
   saveVideo: false,
   showMap: true,
+  classroomSim: "off",  // off | class | roadshow（练习用模拟，默认关）
 };
 
 let cache = null;
@@ -48,6 +50,7 @@ export function normalize(raw) {
   s.sessionMode = s.sessionMode === "classroom" ? "classroom" : "practice";
   s.frameMode = ["auto", "half", "full"].includes(s.frameMode) ? s.frameMode : "auto";
   s.asrEngine = ["auto", "webspeech", "sherpa"].includes(s.asrEngine) ? s.asrEngine : "auto";
+  s.asrAutoDownload = raw && raw.asrAutoDownload === false ? false : true;
   s.perfMode = ["auto", "smooth", "detail"].includes(s.perfMode) ? s.perfMode : "auto";
   const mode = SESSION_MODES[s.sessionMode];
   s.targetMin = Number(s.targetMin) || mode.defaultMin;
@@ -59,6 +62,7 @@ export function normalize(raw) {
   s.saveVideo = !!s.saveVideo;
   s.facing = s.facing === "environment" ? "environment" : "user";
   if (!["zh-CN", "zh-TW", "zh-HK", "en-US"].includes(s.speechLang)) s.speechLang = "zh-CN";
+  s.classroomSim = ["class", "roadshow"].includes(s.classroomSim) ? s.classroomSim : "off";
   return s;
 }
 
