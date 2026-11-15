@@ -1228,6 +1228,7 @@ a.text-back { text-decoration: none; }
   #replay-wrap { order: 1; flex: none; height: 58vh; min-height: 240px; padding: 0 10px; }
   .timeline-dock { order: 2; flex: none; padding-top: 8px; }
   .diag-panel { order: 3; flex: none; max-height: none; overflow: visible; padding: 14px 16px calc(20px + var(--safe-b)); border-top: 1px solid rgba(243,238,228,0.08); }
+  .observe-sheet { order: 4; flex: none; }
 }
 
 /* ——— 转写（回放） ——— */
@@ -1706,4 +1707,81 @@ body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 168px; }
   .asr-dl-chip { top: max(10px, var(--safe-t)); bottom: auto; right: max(10px, var(--safe-r)); }
   .asr-dl-chip-btn { min-width: 0; padding: 6px 10px; box-shadow: none; }
   body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 0; }
+}
+
+/* Desktop report length must not determine the fitted video stage height. */
+@media (min-width: 901px) {
+  .screen-replay .replay-layout {
+    flex: 0 0 auto;
+    height: clamp(320px, calc(100svh - 220px), 720px);
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .screen-replay .diag-panel { min-height: 0; }
+  .screen-replay .timeline-dock { flex-shrink: 0; }
+}
+
+/* Responsive finish: every screen scrolls within the app, while stage/overlay share one fitted box. */
+.start-guide { max-width: 36em; margin-top: 18px; padding: 14px 16px; border-left: 2px solid var(--cinnabar); background: var(--paper-soft); font-size: 13px; line-height: 1.65; color: var(--ink-soft); }
+.start-guide strong { display: block; font-family: var(--serif); font-size: 16px; color: var(--ink); margin-bottom: 4px; }
+.start-guide p + p { margin-top: 6px; }
+.start-guide a { display: inline-block; margin-top: 8px; color: var(--cinnabar-deep); }
+:where(a, button, input, select, textarea, [role="slider"], .seg-btn):focus-visible { outline: 2px solid var(--cinnabar); outline-offset: 2px; }
+.stage-head :where(a, button):focus-visible, .screen-replay :where(button, [role="slider"]):focus-visible { outline-color: var(--gold-bright); }
+.btn-mini, .install-chip, .cover-nav a, .hist-actions .btn-mini, .ob-jump { min-height: 44px; }
+.cover-nav a, .ob-jump { display: inline-flex; align-items: center; }
+.stage-video { object-fit: fill; } /* fitStage matches this exact source aspect; no hidden crop. */
+.replay-layout, .diag-panel, .timeline-dock, .timeline-meta, .replay-actions, .cover-layout, .cover-copy { min-width: 0; }
+.diag-panel, .transcript li, .ob-row, .about-card, .start-guide { overflow-wrap: anywhere; }
+.modal { padding: max(12px, var(--safe-t)) max(12px, var(--safe-r)) max(12px, var(--safe-b)) max(12px, var(--safe-l)); }
+.modal-card, .consent-card { max-height: calc(100dvh - 24px - var(--safe-t) - var(--safe-b)); overscroll-behavior: contain; }
+@media (max-width: 900px) {
+  .screen-stage { overflow-y: auto; }
+  .screen-stage .stage-wrap { flex: 1 0 auto; min-height: min(52svh, 380px); }
+  .screen-replay #replay-wrap { min-height: 0; max-height: 58svh; }
+  .screen-replay .stage-head { position: sticky; top: 0; z-index: 5; }
+  .timeline-dock { padding-left: max(12px, var(--safe-l)); padding-right: max(12px, var(--safe-r)); }
+  .diag-panel { width: 100%; }
+}
+@media (max-width: 640px) {
+  .screen-cover { padding-top: calc(12px + var(--safe-t)); }
+  .cover-head { align-items: flex-start; }
+  .cover-nav { gap: 0 8px; }
+  .cover-nav a { font-size: 13px; padding: 8px 4px; }
+  .cover-layout { margin: 8px 0 16px; gap: 14px; }
+  .cover-preview { min-height: 180px; height: min(29svh, 240px); }
+  .preview-frame { max-height: 100%; }
+  .cover-copy h1 { font-size: clamp(30px, 10vw, 40px); }
+  .cover-actions { gap: 8px; margin-top: 18px; }
+  .cover-actions .btn { min-height: 56px; }
+  .stage-head { gap: 6px; }
+  .stage-head .brand-mark { font-size: clamp(13px, 3.5vw, 17px); white-space: nowrap; }
+  .stage-head :where(.text-back, .live-timer) { flex-shrink: 0; }
+  .timer-hint { display: none; }
+  .stage-dock { padding: 8px 12px calc(12px + var(--safe-b)); }
+  .coach-tools { gap: 4px 10px; }
+  .mini-select { max-width: min(70vw, 200px); min-height: 44px; }
+  .coach-copy { padding: 8px 10px; bottom: 8px; }
+  .coach-copy p { font-size: 13px; }
+  .coach-sub { display: none; } /* full explanation remains on the stationing screen. */
+  .timeline-meta { align-items: flex-start; }
+  .timeline-meta > :where(.legend, .replay-actions) { width: 100%; }
+  .replay-actions { justify-content: flex-start; }
+  .replay-actions .btn { flex: 1 1 calc(50% - 8px); min-width: 0; justify-content: center; align-items: center; text-align: center; }
+  .replay-actions .btn-label { letter-spacing: 0; }
+  .diag-panel { padding: 14px max(14px, var(--safe-l)) calc(24px + var(--safe-b)); }
+  .transcript li { grid-template-columns: 3.5em minmax(0, 1fr); }
+  .page-head, .page-body { padding-left: max(16px, var(--safe-l)); padding-right: max(16px, var(--safe-r)); }
+  .page-head { gap: 6px; }
+  .page-head .head-spacer { min-width: 64px; }
+  .consent-veil { padding: max(8px, var(--safe-t)) max(8px, var(--safe-r)) max(8px, var(--safe-b)) max(8px, var(--safe-l)); }
+  .consent-card { padding: 18px 16px; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen-stage .stage-wrap { min-height: 210px; }
+  .screen-replay #replay-wrap { max-height: 48svh; }
+  .screen-cover .cover-layout { align-items: start; }
+  .screen-cover .cover-preview { min-height: 200px; }
+  .stage-dock { flex-wrap: wrap; }
+  .diag-panel { max-height: none; }
 }

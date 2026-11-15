@@ -139,3 +139,20 @@ main:focus { outline: none; }
   .brand { white-space: nowrap; flex-shrink: 0; }
   nav { gap: 6px 16px; flex-wrap: wrap; justify-content: flex-end; }
 }
+
+/* Practical guide and navigable narrow-screen links. */
+.guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.guide-grid article { min-width: 0; padding: 20px; border: 1px solid var(--line); background: var(--paper-soft); }
+.guide-grid p { color: var(--ink-soft); font-size: 15px; }
+nav a { display: inline-flex; align-items: center; min-height: 44px; }
+@media (max-width: 800px) {
+  .guide-grid { grid-template-columns: 1fr; gap: 12px; }
+  nav { gap: 16px; }
+  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .hero { gap: 24px; }
+}
+@media (max-width: 420px) {
+  .actions .btn { min-height: 44px; flex: 1 1 100%; text-align: center; }
+  section { padding: 34px 0; }
+  h2 { font-size: 24px; }
+}
