@@ -365,6 +365,25 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
   check("介绍页：可打印成练习讲义（隐藏导航与视频，打印时展开常见问题）", /@media print/.test(lc) && /#demo3d/.test(lc.split("@media print")[1] || "") && /beforeprint/.test(lh) && /afterprint/.test(lh) && /summary:focus-visible/.test(lc));
 }
 
+{
+  const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
+  const m = lh.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  let ok = false, why = "缺少 ld+json";
+  if (m) {
+    try {
+      const data = JSON.parse(m[1]);
+      const app = data.find((d) => d["@type"] === "SoftwareApplication");
+      const faq = data.find((d) => d["@type"] === "FAQPage");
+      const strip = (t) => t.replace(/<[^>]+>/g, "").trim();
+      const shown = [...lh.matchAll(/<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)].map((x) => [strip(x[1]), strip(x[2])]);
+      const same = faq && faq.mainEntity.length === shown.length && faq.mainEntity.every((q, i) => q.name === shown[i][0] && q.acceptedAnswer.text === shown[i][1]);
+      ok = !!app && /apache/i.test(app.license) && same && !/赋能|大模型|智能诊断/.test(m[1]);
+      why = `${shown.length} 条常见问题${same ? "一致" : "与页面不一致"}`;
+    } catch (e) { why = "JSON 解析失败：" + e.message; }
+  }
+  check("介绍页：结构化数据可解析，常见问题与页面文字一致", ok, why);
+}
+
 try { fs.unlinkSync(tmp); } catch (_) {}
 
 console.log(failed ? `\n${failed} 项失败` : "\n检查全部通过");

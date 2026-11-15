@@ -24,6 +24,86 @@
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
+  <!-- 结构化数据：搜索引擎能认出这是一个免费的开源课堂工具；常见问题与页面上的文字保持一致（npm test 会核对） -->
+  <script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "体态镜 · OpenPodium",
+    "alternateName": [
+      "体态镜",
+      "OpenPodium",
+      "开放讲台"
+    ],
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web 浏览器（Chrome、Edge）",
+    "url": "https://chensibo2049.github.io/titaojing/",
+    "inLanguage": "zh-CN",
+    "description": "把电脑放在讲台或课桌上，对着镜头讲一段课。教态、视线和口头禅画在画面上，讲完即可回看。视频默认只留在本机。",
+    "image": "https://chensibo2049.github.io/titaojing/landing/images/demo-3d.jpg",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "CNY"
+    },
+    "codeRepository": "https://github.com/chensibo2049/titaojing",
+    "publisher": {
+      "@type": "Organization",
+      "name": "南京市沉思波网络科技有限责任公司",
+      "alternateName": "沉思波"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "需要准备什么设备？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "一台带摄像头的笔记本，用 Chrome 或 Edge 打开即可。放在讲台或第一排课桌上，用书本垫稳，插上电源。不必另买支架或外接摄像头。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "录像会传到网上吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "默认不会。画面在这台电脑的浏览器里处理，录像默认不保存；要留给教研组一起看时，开讲前勾选「把录像存进本机历史」，也只存在这台设备上。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "转写一直是空的怎么办？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "先确认允许了麦克风。Chrome 的在线听写在中国大陆经常连不上，可以在「设置」里下载本机听写（约 90 MB，一次即可），之后不用联网，声音也不出这台设备。Firefox 和微信内置浏览器不支持听写。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "手机能用吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "能，但必须用 https 地址打开。课堂里更推荐电脑：屏幕大、回放好看，也不用一直举着手机。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "能认出黑板上写的字吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "目前不能。它能看到手是否伸向板书区、是否在写、写完是否回看学生；写板时会留下板书区静帧，供你自己看字迹。"
+        }
+      }
+    ]
+  }
+]
+  </script>
 </head>
 <body>
   <a class="skip" href="#main">跳到正文</a>
