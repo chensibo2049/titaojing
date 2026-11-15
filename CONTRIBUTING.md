@@ -20,6 +20,8 @@ npm run build && ./start.sh
 终端会打印实际网址（端口被占用时自动更换）。请用 Chrome 或 Edge 打开。不要用 `file://` 打开页面。
 
 ```bash
+npm test             # 规则与页面检查（1 秒内，不需要摄像头）
+npm run check-docs   # 文档死链检查
 npm run smoke        # 无头 Chrome 冒烟（约 1 分钟）
 npm run qa           # 更完整的页面验收（需先自行用 8877 端口服务 dist/）
 cd training && bash run_synthetic_demo.sh   # 训练脚手架（合成数据）
@@ -35,6 +37,6 @@ cd training && bash run_synthetic_demo.sh   # 训练脚手架（合成数据）
 
 ## 提交说明
 
-用现在时、说清做了什么，例如「延长课堂模式至 20 分钟」。一次提交只做一件事。提交前至少 `npm run build && npm run smoke`。
+用现在时、说清做了什么，例如「延长课堂模式至 20 分钟」。一次提交只做一件事。提交前至少 `npm test && npm run build && npm run smoke`，这三步 GitHub Actions 每次推送也会跑。
 
 法律上，贡献将按 Apache-2.0 授权（见 LICENSE 与 NOTICE）。请确认你有权提交这些内容，并且其中没有未同意公开的真实学生或教师录像、轨迹或转写。
