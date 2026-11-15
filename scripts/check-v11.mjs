@@ -359,6 +359,12 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
   check("介绍页：有「跳到正文」、<main> 与减少动态效果的处理", /class="skip" href="#main"/.test(lh) && /<main id="main"/.test(lh) && /prefers-reduced-motion/.test(lh) && /prefers-reduced-motion/.test(lc) && /:focus-visible/.test(lc));
 }
 
+{
+  const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
+  const lc = fs.readFileSync(path.join(root, "landing/styles.css"), "utf8");
+  check("介绍页：可打印成练习讲义（隐藏导航与视频，打印时展开常见问题）", /@media print/.test(lc) && /#demo3d/.test(lc.split("@media print")[1] || "") && /beforeprint/.test(lh) && /afterprint/.test(lh) && /summary:focus-visible/.test(lc));
+}
+
 try { fs.unlinkSync(tmp); } catch (_) {}
 
 console.log(failed ? `\n${failed} 项失败` : "\n检查全部通过");

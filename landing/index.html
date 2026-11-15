@@ -203,6 +203,15 @@
       if (!v || !mq || !mq.matches) return;
       v.removeAttribute("autoplay"); v.loop = false; v.controls = true; v.pause();
     })();
+    // 打印讲义时把常见问题全部展开，印完再恢复原样。
+    (function () {
+      var opened = [];
+      window.addEventListener("beforeprint", function () {
+        opened = [];
+        document.querySelectorAll(".faq details:not([open])").forEach(function (d) { d.open = true; opened.push(d); });
+      });
+      window.addEventListener("afterprint", function () { opened.forEach(function (d) { d.open = false; }); opened = []; });
+    })();
   </script>
 </body>
 </html>
