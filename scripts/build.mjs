@@ -93,6 +93,8 @@ write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));
 write("vercel.json", fs.readFileSync(path.join(root, "deploy/vercel.json"), "utf8"));
 write("version.json", JSON.stringify({ name: "沉思波 · 体态镜", version, buildId, buildDate }, null, 2) + "\n");
 write(".nojekyll", "");
+// GitHub Pages / Netlify 等会把它当作找不到页面时的兜底页
+write("404.html", fs.readFileSync(path.join(root, "deploy/404.html"), "utf8"));
 
 // landing page (static, Chinese)
 const landSrc = path.join(root, "landing");

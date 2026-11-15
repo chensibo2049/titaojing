@@ -347,6 +347,12 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
 
 
 
+{
+  const nf = fs.readFileSync(path.join(root, "deploy/404.html"), "utf8");
+  const bs = fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8");
+  check("找不到页面：有 404.html 并在构建时拷进 dist", /write\("404\.html"/.test(bs) && /noindex/.test(nf) && /\/titaojing\//.test(nf) && /landing\//.test(nf) && !/赋能|大模型|智能诊断/.test(nf));
+}
+
 try { fs.unlinkSync(tmp); } catch (_) {}
 
 console.log(failed ? `\n${failed} 项失败` : "\n检查全部通过");
