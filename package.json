@@ -2,7 +2,7 @@
   "name": "titaojing",
   "version": "1.6.0",
   "private": true,
-  "description": "沉思波 · 体态镜（OpenPodium）：一面给试讲与表达用的镜子",
+  "description": "OpenPodium · 开讲：一面给试讲与表达用的镜子",
   "license": "Apache-2.0",
   "homepage": "https://chensibo2049.github.io/titaojing/",
   "engines": {

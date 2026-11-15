@@ -3,10 +3,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let failed = 0;
 const check = (name, ok, detail = "") => {
   if (!ok) failed++;
@@ -93,8 +93,66 @@ for (const f of ["index.html", "landing/index.html", "README.md", "manifest.webm
   if (txt.includes("OpenJing")) ojHits.push(f);
 }
 check("现行文案不再使用 OpenJing（历史更新记录除外）", ojHits.length === 0, ojHits.join(", "));
-check("中文名仍为体态镜", /体态镜/.test(index) && /体态镜/.test(landing));
+check("公开中文名为开讲", /开讲/.test(index) && /开讲/.test(landing));
 check("设置含自动下载听写包", /asrAutoDownload/.test(settingsSrc) && index.includes("asrAutoDownload"));
+
+// 首次进入本机听写必须由用户主动选择；保留已保存的开关及既有后台任务。
+const tmpSettings = path.join(os.tmpdir(), "titaojing-asr-settings-test.mjs");
+await esbuild.build({ entryPoints: [path.join(root, "src/settings.js")], bundle: true, format: "esm", outfile: tmpSettings, logLevel: "silent" });
+const settings = await import(pathToFileURL(tmpSettings).href);
+check("首次和旧设置缺失字段时不自动下载听写包", !settings.normalize(null).asrAutoDownload && !settings.normalize({ targetMin: 5 }).asrAutoDownload);
+check("已保存的自动下载开关按原值保留", settings.normalize({ asrAutoDownload: true }).asrAutoDownload && !settings.normalize({ asrAutoDownload: false }).asrAutoDownload);
+try { fs.unlinkSync(tmpSettings); } catch (_) {}
+
+const tmpAsrUi = path.join(os.tmpdir(), "titaojing-asr-ui-test.mjs");
+await esbuild.build({
+  entryPoints: [path.join(root, "src/asr-ui.js")], bundle: true, format: "esm", outfile: tmpAsrUi, logLevel: "silent",
+  plugins: [{ name: "mock-asr-dependencies", setup(build) {
+    build.onResolve({ filter: /^(\.\/asr-model|\.\/asr-sherpa|\.\/settings)\.js$/ }, ({ path: name }) => ({ path: name, namespace: "asr-test" }));
+    build.onLoad({ filter: /.*/, namespace: "asr-test" }, ({ path: name }) => ({ contents: name === "./asr-model.js"
+      ? `export const downloadModel = async () => { globalThis.asrTestDownloads++; return { ok: true }; };
+         export const deleteModel = async () => {}; export const loadAsrManifest = async () => null;
+         export const modelSizeLabel = () => "约 90 MB"; export const modelCached = async () => ({ cached: globalThis.asrTestCached });
+         export const engineSupported = () => true; export const pendingModelRequests = async () => ({ files: [] });
+         export const importBackgroundStash = async () => {};`
+      : name === "./asr-sherpa.js"
+        ? `export const inspectSherpa = async () => {}; export const sherpaAvailable = () => ({ ok: false });`
+        : `export const getSettings = () => ({ asrAutoDownload: globalThis.asrTestAutoEnabled });`, loader: "js" }));
+  } }],
+});
+globalThis.asrTestDownloads = 0;
+globalThis.asrTestCached = false;
+globalThis.asrTestAutoEnabled = false;
+const originalSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = () => 0; // ready 芯片的延时隐藏与此单测无关
+const asrTestChip = { querySelector: () => ({ addEventListener() {} }) };
+globalThis.document = { getElementById: () => asrTestChip, createElement: () => asrTestChip, body: { appendChild() {} } };
+globalThis.window = { addEventListener() {} };
+const originalNavigator = globalThis.navigator;
+Object.defineProperty(globalThis, "navigator", { configurable: true, value: { serviceWorker: { ready: Promise.resolve({ backgroundFetch: { get: async () => globalThis.asrTestBackgroundFetch } }), addEventListener() {} } } });
+const asrUi = await import(pathToFileURL(tmpAsrUi).href);
+const firstEntry = await asrUi.maybeAutoDownload();
+check("首次进入不触发模型下载", firstEntry.reason === "off" && globalThis.asrTestDownloads === 0);
+globalThis.asrTestBackgroundFetch = { downloaded: 0, downloadTotal: 100, addEventListener() {} };
+const priorFetch = await asrUi.maybeAutoDownload();
+check("已有后台任务继续但未授权不并行新下载", priorFetch.reason === "background-fetch" && globalThis.asrTestDownloads === 0);
+globalThis.asrTestAutoEnabled = true;
+const optedIn = await asrUi.maybeAutoDownload();
+check("已开启自动下载的旧设置仍启动下载", optedIn.reason === "background-fetch" && globalThis.asrTestDownloads === 1);
+globalThis.asrTestAutoEnabled = false;
+globalThis.asrTestCached = true;
+const ready = await asrUi.maybeAutoDownload();
+check("已缓存模型在关闭自动下载后仍可用", ready.reason === "cached" && globalThis.asrTestDownloads === 1);
+delete globalThis.asrTestBackgroundFetch;
+delete globalThis.asrTestAutoEnabled;
+delete globalThis.asrTestCached;
+delete globalThis.asrTestDownloads;
+delete globalThis.document;
+delete globalThis.window;
+globalThis.setTimeout = originalSetTimeout;
+Object.defineProperty(globalThis, "navigator", { configurable: true, value: originalNavigator });
+try { fs.unlinkSync(tmpAsrUi); } catch (_) {}
+
 check("下载模块支持 Range 并行与续传", /DEFAULT_PARALLEL/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")) && /planRanges/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")) && /chunkStore/.test(fs.readFileSync(path.join(root, "src/asr-download.js"), "utf8")));
 check("页面含观察记录容器", index.includes("observe-sheet"));
 const bankPath = path.join(root, "assets/classroom/banks.json");

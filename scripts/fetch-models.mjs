@@ -7,8 +7,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mf = JSON.parse(fs.readFileSync(path.join(root, "assets/mediapipe/manifest.json"), "utf8"));
 const sha = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const ok = (file, want) => fs.existsSync(file) && sha(file) === want;

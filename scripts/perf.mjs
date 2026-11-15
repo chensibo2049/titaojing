@@ -8,8 +8,9 @@ import puppeteer from "puppeteer-core";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const chrome = [process.env.CHROME_PATH, "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"].find((p) => p && fs.existsSync(p));
 const server = spawn("python3", [path.join(root, "scripts/serve.py"), path.join(root, "dist"), process.env.SMOKE_PORT || "8880"], { env: { ...process.env, QUIET: "1", PYTHONUNBUFFERED: "1" } });

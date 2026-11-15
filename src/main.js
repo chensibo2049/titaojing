@@ -1,8 +1,10 @@
 import { EVENT_META, STAGE_W, STAGE_H, setRuntime } from "./constants.js";
 import { renderScene, coverPose, landmarksFromRig, faceFromRig, applyShot, buildRig } from "./teacher.js";
-import { captionAt, fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
+import { fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
+import { demoMotionAt } from "./demo-motion.js";
+import { createReplayClock } from "./replay-clock.js";
 import { createSession, tickFrame, addFiller, addTranscript, extractGaze, extractPosture, diagnose, frameAt, maybeCaptureBoardStill } from "./analyze.js";
-import { drawLiveOverlays, drawCoachSilhouette, resizeCanvasTo } from "./overlays.js";
+import { drawLiveOverlays, drawSkeleton, drawCoachSilhouette, resizeCanvasTo } from "./overlays.js";
 import { initVision, detectVideo, visionStatus, onVisionProgress, resetVision, switchDelegate } from "./vision.js";
 import { speechSupported, preflightSpeech } from "./speech.js";
 import { startAsr, highlightFillerHtml, asrStatus, describeAsrEngine } from "./asr.js";
@@ -39,12 +41,14 @@ const PAGES = ["history", "compare", "settings", "feedback", "about", "profile"]
 
 let presenter3d = null;
 let presenter3dHost = "";
+let presenterRequest = 0;
 
 function characterSceneHref() {
   return new URL("assets/character-scene.js", document.baseURI).href;
 }
 
 function disposePresenter3d() {
+  presenterRequest++;
   if (presenter3d && presenter3d.dispose) {
     try { presenter3d.dispose(); } catch (_) {}
   }
@@ -52,6 +56,7 @@ function disposePresenter3d() {
   presenter3dHost = "";
   const a = $("cover-3d"); if (a) { a.hidden = true; a.innerHTML = ""; }
   const b = $("live-3d"); if (b) { b.hidden = true; b.innerHTML = ""; }
+  const c = $("replay-3d"); if (c) { c.hidden = true; c.innerHTML = ""; }
   const canvas = $("cover-canvas");
   if (canvas) canvas.classList.remove("is-3d-overlay");
 }
@@ -64,18 +69,21 @@ async function ensurePresenter3d(hostId, clip) {
     return presenter3d;
   }
   disposePresenter3d();
+  const request = presenterRequest;
   const host = $(hostId);
   if (!host) return null;
   try {
     const { canUse3D, mountPresenterScene } = await import(characterSceneHref());
-    if (!canUse3D({ force: s.sim3d })) return null;
+    if (request !== presenterRequest || !canUse3D({ force: s.sim3d })) return null;
     host.hidden = false;
-    presenter3d = await mountPresenterScene(host, { clip: clip || "talk" });
+    const mounted = await mountPresenterScene(host, { clip: clip || "talk" });
+    if (request !== presenterRequest) { mounted.dispose(); return null; }
+    presenter3d = mounted;
     presenter3dHost = hostId;
-    return presenter3d;
+    return mounted;
   } catch (err) {
     console.warn("presenter 3d unavailable", err);
-    disposePresenter3d();
+    if (request === presenterRequest) disposePresenter3d();
     return null;
   }
 }
@@ -95,6 +103,7 @@ let fillerSeen = new Set();
 let playing = false;
 let replayRaf = 0;
 let replayCursor = 0;
+const replayClock = createReplayClock(() => performance.now());
 let paused = false;
 let pausedAt = 0;
 let pauseCount = 0;
@@ -102,6 +111,29 @@ let streamEnded = false;
 let camLabel = "";
 let liveTiming = timing();
 let saveVideoThisTime = false;
+let localImport = null;
+
+function localImportStatus(text, busy = false) {
+  const status = $("local-video-status");
+  status.hidden = !text;
+  status.textContent = text;
+  $("local-video-cancel").hidden = !busy;
+}
+
+function cancelLocalImport() {
+  if (!localImport) return;
+  localImport.controller.abort();
+  localImport = null;
+  $("local-video-file").value = "";
+  $("local-video-cancel").hidden = true;
+}
+
+function releaseLocalReplay() {
+  if (session?.localImport && session.videoUrl) {
+    URL.revokeObjectURL(session.videoUrl);
+    session.videoUrl = null;
+  }
+}
 
 function showScreen(name) {
   for (const [k, el] of Object.entries(screens)) if (el) el.hidden = k !== name;
@@ -123,6 +155,8 @@ function setHashSilently(hash) {
 /* ——— lifecycle ——— */
 
 function stopEverything({ keepPreview = false } = {}) {
+  cancelLocalImport();
+  releaseLocalReplay();
   cancelAnimationFrame(raf);
   cancelAnimationFrame(replayRaf);
   cancelAnimationFrame(coverRaf);
@@ -218,11 +252,8 @@ function startCoverLoop() {
     const p = { ...coverPose(), shot, rArm: 1.6 + Math.sin(t * 0.8) * 0.4, headYaw: -0.05 + Math.sin(t * 0.5) * 0.04, speak: 0.15 + Math.abs(Math.sin(t * 2.4)) * 0.2, chalk: 0.55, bodyYaw: shot === "full" && t > 4 ? 0.7 : 0 };
     if (presenter3d && presenter3dHost === "cover-3d") {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const rig = buildRig(p);
-      const pose = landmarksFromRig(rig, canvas.width, canvas.height);
-      const gaze = extractGaze(pose, faceFromRig(rig), null);
-      drawLiveOverlays(ctx, { pose, gaze, flags: {}, onBoard: false }, canvas.width, canvas.height, { showMap: true, clear: false });
-      if (presenter3d.setClip) presenter3d.setClip(shot === "full" && t > 4 ? "board" : "talk");
+      const projected = presenter3d.setDemoTime(cycle / 16 * DEMO_DURATION);
+      if (projected) drawSkeleton(ctx, projected, canvas.width, canvas.height);
     } else {
     const rig = renderScene(ctx, canvas.width, canvas.height, p, ts / 1000);
     const pose = landmarksFromRig(rig);
@@ -289,12 +320,9 @@ function startDemo() {
   $("live-video").hidden = true;
   $("live-scene").hidden = false;
   ensurePresenter3d("live-3d", "talk").then((p3) => {
-    if (mode !== "demo") return;
-    if (p3) {
-      $("live-scene").hidden = true;
-      if (presenter3d.setClip) presenter3d.setClip("talk");
-    }
+    if (mode === "demo" && p3) paintDemoFrame(liveStart ? Math.min(DEMO_DURATION, (performance.now() - liveStart) / 1000) : 0);
   });
+  $("live-demo-source").hidden = false;
   $("hud-caption").hidden = false;
   $("speech-banner").hidden = true;
   if ($("live-asr-state")) $("live-asr-state").hidden = true;
@@ -313,23 +341,38 @@ function startDemo() {
 }
 
 function paintDemoFrame(t) {
+  const motion = demoMotionAt(t);
   const scene = $("live-scene");
   const overlay = $("live-overlay");
   resizeCanvasTo(scene, scene.clientWidth || 360, scene.clientHeight || 640);
   resizeCanvasTo(overlay, overlay.clientWidth || 360, overlay.clientHeight || 640);
-  const { p, pose, gaze } = sampleDemo(t);
-  if (presenter3d && presenter3dHost === "live-3d") {
-    scene.hidden = true;
-    const ctx = scene.getContext("2d");
-    ctx.clearRect(0, 0, scene.width, scene.height);
-    if (presenter3d.setClip) presenter3d.setClip(t % 20 < 12 ? "talk" : (t % 20 < 16 ? "gesture" : "board"));
-  } else {
-    scene.hidden = false;
-    renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
-  }
-  const frame = (session && frameAt(session, t)) || { pose, gaze, flags: {}, onBoard: gaze.label === "board" };
-  drawLiveOverlays(overlay.getContext("2d"), { ...frame, pose, gaze }, overlay.width, overlay.height, { showMap: true });
+  const { p, pose, gaze } = sampleDemo(motion.t);
+  const is3d = !!presenter3d && presenter3dHost === "live-3d";
+  scene.hidden = is3d;
+  if (!is3d) renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+  const projected = is3d ? presenter3d.setDemoTime(motion.t) : null;
+  const frame = frameAt(session, motion.t) || { flags: {}, onBoard: false };
+  paintDemoOverlay(overlay, is3d, projected, { ...frame, pose, gaze });
   updateFlagsHUD(frame.flags, gaze, frame.onBoard);
+  const cap = $("hud-caption");
+  cap.hidden = !motion.caption;
+  if (motion.caption) cap.textContent = motion.caption.text;
+}
+
+function paintDemoOverlay(canvas, is3d, projected, scriptedFrame) {
+  const ctx = canvas.getContext("2d");
+  const label = $(mode === "replay" ? "replay-demo-source" : "live-demo-source");
+  if (!is3d) {
+    drawLiveOverlays(ctx, scriptedFrame, canvas.width, canvas.height, { showMap: true });
+    if (label) label.textContent = "演示样本 · 预设动作/字幕/提示，2D 示意骨架（非视觉识别）";
+    return;
+  }
+  // Only actual 3D bone world positions may be drawn over the WebGL image.
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (projected) drawSkeleton(ctx, projected, canvas.width, canvas.height);
+  if (label) label.textContent = projected
+    ? "演示样本 · 预设字幕/提示 · 骨架来自 3D 骨骼投影（非视觉识别）"
+    : "演示样本 · 预设字幕/提示 · 3D 骨骼无法可靠投影，已关闭骨架";
 }
 
 /** 开讲倒计时：课堂模式要从电脑走到讲台或黑板前，多给两秒。 */
@@ -362,23 +405,9 @@ function loopDemo() {
     if (mode !== "demo") return;
     const t = Math.min(DEMO_DURATION, (performance.now() - liveStart) / 1000);
     fitStage($("live-stage"), STAGE_W / STAGE_H);
-    const { w, h } = resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
-    resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
-    const { p, pose, gaze } = sampleDemo(t);
-    if (presenter3d && presenter3dHost === "live-3d") {
-      scene.hidden = true;
-      if (presenter3d.setClip) presenter3d.setClip(t % 20 < 12 ? "talk" : (t % 20 < 16 ? "gesture" : "board"));
-    } else {
-      scene.hidden = false;
-      renderScene(scene.getContext("2d"), w, h, p, t);
-    }
-    const frame = frameAt(session, t) || { pose, gaze, flags: {}, onBoard: gaze.label === "board" };
-    drawLiveOverlays(overlay.getContext("2d"), { ...frame, pose, gaze }, overlay.width, overlay.height, { showMap: true });
-    updateFlagsHUD(frame.flags, gaze, frame.onBoard);
-    if (debugEnabled()) debugFrame({ source: "demo", t, pose, face: frame.face, gaze, flags: frame.flags, onBoard: frame.onBoard, events: session.events.filter((e) => e.t <= t) });
-    const cap = captionAt(t);
-    $("hud-caption").hidden = !cap;
-    if (cap) $("hud-caption").textContent = cap.text;
+    paintDemoFrame(t);
+    const frame = frameAt(session, t) || { flags: {}, onBoard: false };
+    if (debugEnabled()) debugFrame({ source: "demo", t, pose: frame.pose, face: frame.face, gaze: frame.gaze, flags: frame.flags, onBoard: frame.onBoard, events: session.events.filter((e) => e.t <= t) });
     for (const f of fillersUntil(t, fillerSeen)) { fillerSeen.add(f.t); flashFiller(f.word); }
     setClock(t, DEMO_DURATION);
     if (t >= DEMO_DURATION) { finishDemo(); return; }
@@ -433,7 +462,120 @@ function setClock(t, cap) {
 
 const fmt = fmtDur;
 
-/* ——— Camera path ——— */
+/* ——— Local video (memory-only replay; never saved to history) ——— */
+
+function waitForLocalVideo(video, event, signal, action, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    let timer;
+    const done = (error) => {
+      clearTimeout(timer);
+      video.removeEventListener(event, ready);
+      video.removeEventListener("error", failed);
+      signal.removeEventListener("abort", aborted);
+      error ? reject(error) : resolve();
+    };
+    const ready = () => done();
+    const failed = () => done(new Error("浏览器无法解码此视频编码或文件已损坏"));
+    const aborted = () => done(new DOMException("已取消", "AbortError"));
+    if (signal.aborted) return aborted();
+    video.addEventListener(event, ready, { once: true });
+    video.addEventListener("error", failed, { once: true });
+    signal.addEventListener("abort", aborted, { once: true });
+    timer = setTimeout(() => done(new Error("读取视频超时，请换一种浏览器支持的编码")), timeoutMs);
+    try { action(); } catch (e) { done(e); }
+  });
+}
+
+async function importLocalVideo(file) {
+  cancelLocalImport();
+  if (!file) return;
+  if (mode !== "cover" || !hasAcceptedTerms()) { localImportStatus("请先阅读并同意使用说明，再从封面选择视频。"); return; }
+  if (!/\.(mp4|mov|webm)$/i.test(file.name) || (file.type && !["video/mp4", "video/quicktime", "video/webm"].includes(file.type))) {
+    localImportStatus("只支持 MP4 / MOV / WebM 视频；GIF 和其他文件不能导入。"); return;
+  }
+  if (!file.size || file.size > 2 * 1024 ** 3) { localImportStatus("文件为空或超过 2 GB，请换一个视频。"); return; }
+  const controller = new AbortController();
+  const job = { controller };
+  localImport = job;
+  const signal = controller.signal;
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  const url = URL.createObjectURL(file);
+  let handedOff = false;
+  const check = () => { if (signal.aborted || localImport !== job || mode !== "cover") throw new DOMException("已取消", "AbortError"); };
+  try {
+    localImportStatus("正在读取视频…", true);
+    await waitForLocalVideo(video, "loadedmetadata", signal, () => { video.src = url; video.load(); });
+    check();
+    const duration = video.duration;
+    if (!Number.isFinite(duration) || duration < 0.5 || duration > 22 * 60 || !video.videoWidth || !video.videoHeight) {
+      throw new Error("视频时长须在 0.5 秒至 22 分钟之间，且画面必须可解码");
+    }
+    if (video.readyState < 2) await waitForLocalVideo(video, "loadeddata", signal, () => {});
+    check();
+    localImportStatus("正在载入本机视觉模型…", true);
+    const st = await initVision();
+    check();
+    if (!st.pose && !st.face) throw new Error("视觉模型没有就绪，请检查本机模型文件后重试");
+    const s = getSettings();
+    setRuntime({ boardSide: s.boardSide, sens: s.sens, frameMode: s.frameMode });
+    const imported = createSession("camera");
+    imported.localImport = true;
+    imported.speechAvailable = false;
+    imported.speechHeard = false;
+    imported.visionAvailable = true;
+    imported.mirror = false;
+    imported.aspect = video.videoWidth / video.videoHeight;
+    imported.settingsSnapshot = { boardSide: s.boardSide, sens: { ...s.sens }, frameMode: s.frameMode, mirror: false };
+    let poseFrames = 0, faceFrames = 0;
+    const count = Math.ceil(duration * 4);
+    for (let i = 0; i < count; i++) {
+      check();
+      const t = i / 4;
+      if (i > 0) {
+        await waitForLocalVideo(video, "seeked", signal, () => { video.currentTime = t; }, 25000);
+        check();
+      }
+      if (video.readyState < 2) throw new Error(`视频在 ${fmt(t)} 附近无法解码`);
+      const det = detectVideo(video, performance.now() + i, { faceEvery: 1, handEvery: 1 });
+      check();
+      if (det.pose) poseFrames++;
+      if (det.face) faceFrames++;
+      const gaze = extractGaze(det.pose, det.face, det.matrix);
+      const posture = extractPosture(det.pose, imported._hist, det.hands);
+      tickFrame(imported, t, det.pose, det.face, gaze, posture, det.hands);
+      if (!imported.thumb && t >= 5 && det.pose) imported.thumb = makeThumb(drawVideoInto(video, false), imported.frames.at(-1), imported.aspect);
+      if (i % 4 === 0 || i === count - 1) localImportStatus(`正在分析 ${fmt(t)} / ${fmt(duration)}（${Math.round((i + 1) / count * 100)}%）`, true);
+      if (i % 8 === 7) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    check();
+    if (!poseFrames && !faceFrames) throw new Error("未识别到可用的人体或面部画面，请检查视频内容与编码");
+    imported.duration = duration;
+    imported.stats = { source: "local-video", samples: count, poseFrames, faceFrames, vision: true, speech: false };
+    diagnose(imported);
+    imported.videoUrl = url;
+    handedOff = true;
+    localImport = null;
+    $("local-video-file").value = "";
+    localImportStatus("");
+    cancelAnimationFrame(coverRaf);
+    disposePresenter3d();
+    openReplay(imported);
+    setHashSilently("#/replay");
+  } catch (e) {
+    if (localImport === job) {
+      localImport = null;
+      localImportStatus(e?.name === "AbortError" ? "已取消分析，未保存任何记录。" : `导入失败：${e?.message || e}。未保存任何记录。`);
+    }
+  } finally {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    if (!handedOff) URL.revokeObjectURL(url);
+  }
+}
 
 function openPermission() {
   const pre = preflight();
@@ -1180,8 +1322,14 @@ function openReplay(sess) {
   session = sess;
   mode = "replay";
   showScreen("replay");
-  if (sess.kind === "demo") setRuntime({});
-  else {
+  if (sess.kind === "demo") {
+    setRuntime({});
+    $("replay-demo-source").hidden = false;
+    ensurePresenter3d("replay-3d", "talk").then((p3) => {
+      if (p3 && mode === "replay" && session === sess) paintReplay(currentReplayTime());
+    });
+  } else {
+    $("replay-demo-source").hidden = true;
     const snap = sess.settingsSnapshot || {};
     setRuntime({ boardSide: snap.boardSide || "right", sens: snap.sens || {}, frameMode: sess.frameResolved || snap.frameMode || "half", frameResolved: sess.frameResolved || "half" });
   }
@@ -1218,7 +1366,8 @@ function openReplay(sess) {
   }
   paintReplay(0);
   $("replay-clock").textContent = `00:00 / ${fmt(sess.duration)}`;
-  $("save-status").textContent = sess.stored ? (sess.fromHistory ? `已在本机历史中${sess.hasVideo ? "（含录像）" : ""}。` : "") : "正在保存到本机历史…";
+  $("save-status").textContent = sess.localImport ? "本机视频仅供本次回放，分析结果和原视频都未保存到历史；离开后请重新选文件。"
+    : sess.stored ? (sess.fromHistory ? `已在本机历史中${sess.hasVideo ? "（含录像）" : ""}。` : "") : "正在保存到本机历史…";
   updateSaveVideoBtn();
   $("btn-print").hidden = !getLicense().features.printReport;
   renderDiagCompare(sess);
@@ -1231,7 +1380,7 @@ function renderDiagnosis(sess) {
     `<div class="diag-count" data-kind="${k === "posture" ? "sway" : k}"><div class="n">${n}</div><div class="k">${lab}</div></div>`).join("");
   $("diag-good").textContent = d.good;
   $("diag-next").textContent = d.next;
-  const bits = [fmtDate(sess.startedAt || Date.now()), `时长 ${fmt(sess.duration)}`, sess.kind === "demo" ? "一键演示样本" : "真实试讲"];
+  const bits = [fmtDate(sess.startedAt || Date.now()), `时长 ${fmt(sess.duration)}`, sess.kind === "demo" ? "一键演示样本" : sess.localImport ? "本机视频画面分析（仅本次）" : "真实试讲"];
   if (sess.profileName) bits.push(sess.profileName);
   if (sess.kind === "camera" && sess.speechAvailable === false) bits.push("本次未听写口头禅");
   else if (sess.kind === "camera" && sess.speechHeard === false) bits.push("没听到语音，口头禅无法可靠统计");
@@ -1310,6 +1459,7 @@ function renderTranscript(sess) {
       empty.hidden = false;
       empty.textContent = sess.kind === "demo"
         ? "演示样本的转写按讲稿生成，水词已标出。"
+        : sess.localImport ? "本机视频导入只分析画面，没有转写视频声音；口头禅未统计，不能据此判断口头禅少。"
         : (sess.speechAvailable ? "这一次听写没有留下句子。可先点「试一下听写」；浏览器听写连不上时，可改用本机听写。" : "这一次没有可用的听写，口头禅无法统计。Chrome / Edge 的听写在中国大陆经常连不上厂商服务，即便网页已经打开。可在「设置」里下载本机听写（一次即可），之后不用联网也能转写。");
     }
     return;
@@ -1329,7 +1479,7 @@ function renderTranscript(sess) {
 async function renderDiagCompare(sess) {
   const host = $("diag-compare");
   host.hidden = true;
-  if (!sess || sess.kind !== "camera") return;
+  if (!sess || sess.kind !== "camera" || sess.localImport) return;
   try {
     const list = (await listSessions()).filter((x) => x.kind === "camera" && x.id !== sess.id && x.startedAt < (sess.startedAt || Date.now()));
     const prev = list[0];
@@ -1398,19 +1548,28 @@ function paintReplay(t) {
   const scene = $("replay-scene");
   const overlay = $("replay-overlay");
   const cap = $("replay-caption");
-  if (session.kind === "demo") {
-    resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
-    const { p } = sampleDemo(t);
-    renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
-    const c = captionAt(t);
-    cap.hidden = !c;
-    if (c) cap.textContent = c.text;
-  } else cap.hidden = true;
   resizeCanvasTo(overlay, overlay.clientWidth, overlay.clientHeight);
-  const fr = session.kind === "demo" ? frameAt(session, t) : frameLerp(session, t);
-  const pose = fr?.pose || (session.kind === "demo" ? sampleDemo(t).pose : null);
-  const gaze = fr?.gaze || (pose ? extractGaze(pose, null, null) : null);
-  drawLiveOverlays(overlay.getContext("2d"), { pose, gaze, flags: fr?.flags || {}, onBoard: fr?.onBoard, hands: fr?.hands || null }, overlay.width, overlay.height, { showMap: true });
+  if (session.kind === "demo") {
+    const motion = demoMotionAt(t);
+    const { p, pose, gaze } = sampleDemo(motion.t);
+    const is3d = !!presenter3d && presenter3dHost === "replay-3d";
+    scene.hidden = is3d;
+    if (!is3d) {
+      resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
+      renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+    }
+    const projected = is3d ? presenter3d.setDemoTime(motion.t) : null;
+    const fr = frameAt(session, motion.t) || { flags: {}, onBoard: false };
+    paintDemoOverlay(overlay, is3d, projected, { ...fr, pose, gaze });
+    cap.hidden = !motion.caption;
+    if (motion.caption) cap.textContent = motion.caption.text;
+  } else {
+    cap.hidden = true;
+    const fr = frameLerp(session, t);
+    const pose = fr?.pose || null;
+    const gaze = fr?.gaze || (pose ? extractGaze(pose, null, null) : null);
+    drawLiveOverlays(overlay.getContext("2d"), { pose, gaze, flags: fr?.flags || {}, onBoard: fr?.onBoard, hands: fr?.hands || null }, overlay.width, overlay.height, { showMap: true });
+  }
   setPlayhead(t);
 }
 
@@ -1436,13 +1595,11 @@ function playReplay() {
     replayRaf = requestAnimationFrame(tick);
   } else {
     if (replayCursor >= session.duration - 0.1) replayCursor = 0;
-    const startWall = performance.now();
-    const startT = replayCursor;
+    replayClock.start(replayCursor);
     const tick = () => {
       if (!playing) return;
-      const t = Math.min(session.duration, startT + (performance.now() - startWall) / 1000);
+      const t = replayClock.time(session.duration);
       paintReplay(t);
-      replayCursor = t;
       if (t >= session.duration) { stopReplayPlay(); return; }
       replayRaf = requestAnimationFrame(tick);
     };
@@ -1453,10 +1610,11 @@ function playReplay() {
 function currentReplayTime() {
   const video = $("replay-video");
   if (hasReplayVideo() && video && !video.hidden) return video.currentTime || 0;
-  return replayCursor;
+  return playing && session ? replayClock.time(session.duration) : replayCursor;
 }
 
 function stopReplayPlay() {
+  if (playing && session && !hasReplayVideo()) replayCursor = replayClock.pause(session.duration);
   playing = false;
   cancelAnimationFrame(replayRaf);
   const video = $("replay-video");
@@ -1470,6 +1628,7 @@ function seekReplay(t) {
   if (!session) return;
   const tt = Math.max(0, Math.min(session.duration, t));
   replayCursor = tt;
+  replayClock.seek(tt);
   const video = $("replay-video");
   if (hasReplayVideo() && video.src) { try { video.currentTime = tt; } catch (_) {} }
   paintReplay(tt);
@@ -1699,6 +1858,8 @@ function onReady() {
   });
   $("btn-demo").addEventListener("click", () => navigate("#/demo"));
   $("btn-camera").addEventListener("click", () => navigate("#/try"));
+  $("local-video-file").addEventListener("change", (e) => importLocalVideo(e.target.files?.[0]));
+  $("local-video-cancel").addEventListener("click", () => { cancelLocalImport(); localImportStatus("已取消分析，未保存任何记录。"); });
   document.querySelectorAll("[data-go=cover]").forEach((b) => b.addEventListener("click", () => navigate("#/")));
   document.querySelectorAll("#screen-permission .seg-btn[data-facing]").forEach((b) => b.addEventListener("click", () => {
     const facing = b.dataset.facing;
@@ -1744,7 +1905,8 @@ function onReady() {
   $("btn-replay-home").addEventListener("click", () => navigate("#/"));
   $("btn-rewatch").addEventListener("click", () => { seekReplay(0); playReplay(); });
   $("btn-retry").addEventListener("click", () => {
-    if (session?.kind === "camera") navigate("#/try");
+    if (session?.localImport) navigate("#/");
+    else if (session?.kind === "camera") navigate("#/try");
     else { setHashSilently("#/demo"); startDemo(); }
   });
   $("btn-export").addEventListener("click", doExport);
@@ -1789,7 +1951,7 @@ function onReady() {
     if (document.visibilityState === "hidden" && mode === "camera") pauseLive();
     if (document.visibilityState === "hidden" && mode === "demo") { /* demo keeps its wall clock; fine */ }
   });
-  window.addEventListener("pagehide", () => { if (mode === "camera") pauseLive(); });
+  window.addEventListener("pagehide", () => { if (mode === "camera") pauseLive(); cancelLocalImport(); releaseLocalReplay(); });
 
   window.addEventListener("resize", () => {
     if (mode === "replay") { sizeReplayWrap(session); paintReplay(currentReplayTime()); }

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/icons/icon-512.png" width="96" height="96" alt="体态镜">
+  <img src="assets/icons/icon-512.png" width="96" height="96" alt="开讲">
 </p>
 
-<h1 align="center">体态镜 · OpenPodium</h1>
+<h1 align="center">OpenPodium · 开讲</h1>
 
 <p align="center">
   <strong>一面给试讲用的镜子</strong><br>
@@ -27,11 +27,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/cover.jpg" alt="体态镜首页：一键演示与对着镜头试讲" width="920">
+  <img src="docs/images/cover.jpg" alt="开讲首页：一键演示与对着镜头试讲" width="920">
 </p>
 
 <p align="center">
-  <img src="docs/images/demo-3d.webp" alt="3D 试讲老师站在讲台前，体态镜把骨架、视线和口头禅叠在画面上" width="800">
+  <img src="docs/images/demo-3d.webp" alt="3D 试讲老师站在讲台前，开讲把骨架、视线和口头禅叠在画面上" width="800">
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@
 
 最近在路演和表达上，我总觉得差点意思。去参加职业规划赛，才发现台上的人都很专业。那段时间和我的对象一起「以赛促学」，专门练表达。练着练着，就做出了这面给试讲用的镜子，想开源出来，和大家一起用、一起改。
 
-由[南京市沉思波网络科技有限责任公司](https://chensibo.cn)发起。作者同时是江苏第二师范学院汉语言文学师范专业的学生。产品里不使用大学校徽。
+由[南京市沉思波网络科技有限责任公司](https://chensibo.cn)发起。作者为 **ponderwave**，同时是江苏第二师范学院汉语言文学师范专业的学生。产品里不使用大学校徽。
 
 ## 给谁用
 
@@ -98,7 +98,7 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 - 网页版会持续打磨，现在就可以在浏览器里用。
 - 会做便于下载、在本机使用的 Windows / macOS 电脑版（骨架在 [`apps/desktop/`](apps/desktop/)）。
-- 本机听写：进入页面后会在后台下载中文听写包（约 90 MB，一次即可，可在设置里关掉），之后在浏览器里离线转写普通话，声音不离开设备，见 [`docs/ASR.md`](docs/ASR.md)。没下载完时用浏览器听写：在中国大陆，Chrome 即使网页能打开，听写也经常连不上厂商服务。
+- 本机听写：首次进入不会自动下载中文听写包；可在设置里主动下载（约 90 MB，一次即可），已开启自动下载的旧设置仍按原值保留，之后在浏览器里离线转写普通话，声音不离开设备，见 [`docs/ASR.md`](docs/ASR.md)。没下载完时用浏览器听写：在中国大陆，Chrome 即使网页能打开，听写也经常连不上厂商服务。
 - 欢迎学校、教具和培训机构一起把这面镜子送到更多教室。
 - 以后可能会有「像评委一样的课后点评」，现在还没有；先把镜子本身做好。
 
@@ -106,7 +106,7 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 ## 开源协议
 
-[Apache License 2.0](LICENSE)。与项目所用的 MediaPipe 许可兼容，也方便后续的商业合作与赞助：其他人可以在保留声明的前提下使用、修改和再分发，专利授权是明确写进协议里的。品牌名「沉思波」「体态镜」「OpenPodium」不随许可证授予商标权。第三方说明见 [`NOTICE`](NOTICE)。
+[Apache License 2.0](LICENSE)。与项目所用的 MediaPipe 许可兼容，也方便后续的商业合作与赞助：其他人可以在保留声明的前提下使用、修改和再分发，专利授权是明确写进协议里的。品牌名「沉思波」「开讲」「OpenPodium」不随许可证授予商标权。第三方说明见 [`NOTICE`](NOTICE)。
 
 参与前请阅读 [贡献指南](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)、[隐私说明](docs/PRIVACY.md) 和 [安全说明](docs/SECURITY.md)。
 
@@ -114,4 +114,4 @@ npm install          # 首次；国内可先 npm config set registry https://reg
 
 ---
 
-**English.** OpenPodium (体态镜, “open podium”: a practice mirror for teaching and speaking) is an open-source, in-browser trainer. Put a laptop on the desk or podium, give a short lesson, and see posture, gaze and filler words drawn on the video. Replay and history stay on the device by default. This is a classroom training tool, not a generic “AI product.” Licensed under Apache 2.0.
+**English.** OpenPodium (开讲, “open podium”: a practice mirror for teaching and speaking) is an open-source, in-browser trainer. Put a laptop on the desk or podium, give a short lesson, and see posture, gaze and filler words drawn on the video. Replay and history stay on the device by default. This is a classroom training tool, not a generic “AI product.” Licensed under Apache 2.0.

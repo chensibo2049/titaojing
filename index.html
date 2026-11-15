@@ -3,27 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="沉思波 · 体态镜（OpenPodium）：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。面向师范生和课堂教师的试讲训练工具，视频只留在本机。">
+  <meta name="description" content="OpenPodium · 开讲：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。面向师范生和课堂教师的试讲训练工具，视频只留在本机。">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="体态镜">
-  <meta name="application-name" content="体态镜">
+  <meta name="apple-mobile-web-app-title" content="开讲">
+  <meta name="application-name" content="开讲">
   <meta name="theme-color" content="#f3eee4">
   <meta name="format-detection" content="telephone=no">
-  <title>体态镜 · OpenPodium</title>
+  <title>OpenPodium · 开讲</title>
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="沉思波 · 体态镜">
+  <meta property="og:site_name" content="OpenPodium · 开讲">
   <meta property="og:locale" content="zh_CN">
-  <meta property="og:title" content="体态镜 · OpenPodium">
+  <meta property="og:title" content="OpenPodium · 开讲">
   <meta property="og:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
   <meta property="og:url" content="https://chensibo2049.github.io/titaojing/">
   <meta property="og:image" content="https://chensibo2049.github.io/titaojing/landing/images/demo-3d.jpg">
   <meta property="og:image:width" content="960">
   <meta property="og:image:height" content="540">
-  <meta property="og:image:alt" content="试讲老师站在讲台前，体态镜把骨架、视线和口头禅叠在画面上">
+  <meta property="og:image:alt" content="试讲老师站在讲台前，开讲把骨架、视线和口头禅叠在画面上">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="体态镜 · OpenPodium">
+  <meta name="twitter:title" content="OpenPodium · 开讲">
   <meta name="twitter:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
   <meta name="twitter:image" content="https://chensibo2049.github.io/titaojing/landing/images/demo-3d.jpg">
   <link rel="manifest" href="manifest.webmanifest">
@@ -40,7 +40,7 @@
     请先在本文件夹运行 <code>./start.sh</code>，再用 Chrome 或 Edge 打开 <code>http://127.0.0.1:8765/</code>。直接双击打开时，镜头、历史记录和离线功能都无法使用；「一键演示」仍可观看。
   </div>
   <div id="update-bar" class="update-bar" hidden>
-    <span>体态镜有新版本</span>
+    <span>开讲有新版本</span>
     <button type="button" id="btn-update">刷新使用新版</button>
   </div>
 
@@ -48,7 +48,7 @@
     <!-- COVER -->
     <section id="screen-cover" class="screen screen-cover" data-screen="cover">
       <header class="cover-head">
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <nav class="cover-nav" aria-label="主菜单">
           <a href="#/history">历史记录</a>
           <a href="#/compare">进步对比</a>
@@ -61,7 +61,7 @@
 
       <div class="cover-layout">
         <div class="cover-copy">
-          <h1>试讲体态镜</h1>
+          <h1>对着镜头试讲</h1>
           <p class="lead">对着镜头讲一段课。教态、视线、口头禅和板书对位，会像运动训练一样，直接画在画面上。练习模式几分钟即可；也可以把电脑放在讲台上，讲上 10 到 20 分钟再回看。</p>
           <ul class="cover-points">
             <li>半身近景或全身远景，两种构图都支持</li>
@@ -77,6 +77,13 @@
               <span class="btn-kicker">用手机或电脑摄像头</span>
               <span class="btn-label">对着镜头试讲</span>
             </button>
+          </div>
+          <div class="local-import">
+            <label for="local-video-file">导入本机视频分析（MP4 / MOV / WebM）</label>
+            <input id="local-video-file" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm">
+            <p>只在浏览器处理，不请求摄像头、不上传；仅分析画面，不转写声音或统计口头禅。视频与分析结果仅供本次回放，不存入历史；离开后须重新选文件。请保留原文件。</p>
+            <p id="local-video-status" role="status" aria-live="polite" hidden></p>
+            <button type="button" id="local-video-cancel" class="btn-mini" hidden>取消分析</button>
           </div>
           <p class="cover-note" id="cover-note">演示约一分钟，不必等候模型加载。真实试讲建议站到腰部以上入画，时长两分钟左右。</p>
           <div class="cover-recent" id="cover-recent" hidden></div>
@@ -112,7 +119,7 @@
     <section id="screen-permission" class="screen screen-plain" data-screen="permission" hidden>
       <header class="sub-head">
         <button type="button" class="text-back" data-go="cover">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <span class="head-spacer"></span>
       </header>
       <div class="plain-card">
@@ -173,7 +180,7 @@
     <section id="screen-error" class="screen screen-plain" data-screen="error" hidden>
       <header class="sub-head">
         <button type="button" class="text-back" data-go="cover">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <span class="head-spacer"></span>
       </header>
       <div class="plain-card">
@@ -197,7 +204,7 @@
     <section id="screen-coach" class="screen screen-stage" data-screen="coach" hidden>
       <header class="stage-head">
         <button type="button" class="text-back" id="btn-coach-back">返回</button>
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <button type="button" class="text-back subtle" id="btn-switch-cam" hidden>切换镜头</button>
       </header>
       <div class="stage-wrap" id="coach-wrap">
@@ -234,7 +241,7 @@
     <!-- LIVE (demo + camera) -->
     <section id="screen-live" class="screen screen-stage" data-screen="live" hidden>
       <header class="stage-head">
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <span class="live-timer" id="live-timer"><i class="live-dot"></i><span id="live-clock">00:00</span><span class="timer-hint" id="timer-hint">建议 02:00</span></span>
         <button type="button" class="text-back subtle" id="btn-skip-demo" hidden>跳过</button>
       </header>
@@ -248,6 +255,7 @@
           <div class="hud-flags" id="hud-flags" aria-live="polite"></div>
           <div class="hud-fillers" id="hud-fillers" aria-live="polite"></div>
           <div class="hud-caption" id="hud-caption" hidden></div>
+          <div class="demo-source" id="live-demo-source" hidden>演示样本 · 动作/字幕/提示均为预设，非真实识别</div>
           <div class="speech-banner" id="speech-banner" hidden></div>
           <div class="pause-veil" id="pause-veil" hidden>
             <p class="pv-title">已暂停</p>
@@ -274,7 +282,7 @@
     <section id="screen-replay" class="screen screen-replay" data-screen="replay" hidden>
       <header class="stage-head">
         <button type="button" class="text-back" id="btn-replay-home">封面</button>
-        <span class="brand-mark">沉思波 · 体态镜 <em>OpenPodium</em></span>
+        <span class="brand-mark">OpenPodium · 开讲</span>
         <a class="text-back subtle" href="#/history" id="btn-replay-history">历史记录</a>
       </header>
       <div class="replay-layout">
@@ -282,10 +290,12 @@
           <div class="stage" id="replay-stage">
             <img id="replay-thumb" class="stage-thumb" alt="" hidden>
             <video id="replay-video" class="stage-video" playsinline></video>
+            <div id="replay-3d" class="stage-3d" hidden></div>
             <canvas id="replay-scene" class="stage-scene"></canvas>
             <canvas id="replay-overlay" class="stage-overlay"></canvas>
             <button type="button" class="play-fab" id="btn-play" aria-label="播放或暂停">播放</button>
             <div class="hud-caption" id="replay-caption" hidden></div>
+            <div class="demo-source" id="replay-demo-source" hidden>演示样本 · 动作/字幕/提示均为预设，非真实识别</div>
             <div class="replay-note" id="replay-note" hidden></div>
           </div>
         </div>
@@ -601,7 +611,7 @@
       </header>
       <div class="page-body about-body">
         <section class="about-card">
-          <h3>沉思波 · 体态镜</h3>
+          <h3>OpenPodium · 开讲</h3>
           <p>面向师范生和课堂教师的试讲训练工具。对着镜头讲一段课，教态、视线、口头禅和写板后的回视会直接画在画面上；结束后可以回放、看转写，并把水词标出来。</p>
           <dl class="kv" id="about-version"></dl>
         </section>
@@ -627,7 +637,7 @@
         </section>
         <section class="about-card" id="experience-card">
           <h3>体验计划</h3>
-          <p>帮助改进体态镜。默认关闭。若打开：在每次试讲结束后，可能把口头禅词表、转写文本、教态统计摘要和最多三张回放截图排进本机队列。不附录像，不附音频。</p>
+          <p>帮助改进开讲。默认关闭。若打开：在每次试讲结束后，可能把口头禅词表、转写文本、教态统计摘要和最多三张回放截图排进本机队列。不附录像，不附音频。</p>
           <label class="check-line"><input type="checkbox" id="opt-experience"> 参加体验计划（可随时取消）</label>
           <p class="fs-note" id="experience-state"></p>
           <ul class="xp-queue" id="experience-queue"></ul>
@@ -652,13 +662,13 @@
         </section>
         <section class="about-card">
           <h3>安装与离线</h3>
-          <p id="pwa-state">可以把体态镜安装到手机桌面或电脑，打开更快，首次加载后可离线使用。</p>
+          <p id="pwa-state">可以把开讲安装到手机桌面或电脑，打开更快，首次加载后可离线使用。</p>
           <button type="button" class="btn-mini" id="btn-install-about" hidden>安装到桌面</button>
         </section>
         <section class="about-card">
           <h3>开源组件</h3>
           <p>姿态、面部与手部关键点：Google MediaPipe Tasks Vision（Apache License 2.0），模型文件随本程序本地提供。手部模型加载失败时，体态和视线仍可运行。</p>
-          <p class="page-note">© 沉思波 chensibo.cn</p>
+          <p class="page-note">© 南京市沉思波网络科技有限责任公司 · ponderwave（第三方资产版权归其权利人所有）</p>
         </section>
       </div>
     </section>
@@ -679,7 +689,7 @@
     <div class="consent-card" role="dialog" aria-labelledby="consent-title" aria-modal="true">
       <p class="eyebrow">使用说明</p>
       <h2 id="consent-title">开始之前</h2>
-      <p>沉思波 · 体态镜（OpenPodium）是一面给试讲用的镜子：对着镜头讲一段课，教态、视线、口头禅和板书对位会画在画面上。它不是评分标准，也不是心理或医学评估。</p>
+      <p>OpenPodium · 开讲是一面给试讲用的镜子：对着镜头讲一段课，教态、视线、口头禅和板书对位会画在画面上。它不是评分标准，也不是心理或医学评估。</p>
       <ul class="plain-list">
         <li>视频和历史只留在这台设备的浏览器里（IndexedDB）。录像默认不保存，只有你勾选后才写入；可在历史记录里删除。沉思波不会收到这些内容，除非你打开体验计划并且配置了上传地址（当前为空，不会发出）。</li>
         <li>练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析在录制期间于本机进行，结束后不会继续分析，除非你回放已保存的记录。</li>
@@ -692,7 +702,7 @@
         <span>参加体验计划（默认关闭）。打开后，可能把口头禅词表、转写文本、教态摘要和少量截图排进本机队列，用来改进这面镜子。<b>录像和声音默认不会上传。</b>当前还没有配置上传地址，因此即使勾选也不会发到任何服务器。可随时在「关于与隐私」里关闭并清空队列。</span>
       </label>
       <div class="plain-actions">
-        <button type="button" class="btn btn-primary" id="btn-consent-ok"><span class="btn-label">进入体态镜</span></button>
+        <button type="button" class="btn btn-primary" id="btn-consent-ok"><span class="btn-label">进入开讲</span></button>
       </div>
     </div>
   </div>

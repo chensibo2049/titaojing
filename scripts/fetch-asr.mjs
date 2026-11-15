@@ -10,8 +10,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mf = JSON.parse(fs.readFileSync(path.join(root, "assets/asr/manifest.json"), "utf8"));
 const dest = path.join(root, "assets/asr/model");
 fs.mkdirSync(dest, { recursive: true });
