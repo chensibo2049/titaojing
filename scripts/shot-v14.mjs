@@ -5,8 +5,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = process.env.SHOT_OUT || "/workspace/titaojing-shots/v14";
 const TMP = path.join(root, ".shot-v14");
 fs.mkdirSync(OUT, { recursive: true });

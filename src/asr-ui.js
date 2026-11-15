@@ -1,4 +1,4 @@
-/** 本机听写下载：进入后后台自动开始（模块单例，换页不中断），角落显示安静进度。 */
+/** 本机听写下载：默认由用户点选；已开启自动下载的用户进入后后台开始（模块单例，换页不中断）。 */
 import { downloadModel, deleteModel, loadAsrManifest, modelSizeLabel, modelCached, engineSupported, pendingModelRequests, importBackgroundStash } from "./asr-model.js";
 import { inspectSherpa, sherpaAvailable } from "./asr-sherpa.js";
 import { getSettings } from "./settings.js";
@@ -48,7 +48,7 @@ export async function removeLocalModel() {
   emit({ phase: "deleted" });
 }
 
-/** 省流量、用户关闭自动下载、或测试参数时，不自动开始。 */
+/** 未开启自动下载、省流量或测试参数时，不自动开始新下载。 */
 export function autoDownloadBlockedReason() {
   try {
     const q = new URLSearchParams(location.search);
@@ -115,7 +115,7 @@ function watchBackgroundFetch(rec) {
   rec.addEventListener("onprogress", update);
 }
 
-/** 进入应用时调用：已缓存则静默；否则按设置在后台开始，角落显示进度。 */
+/** 进入应用时调用：已缓存则静默；已有后台任务可继续，新下载须用户开启自动下载。 */
 export async function maybeAutoDownload() {
   ensureChip();
   try { await importBackgroundStash(); } catch (_) {}
@@ -133,8 +133,8 @@ export async function maybeAutoDownload() {
   const bf = await adoptBackgroundFetch();
   if (bf) {
     watchBackgroundFetch(bf);
-    // 页面还在：并行分段通常更快，同时让 BF 作为关掉标签后的退路
-    if (!running) startLocalDownload();
+    // 已有后台任务可以继续；只有已开启自动下载时才并行启动页面下载。
+    if (!running && !autoDownloadBlockedReason()) startLocalDownload();
     return { started: true, reason: "background-fetch" };
   }
   const why = autoDownloadBlockedReason();
@@ -186,10 +186,10 @@ export async function mountLocalAsr(host, opts = {}) {
     }
     const blocked = autoDownloadBlockedReason();
     const autoHint = blocked === "saveData"
-      ? "当前开了省流量，需要时再点下载。"
+      ? "当前开了省流量，不会自动下载；需要时可点按钮下载。"
       : blocked === "off"
-        ? "已关闭自动下载。需要时再点下载。"
-        : "进入页面后会在后台自动下载，不影响浏览。";
+        ? "默认不自动下载；需要时可点按钮下载，或在设置里开启自动下载。"
+        : "已开启自动下载，进入页面后会在后台下载，不影响浏览。";
     host.innerHTML = `${opts.compact ? "" : `<span class="la-text">本机听写：需下载 ${size}（识别引擎和中文模型）。下载一次后存在这台设备的浏览器缓存里，之后不用联网，声音也不离开设备。依次尝试魔搭 ModelScope、hf-mirror.com、Hugging Face。${autoHint}</span>`}
       <button type="button" class="btn-mini la-get">${blocked === "saveData" || blocked === "off" ? `点此下载听写包（${size}）` : `下载本机听写（${size}，一次即可）`}</button>`;
     host.querySelector(".la-get").addEventListener("click", () => go());

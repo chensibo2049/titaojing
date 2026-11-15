@@ -1,8 +1,9 @@
 // 检查 README 与 docs/ 里的相对链接是否指向存在的文件，避免文档改名后留下死链。
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(new URL(import.meta.url).pathname), "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const files = ["README.md", "CONTRIBUTING.md", "TESTING.md", "CHANGELOG.md"]
   .concat(readdirSync(join(root, "docs")).filter((f) => f.endsWith(".md")).map((f) => `docs/${f}`))
   .filter((f) => existsSync(join(root, f)));

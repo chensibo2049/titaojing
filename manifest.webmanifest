@@ -1,7 +1,7 @@
 {
-  "name": "沉思波 · 体态镜（OpenPodium）",
-  "short_name": "体态镜",
-  "description": "体态镜（OpenPodium）：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。视频只留在本机。",
+  "name": "OpenPodium · 开讲",
+  "short_name": "开讲",
+  "description": "OpenPodium · 开讲：对着镜头试讲。教态、视线、口头禅和板书回视会直接画在画面上。视频只留在本机。",
   "lang": "zh-CN",
   "dir": "ltr",
   "id": "./",

@@ -19,7 +19,7 @@ export const DEFAULT_SETTINGS = {
   targetMin: 2,
   frameMode: "auto",         // auto | half | full
   asrEngine: "auto",         // auto | webspeech | sherpa
-  asrAutoDownload: true,     // 进入页面后在后台下载听写包
+  asrAutoDownload: false,    // 默认不下载听写包；仅用户开启后才自动下载
   perfMode: "auto",          // auto | smooth（流畅优先）| detail（精细优先）
   sens: { posture: "mid", gaze: "mid", filler: "mid", board: "mid" },
   fillers: FILLERS.slice(),
@@ -52,7 +52,7 @@ export function normalize(raw) {
   s.sessionMode = s.sessionMode === "classroom" ? "classroom" : "practice";
   s.frameMode = ["auto", "half", "full"].includes(s.frameMode) ? s.frameMode : "auto";
   s.asrEngine = ["auto", "webspeech", "sherpa"].includes(s.asrEngine) ? s.asrEngine : "auto";
-  s.asrAutoDownload = raw && raw.asrAutoDownload === false ? false : true;
+  s.asrAutoDownload = raw != null && raw.asrAutoDownload === true;
   s.perfMode = ["auto", "smooth", "detail"].includes(s.perfMode) ? s.perfMode : "auto";
   const mode = SESSION_MODES[s.sessionMode];
   s.targetMin = Number(s.targetMin) || mode.defaultMin;

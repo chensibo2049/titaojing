@@ -91,14 +91,14 @@ export function wireHistoryActions() {
     const payload = {
       format: "titaojing-history",
       formatVersion: 1,
-      app: "沉思波 · 体态镜",
+      app: "OpenPodium · 开讲",
       appVersion: APP_VERSION,
       exportedAt: new Date().toISOString(),
       note: "不含录像。可在另一台设备的「历史记录 → 导入 JSON」中恢复。",
       sessions: all.map((s) => ({ ...s, hasVideo: false, videoSize: 0 })),
     };
     const d = new Date();
-    downloadBlob(new Blob([JSON.stringify(payload)], { type: "application/json" }), `体态镜-历史-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`);
+    downloadBlob(new Blob([JSON.stringify(payload)], { type: "application/json" }), `开讲-历史-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}.json`);
     toast(`已导出 ${all.length} 条记录（不含录像）`);
   });
   $("input-import-json").addEventListener("change", async (e) => {
@@ -380,7 +380,7 @@ export function wireFeedback() {
   $("btn-download-feedback").addEventListener("click", () => {
     if (!lastFeedback) return;
     const d = new Date();
-    const name = `体态镜反馈-v${APP_VERSION}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}.json`;
+    const name = `开讲反馈-v${APP_VERSION}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}.json`;
     downloadBlob(new Blob([JSON.stringify(lastFeedback, null, 2)], { type: "application/json" }), name);
     $("feedback-copied").textContent = "已下载 .json 文件";
   });
@@ -435,7 +435,7 @@ export function renderAbout() {
     : st.iosHint
       ? "iPhone / iPad：在 Safari 中点「分享」→「添加到主屏幕」，即可像应用一样打开，首次加载后可离线使用。"
       : st.canPrompt
-        ? "可以把体态镜安装到桌面，打开更快，首次加载后可离线使用。"
+        ? "可以把开讲安装到桌面，打开更快，首次加载后可离线使用。"
         : `首次加载后可离线使用${st.sw.controlled ? "（离线缓存已启用）" : ""}。Chrome / Edge 可在地址栏右侧的安装图标或菜单「安装应用」中安装。`;
   renderExperience();
   const notes = currentNotes();

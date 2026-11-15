@@ -1,8 +1,9 @@
-沉思波 · 体态镜（OpenPodium / titaojing）
+OpenPodium · 开讲（内部兼容标识：titaojing）
 Copyright 2026 南京市沉思波网络科技有限责任公司
+作者 / Author: ponderwave
 
 本软件以 Apache License 2.0 授权，许可证全文见 LICENSE 文件。
-「沉思波」「体态镜」是用于标识本项目官方版本的名称。Apache-2.0 不授予商标许可：你可以自由使用、修改和再分发本软件的代码，但未经书面同意，不得用上述名称或官方标识发布你的修改版，以免被误认为是官方版本。
+「沉思波」「开讲」「OpenPodium」是用于标识本项目官方版本的名称。Apache-2.0 不授予商标许可：你可以自由使用、修改和再分发本软件的代码，但未经书面同意，不得用上述名称或官方标识发布你的修改版，以免被误认为是官方版本。
 
 本软件包含或在构建时使用以下第三方组件：
 
@@ -43,7 +44,7 @@ Copyright 2026 南京市沉思波网络科技有限责任公司
    许可证：MIT License（见上游 LICENSE.md；允许商业使用与再分发，须保留版权声明与许可文本）
    https://github.com/microsoft/Microsoft-Rocketbox
    本仓库只收录经 Blender 转换、压缩（WebP 贴图、Draco 网格）并重定向到课堂动作后的 glTF，不收录完整上游资源库。
-   坐姿、讲解、张望、摊手、演示等动作来自同一套官方 Bip01 动画，经视觉重定向到各角色（官方动画的绑定姿势与角色网格并不相同）。举手、点头、齐读、转向黑板等缺失的动作由沉思波 · 体态镜在 Bip01 上补了关键帧。不是 Mixamo。Adobe Mixamo 不允许把原始资源单独再分发，本仓库不收录 Mixamo 文件。
+   坐姿、讲解、张望、摊手、演示等动作来自同一套官方 Bip01 动画，经视觉重定向到各角色（官方动画的绑定姿势与角色网格并不相同）。举手、点头、齐读、转向黑板等缺失的动作由 OpenPodium · 开讲在 Bip01 上补了关键帧。不是 Mixamo。Adobe Mixamo 不允许把原始资源单独再分发，本仓库不收录 Mixamo 文件。
    构建脚本见 `scripts/characters/build_rocketbox.py`，说明见 `docs/CHARACTERS.md`。
    v1.5.0 曾使用 MakeHuman / MPFB 的 CC0 资产；自 v1.6.0 起已替换为上述 Rocketbox 模型，仓库中不再分发 MakeHuman 网格。
 

@@ -5,8 +5,9 @@ import * as esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const version = pkg.version;
 const now = new Date();
@@ -91,7 +92,7 @@ if (fs.existsSync(dracoDir)) {
 // Host configs (harmless on hosts that ignore them)
 write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));
 write("vercel.json", fs.readFileSync(path.join(root, "deploy/vercel.json"), "utf8"));
-write("version.json", JSON.stringify({ name: "沉思波 · 体态镜", version, buildId, buildDate }, null, 2) + "\n");
+write("version.json", JSON.stringify({ name: "OpenPodium · 开讲", version, buildId, buildDate }, null, 2) + "\n");
 write(".nojekyll", "");
 // GitHub Pages / Netlify 等会把它当作找不到页面时的兜底页
 write("404.html", fs.readFileSync(path.join(root, "deploy/404.html"), "utf8"));

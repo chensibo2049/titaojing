@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { demoMotionAt, projectedPose } from "./demo-motion.js";
 
 const STATE_CLIP = {
   idle: "idle_sit",
@@ -255,39 +256,91 @@ export async function mountClassroomScene(host, { mode = "class", onPick } = {})
 export async function mountPresenterScene(host, { clip = "talk" } = {}) {
   const { loader, draco } = makeLoader();
   const scene = new THREE.Scene();
-  warmLights(scene);
+  // Presenter-only lighting: the shared classroom key leaves the face in shade.
+  // A broad hemispheric fill and frontal key reveal the notes-facing pose.
+  scene.add(new THREE.HemisphereLight(0xfff8ee, 0x887c72, 1.85));
+  scene.add(new THREE.AmbientLight(0xf4f2ef, 0.65));
+  const faceFill = new THREE.DirectionalLight(0xfff6eb, 2.8);
+  faceFill.position.set(-0.5, 2.6, 3.2);
+  faceFill.target.position.set(0, 1.1, 0);
+  scene.add(faceFill, faceFill.target);
   scene.background = new THREE.Color(0xcfc4b4);
   const camera = new THREE.PerspectiveCamera(32, 9 / 16, 0.05, 30);
-  camera.position.set(0.15, 1.35, 3.15);
-  camera.lookAt(0, 1.05, 0.2);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "default" });
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  host.appendChild(renderer.domElement);
-  renderer.domElement.className = "presenter-3d-canvas";
-  renderer.domElement.setAttribute("aria-hidden", "true");
-
-  const [teacherGltf, podiumGltf] = await Promise.all([
-    loadGltf(loader, assetUrl("assets/characters/teacher.glb")),
-    loadGltf(loader, assetUrl("assets/characters/podium.glb")),
-  ]);
-  scene.add(podiumGltf.scene);
-  scene.add(teacherGltf.scene);
-  // Teacher was exported slightly in front of the lectern, facing +Y (the board).
-  // Turn her to face the camera (-Y) for the cover / demo shot.
-  teacherGltf.scene.rotation.y = Math.PI;
-  teacherGltf.scene.position.set(0, 0, 0.15);
-
-  const packed = collectMixers(teacherGltf);
-  const entry = packed.mixers[0];
-  if (entry) playClip(entry, TEACHER_CLIPS[clip] || clip || "talk", 0);
-
+  camera.position.set(0.15, 1.23, 3.65);
+  camera.lookAt(0, 0.93, 0.2);
+  let renderer, ro, rafId = 0, teacherGltf, podiumGltf;
+  let running = true, scripted = false, lastClip = "", entry = null;
   const clock = new THREE.Clock();
-  let running = true;
-  let desired = clip;
-  const ro = new ResizeObserver(() => resize());
-  ro.observe(host);
+  // GLTFLoader sanitizes whitespace in node names; retain the original keys
+  // expected by projectedPose while matching the actual runtime bone names.
+  const jointNames = ["MNose", "L UpperArm", "R UpperArm", "L Forearm", "R Forearm", "L Hand", "R Hand", "L Thigh", "R Thigh", "L Calf", "R Calf", "L Foot", "R Foot", "L Toe0", "R Toe0"].map((n) => `Bip01 ${n}`);
+  const jointByRuntimeName = new Map(jointNames.map((name) => [THREE.PropertyBinding.sanitizeNodeName(name), name]));
+  const joints = new Map();
+  const world = new THREE.Vector3();
+  const poseBones = new Map();
+  const restRotations = new Map();
+  // In this glTF the spine/neck/head local X points up, Y points forward,
+  // and Z points to the model's right (confirmed against the exported rig).
+  const up = new THREE.Vector3(1, 0, 0);
+  const forward = new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3(0, 0, 1);
+  const turn = new THREE.Quaternion();
+
+  function dispose() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(rafId);
+    ro?.disconnect();
+    entry?.mixer.stopAllAction();
+    for (const gltf of [teacherGltf, podiumGltf]) gltf?.scene.traverse((obj) => {
+      obj.geometry?.dispose();
+      for (const material of Array.isArray(obj.material) ? obj.material : obj.material ? [obj.material] : []) {
+        for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+        material.dispose();
+      }
+    });
+    renderer?.dispose();
+    renderer?.forceContextLoss();
+    renderer?.domElement.remove();
+    draco.dispose();
+  }
+
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "default" });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    host.appendChild(renderer.domElement);
+    renderer.domElement.className = "presenter-3d-canvas";
+    renderer.domElement.setAttribute("aria-hidden", "true");
+    [teacherGltf, podiumGltf] = await Promise.all([
+      loadGltf(loader, assetUrl("assets/characters/teacher.glb")),
+      loadGltf(loader, assetUrl("assets/characters/podium.glb")),
+    ]);
+    scene.add(podiumGltf.scene, teacherGltf.scene);
+    teacherGltf.scene.rotation.y = Math.PI;
+    teacherGltf.scene.position.set(0, 0, 0.15);
+    const packed = collectMixers(teacherGltf);
+    entry = packed.mixers[0];
+    if (entry) playClip(entry, TEACHER_CLIPS[clip] || clip || "talk", 0);
+    const animatedBones = new Set(["Pelvis", "Spine1", "Spine2", "Neck", "Head"]);
+    teacherGltf.scene.traverse((obj) => {
+      const key = obj.isBone && jointByRuntimeName.get(obj.name);
+      if (key) joints.set(key, obj);
+      if (!obj.isBone) return;
+      for (const name of animatedBones) {
+        if (obj.name !== THREE.PropertyBinding.sanitizeNodeName(`Bip01 ${name}`)) continue;
+        poseBones.set(name, obj);
+        restRotations.set(name, obj.quaternion.clone());
+      }
+    });
+    ro = new ResizeObserver(resize);
+    ro.observe(host);
+    resize();
+  } catch (err) {
+    dispose();
+    throw err;
+  }
+
   function resize() {
     const w = Math.max(1, host.clientWidth || 320);
     const h = Math.max(1, host.clientHeight || 480);
@@ -295,28 +348,84 @@ export async function mountPresenterScene(host, { clip = "talk" } = {}) {
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
   }
-  resize();
-
+  function getProjectedPose() {
+    if (!entry || joints.size !== jointNames.length) return null;
+    camera.updateMatrixWorld();
+    teacherGltf.scene.updateMatrixWorld(true);
+    const points = {};
+    for (const name of jointNames) {
+      const bone = joints.get(name);
+      bone.getWorldPosition(world).project(camera);
+      points[name] = { x: world.x, y: world.y, z: world.z };
+    }
+    return projectedPose(points);
+  }
+  function setDemoTime(t) {
+    scripted = true;
+    const { clip: name, clipTime, params } = demoMotionAt(t);
+    const clipId = TEACHER_CLIPS[name];
+    const action = entry?.actions[clipId];
+    // Even a repeat seek to the same clip must deactivate its bindings: the
+    // previous quaternion overlay is otherwise blended into the next sample.
+    // stopAllAction restores the mixer's captured pre-animation transform for
+    // every animated track (including bones this overlay does not touch).
+    if (entry) entry.mixer.stopAllAction();
+    for (const [boneName, bone] of poseBones) bone.quaternion.copy(restRotations.get(boneName));
+    if (action) {
+      action.reset().setEffectiveWeight(1).play();
+      entry.current = action;
+      lastClip = clipId;
+      entry.mixer.setTime(clipTime % action.getClip().duration);
+    }
+    // Local axes in teacher.glb: X is up, Y faces the audience, Z is right.
+    // Pose the actual rig (not the 2D overlay or the scene root). A positive
+    // pitch nods toward the notes; the waist turn leaves the feet in place.
+    function rotate(name, axis, angle) {
+      const bone = poseBones.get(name);
+      if (bone && angle) bone.quaternion.multiply(turn.setFromAxisAngle(axis, angle));
+    }
+    rotate("Spine1", forward, -params.swayX * 1.6 - params.weight * 0.045);
+    rotate("Spine2", up, params.bodyYaw * 0.75);
+    rotate("Spine2", forward, -params.swayX * 0.8 + params.weight * 0.035);
+    rotate("Spine2", right, params.headPitch * 0.12);
+    rotate("Neck", up, params.bodyYaw * 0.25 + params.headYaw * 0.6);
+    rotate("Head", up, params.headYaw * 0.4);
+    rotate("Head", right, params.headPitch * 0.88);
+    teacherGltf.scene.updateMatrixWorld(true);
+    renderer.render(scene, camera);
+    return getProjectedPose();
+  }
   function loop() {
     if (!running) return;
-    const dt = Math.min(0.05, clock.getDelta());
-    packed.mixers.forEach((e) => e.mixer.update(dt));
-    renderer.render(scene, camera);
-    requestAnimationFrame(loop);
+    if (!scripted) {
+      const dt = Math.min(0.05, clock.getDelta());
+      entry?.mixer.update(dt);
+      renderer.render(scene, camera);
+    }
+    rafId = requestAnimationFrame(loop);
   }
-  requestAnimationFrame(loop);
-
+  rafId = requestAnimationFrame(loop);
   return {
-    setClip(name) {
-      desired = name;
-      if (entry) playClip(entry, TEACHER_CLIPS[name] || name);
+    setClip(name) { if (!scripted && entry) playClip(entry, TEACHER_CLIPS[name] || name); },
+    setDemoTime,
+    getProjectedPose,
+    diagnostics() {
+      const positions = {};
+      camera.updateMatrixWorld();
+      teacherGltf.scene.updateMatrixWorld(true);
+      for (const [name, bone] of joints) {
+        bone.getWorldPosition(world).project(camera);
+        positions[name] = [world.x, world.y, world.z].map((n) => Math.round(n * 100) / 100);
+      }
+      const rig = {};
+      for (const [name, bone] of poseBones) {
+        const position = bone.getWorldPosition(new THREE.Vector3());
+        const rotation = bone.getWorldQuaternion(new THREE.Quaternion());
+        rig[name] = { position: position.toArray(), quaternion: rotation.toArray() };
+      }
+      rig.Nose = { position: joints.get("Bip01 MNose")?.getWorldPosition(new THREE.Vector3()).toArray() };
+      return { joints: joints.size, names: jointNames, runtimeBones: teacherGltf.scene.getObjectByName("teacher_rig")?.children.map((o) => o.name).slice(0, 10), clips: Object.keys(entry?.actions || {}), current: lastClip, positions, rig, valid: !!getProjectedPose() };
     },
-    dispose() {
-      running = false;
-      ro.disconnect();
-      renderer.dispose();
-      if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
-      try { draco.dispose(); } catch (_) {}
-    },
+    dispose,
   };
 }
