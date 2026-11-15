@@ -1308,8 +1308,10 @@ function updateSaveVideoBtn() {
 function sizeReplayWrap(sess) {
   const wrap = $("replay-wrap");
   if (window.innerWidth <= 900) {
-    const h = Math.min(window.innerHeight * 0.6, (window.innerWidth - 20) / replayAspect(sess));
-    wrap.style.height = `${Math.max(240, Math.round(h))}px`;
+    // Keep the source aspect without forcing a 240px stage past short landscape viewports.
+    const usableWidth = Math.max(1, wrap.clientWidth - 20);
+    const h = Math.min(window.innerHeight * 0.58, usableWidth / replayAspect(sess));
+    wrap.style.height = `${Math.max(120, Math.round(h))}px`;
   } else wrap.style.height = "";
 }
 
@@ -1349,6 +1351,12 @@ function openReplay(sess) {
     scene.hidden = true;
     video.src = sess.videoUrl;
     video.onloadedmetadata = () => {
+      // Imported/recorded metadata is authoritative when containers report a different aspect.
+      if (video.videoWidth && video.videoHeight) {
+        sess.aspect = video.videoWidth / video.videoHeight;
+        sizeReplayWrap(sess);
+        fitStage($("replay-stage"), replayAspect(sess));
+      }
       // MediaRecorder webm often reports Infinity duration until seeked.
       if (!Number.isFinite(video.duration)) {
         video.currentTime = 1e6;
