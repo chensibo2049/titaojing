@@ -132,3 +132,10 @@ main:focus { outline: none; }
   main a[href^="http"]::after { content: "（" attr(href) "）"; font-size: 9pt; color: #444; word-break: break-all; }
   footer a::after { content: "（github.com/chensibo2049/titaojing）"; font-size: 9pt; }
 }
+
+/* 导航变长后，桌面上品牌名不再被挤成两行；窄一点的屏幕上导航自动换行 */
+@media (min-width: 801px) {
+  header { gap: 24px; }
+  .brand { white-space: nowrap; flex-shrink: 0; }
+  nav { gap: 6px 16px; flex-wrap: wrap; justify-content: flex-end; }
+}

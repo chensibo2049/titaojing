@@ -384,6 +384,12 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
   check("介绍页：结构化数据可解析，常见问题与页面文字一致", ok, why);
 }
 
+{
+  const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
+  const sec = (lh.match(/<section id="yuwen">([\s\S]*?)<\/section>/) || [])[1] || "";
+  check("介绍页：有语文试讲观察表一节，导航可达，链到全文且不说打分", !!sec && /href="#yuwen"/.test(lh) && /docs\/YUWEN_RUBRIC\.md/.test(sec) && /不打分/.test(sec) && !/赋能|大模型|智能诊断/.test(sec) && fs.existsSync(path.join(root, "docs/YUWEN_RUBRIC.md")));
+}
+
 try { fs.unlinkSync(tmp); } catch (_) {}
 
 console.log(failed ? `\n${failed} 项失败` : "\n检查全部通过");
