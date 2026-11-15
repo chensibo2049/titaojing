@@ -336,6 +336,11 @@ for (const f of ["docs/images/demo-3d.mp4", "docs/images/demo-3d.webp", "docs/im
   const fp = path.join(root, f);
   check(`演示媒资存在 ${f}`, fs.existsSync(fp) && fs.statSync(fp).size > 1024);
 }
+for (const f of ["index.html", "landing/index.html"]) {
+  const html = fs.readFileSync(path.join(root, f), "utf8");
+  const img = (html.match(/property="og:image" content="https:\/\/chensibo2049\.github\.io\/titaojing\/([^"]+)"/) || [])[1];
+  check(`${f} 有分享卡片（og:image 指向仓库内的图）`, !!img && fs.existsSync(path.join(root, img)) && /twitter:card/.test(html) && !/chensibo\.cn/.test(html.match(/og:[^>]+/g).join(" ")), img);
+}
 const mp4 = fs.statSync(path.join(root, "docs/images/demo-3d.mp4")).size;
 check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(mp4 / 1024).toFixed(0)} KB`);
 
