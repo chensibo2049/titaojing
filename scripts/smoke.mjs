@@ -182,6 +182,20 @@ try {
   check("结束后生成轨迹 JSON（titaojing-trace v1）", trace && trace.format === "titaojing-trace" && trace.formatVersion === 1 && trace.frames.length > 20, trace && `${trace.frames.length} frames`);
   check("轨迹默认不含听写原文、不含图片", trace && trace.transcriptsIncluded === false && !JSON.stringify(trace).includes("data:image"));
   if (trace) fs.writeFileSync(path.join(OUT, "trace-sample.json"), JSON.stringify(trace).slice(0, 2e6));
+  // 第一次打开：只有「开始之前」，不叠加「本版更新」；同意后也不再弹出。
+  {
+    const ctx = await browser.createBrowserContext();
+    const fresh = await ctx.newPage();
+    await fresh.goto(BASE, { waitUntil: "domcontentloaded" });
+    await fresh.waitForSelector("#consent-veil:not([hidden])", { timeout: 15000 }).catch(() => {});
+    const st = await fresh.evaluate(() => ({ veil: !document.getElementById("consent-veil").hidden, news: !document.getElementById("whats-new").hidden }));
+    await fresh.click("#btn-consent-ok").catch(() => {});
+    await fresh.reload({ waitUntil: "domcontentloaded" });
+    await sleep(800);
+    const after = await fresh.evaluate(() => !document.getElementById("whats-new").hidden);
+    check("第一次打开只显示使用说明，不叠加本版更新", st.veil && !st.news && !after, JSON.stringify({ ...st, after }));
+    await ctx.close();
+  }
   check("页面无未捕获错误", errors.length === 0, errors.join(" | "));
 } catch (e) {
   check("冒烟测试运行", false, e.stack || e.message);

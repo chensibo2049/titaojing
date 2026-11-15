@@ -240,6 +240,8 @@ function renderWhatsNew() {
   const box = $("whats-new");
   const body = $("whats-new-body");
   if (!box || !body) return;
+  // 第一次打开的人还没看过旧版，「本版更新」对他没有意义，也不该和「开始之前」叠在一起。
+  if (!hasAcceptedTerms()) { markVersionSeen(); box.hidden = true; return; }
   if (!hasUnseenNotes()) { box.hidden = true; return; }
   const notes = currentNotes();
   if (!notes) { box.hidden = true; return; }
