@@ -1684,3 +1684,11 @@ mark.shuici, .shuici {
   min-height: 0;
   padding: 6px 8px;
 }
+
+/* 听写包角落进度不要盖住封面页脚的版本号，也不要在手机上压住「对着镜头试讲」 */
+body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 168px; }
+@media (max-width: 720px) {
+  .asr-dl-chip { top: max(10px, var(--safe-t)); bottom: auto; right: max(10px, var(--safe-r)); }
+  .asr-dl-chip-btn { min-width: 0; padding: 6px 10px; box-shadow: none; }
+  body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 0; }
+}
