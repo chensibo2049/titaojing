@@ -29,11 +29,11 @@ header {
 .grid-3 article { background: var(--paper-soft); border: 1px solid var(--line); border-radius: 2px; padding: 22px; }
 .grid-3 p { color: var(--ink-soft); font-size: 15px; }
 nav { display: flex; gap: 22px; font-size: 14px; }
-nav a { color: var(--ink-soft); text-decoration: none; }
+nav a { color: var(--ink-soft); text-decoration: none; white-space: nowrap; }
 nav a:hover { color: var(--cinnabar); }
 .hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; padding: 64px 0 48px; }
 .eyebrow { font-size: 13px; letter-spacing: 0.16em; color: var(--ink-faint); text-transform: none; }
-h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(36px, 5vw, 56px); line-height: 1.15; margin: 8px 0 16px; }
+h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(36px, 5vw, 56px); line-height: 1.15; margin: 8px 0 16px; text-wrap: balance; }
 .lead { font-size: 18px; color: var(--ink-soft); max-width: 38em; }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
 .btn { display: inline-block; padding: 12px 22px; border-radius: 4px; text-decoration: none; font-size: 15px; }
@@ -66,7 +66,10 @@ footer { padding: 36px 0 48px; font-size: 13px; color: var(--ink-faint); border-
   .timeline { flex-direction: column; }
   .timeline li { flex: none !important; }
   .hero, .grid-2, .grid-3, .steps { grid-template-columns: 1fr; }
-  nav { gap: 14px; font-size: 13px; }
+  header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .brand { white-space: nowrap; }
+  nav { gap: 14px; font-size: 13px; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+  nav::-webkit-scrollbar { display: none; }
   .hero { padding: 36px 0; }
 }
 
@@ -83,3 +86,12 @@ footer { padding: 36px 0 48px; font-size: 13px; color: var(--ink-faint); border-
   .plan article { border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 20px; }
   .plan article:first-child { border-left: 0; padding-left: 0; }
 }
+
+/* 常见问题 */
+.faq { max-width: 720px; border-top: 1px solid rgba(0, 0, 0, 0.1); }
+.faq details { border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding: 14px 0; }
+.faq summary { cursor: pointer; font-weight: 600; list-style: none; position: relative; padding-right: 28px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 4px; top: 0; color: var(--ink-faint); font-weight: 400; }
+.faq details[open] summary::after { content: "−"; }
+.faq details p { margin: 10px 0 0; color: var(--ink-faint); line-height: 1.8; }
