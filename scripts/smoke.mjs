@@ -76,6 +76,25 @@ try {
   const obs = await page.$eval("#observe-sheet", (e) => ({ hidden: e.hidden, text: e.textContent })).catch(() => null);
   check("演示回放有观察记录和整节课", obs && !obs.hidden && /观察记录/.test(obs.text) && /整节课/.test(obs.text) && /依据你的原话定位/.test(obs.text), obs && obs.text ? obs.text.replace(/\s+/g, " ").slice(0, 160) : "missing");
 
+  // 回放键盘：焦点不在进度条上时，方向键也能跳，空格能播放 / 暂停。
+  await page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+  const clock = () => page.$eval("#replay-clock", (e) => e.textContent);
+  const c0 = await clock();
+  await page.keyboard.down("Shift"); await page.keyboard.press("ArrowRight"); await page.keyboard.up("Shift");
+  await sleep(300);
+  const c1 = await clock();
+  check("回放：不点进度条也能用方向键跳（Shift 跳 5 秒）", c0 !== c1, `${c0} → ${c1}`);
+  const playTxt = () => page.$eval("#btn-play-dock", (e) => e.textContent.trim());
+  const p0 = await playTxt();
+  await page.keyboard.press("Space");
+  await sleep(300);
+  const p1 = await playTxt();
+  if (p0 !== p1) { await page.keyboard.press("Space"); await sleep(200); }
+  check("回放：空格可播放 / 暂停", p0 !== p1, `${p0} → ${p1}`);
+  const rh = await page.$eval("#replay-kbd-hint", (e) => getComputedStyle(e).display !== "none" && /空格/.test(e.textContent)).catch(() => false);
+  check("回放页在电脑上显示快捷键提示", rh);
+  await (await page.$(".timeline-dock")).screenshot({ path: path.join(OUT, "replay-kbd.png") }).catch(() => {});
+
   await page.evaluate(() => { location.hash = "#/about"; });
   await waitVisible("screen-about");
   const about = await page.$eval("#about-changelog-body", (e) => e.textContent).catch(() => "");

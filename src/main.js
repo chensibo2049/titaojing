@@ -1562,6 +1562,8 @@ function isTextEntry(el) {
   return false;
 }
 
+function togglePlay() { if (playing) stopReplayPlay(); else playReplay(); }
+
 function onDocumentKey(e) {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
   if (isTextEntry(e.target)) return;
@@ -1582,6 +1584,19 @@ function onDocumentKey(e) {
     if (btn && !btn.disabled && !btn.hidden) {
       e.preventDefault();
       startCameraLive();
+    }
+    return;
+  }
+
+  // 回放时不必先点进度条：空格播放 / 暂停，← / → 前后 1 秒，按住 Shift 为 5 秒。
+  if (mode === "replay" && (space || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    const tag = (e.target && e.target.tagName || "").toLowerCase();
+    if (space && (tag === "button" || tag === "a" || tag === "summary")) return;
+    e.preventDefault();
+    if (space) togglePlay();
+    else {
+      const step = e.shiftKey ? 5 : 1;
+      seekReplay(currentReplayTime() + (e.key === "ArrowLeft" ? -step : step));
     }
     return;
   }
@@ -1716,7 +1731,6 @@ function onReady() {
     }
     updateSaveVideoBtn();
   });
-  const togglePlay = () => { if (playing) stopReplayPlay(); else playReplay(); };
   $("btn-play").addEventListener("click", togglePlay);
   $("btn-play-dock").addEventListener("click", togglePlay);
 
@@ -1727,8 +1741,9 @@ function onReady() {
   tl.addEventListener("pointerup", () => { dragging = false; });
   tl.addEventListener("pointercancel", () => { dragging = false; });
   tl.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") seekReplay(currentReplayTime() - 1);
-    if (e.key === "ArrowRight") seekReplay(currentReplayTime() + 1);
+    const step = e.shiftKey ? 5 : 1;
+    if (e.key === "ArrowLeft") { e.preventDefault(); seekReplay(currentReplayTime() - step); }
+    if (e.key === "ArrowRight") { e.preventDefault(); seekReplay(currentReplayTime() + step); }
     if (e.key === " ") { e.preventDefault(); togglePlay(); }
   });
 
