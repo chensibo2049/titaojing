@@ -91,6 +91,13 @@ try {
   const p1 = await playTxt();
   if (p0 !== p1) { await page.keyboard.press("Space"); await sleep(200); }
   check("回放：空格可播放 / 暂停", p0 !== p1, `${p0} → ${p1}`);
+  await page.keyboard.press("Home"); await sleep(200);
+  const h0 = await clock();
+  await page.keyboard.press("PageDown"); await sleep(300);
+  const h1 = await clock();
+  check("回放：Home 回开头，PgDn 跳到下一处提示", /^00:00 /.test(h0) && h1 !== h0, `${h0} → ${h1}`);
+  const aria = await page.$eval("#timeline", (e) => e.getAttribute("aria-valuetext") || "");
+  check("进度条有读屏可读的时间", /共/.test(aria), aria);
   const rh = await page.$eval("#replay-kbd-hint", (e) => getComputedStyle(e).display !== "none" && /空格/.test(e.textContent)).catch(() => false);
   check("回放页在电脑上显示快捷键提示", rh);
   await (await page.$(".timeline-dock")).screenshot({ path: path.join(OUT, "replay-kbd.png") }).catch(() => {});

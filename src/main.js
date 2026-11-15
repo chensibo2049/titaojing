@@ -1361,7 +1361,11 @@ function setPlayhead(t) {
   $("timeline-fill").style.width = `${p * 100}%`;
   $("timeline-head").style.left = `${p * 100}%`;
   $("replay-clock").textContent = `${fmt(t)} / ${fmt(dur)}`;
-  $("timeline").setAttribute("aria-valuenow", String(Math.round(t)));
+  const tl = $("timeline");
+  tl.setAttribute("aria-valuemin", "0");
+  tl.setAttribute("aria-valuemax", String(Math.round(dur)));
+  tl.setAttribute("aria-valuenow", String(Math.round(t)));
+  tl.setAttribute("aria-valuetext", `${fmt(t)}，共 ${fmt(dur)}`);
 }
 
 /** Interpolate stored (5 fps) frames so replay skeletons move smoothly. */
@@ -1562,6 +1566,18 @@ function isTextEntry(el) {
   return false;
 }
 
+/** 跳到上一处 / 下一处时间线提示，略早 1 秒，便于看清前因。 */
+function jumpToMark(dir) {
+  if (!session || !session.events || !session.events.length) return false;
+  const now = currentReplayTime();
+  const times = [...new Set(session.events.map((ev) => Math.max(0, ev.t - 1)))].sort((a, b) => a - b);
+  const target = dir > 0 ? times.find((t) => t > now + 0.25) : [...times].reverse().find((t) => t < now - 0.25);
+  if (target == null) { toast(dir > 0 ? "后面没有提示了" : "前面没有提示了"); return false; }
+  stopReplayPlay();
+  seekReplay(target);
+  return true;
+}
+
 function togglePlay() { if (playing) stopReplayPlay(); else playReplay(); }
 
 function onDocumentKey(e) {
@@ -1589,6 +1605,13 @@ function onDocumentKey(e) {
   }
 
   // 回放时不必先点进度条：空格播放 / 暂停，← / → 前后 1 秒，按住 Shift 为 5 秒。
+  if (mode === "replay" && ["PageDown", "PageUp", "]", "[", "Home", "End"].includes(e.key)) {
+    e.preventDefault();
+    if (e.key === "PageDown" || e.key === "]") jumpToMark(1);
+    else if (e.key === "PageUp" || e.key === "[") jumpToMark(-1);
+    else seekReplay(e.key === "Home" ? 0 : session ? session.duration : 0);
+    return;
+  }
   if (mode === "replay" && (space || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
     const tag = (e.target && e.target.tagName || "").toLowerCase();
     if (space && (tag === "button" || tag === "a" || tag === "summary")) return;
