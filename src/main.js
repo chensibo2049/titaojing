@@ -330,7 +330,12 @@ function paintDemoFrame(t) {
   updateFlagsHUD(frame.flags, gaze, frame.onBoard);
 }
 
-function runCountdown(seconds) {
+/** 开讲倒计时：课堂模式要从电脑走到讲台或黑板前，多给两秒。 */
+function countdownSeconds(settings) {
+  return settings && settings.sessionMode === "classroom" ? 5 : 3;
+}
+
+function runCountdown(seconds, tickMs = 700) {
   return new Promise((resolve) => {
     const cap = $("hud-caption");
     cap.hidden = false;
@@ -343,7 +348,7 @@ function runCountdown(seconds) {
         clearInterval(id);
         setTimeout(() => { if (mode === "camera") cap.hidden = true; resolve(); }, 280);
       } else cap.textContent = String(n);
-    }, 700);
+    }, tickMs);
   });
 }
 
@@ -557,6 +562,8 @@ async function startCoach() {
       if (!box.hidden) mountLocalAsr(box, { compact: true, onReady: () => { setAsrStatusLabel($("coach-asr-state")); prewarmSherpa(mediaStream); } });
     }
   }
+  const kbdHint = $("coach-kbd-hint");
+  if (kbdHint) kbdHint.innerHTML = `站到位置后，也可以按 <kbd>空格</kbd> 开始（先有 ${countdownSeconds(s)} 秒倒计时）`;
   const sub = $("coach-sub");
   if (sub) sub.textContent = `半透框是「板书区」（画面${s.boardSide === "left" ? "左" : "右"}侧），可对准教室里的黑板。没有黑板也可以忽略。目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生。`;
   const canvas = $("coach-canvas");
@@ -677,7 +684,8 @@ async function startCameraLive() {
   session.visionAvailable = !!(status.pose || status.face);
   if (!session.visionAvailable) banner("教态模型还没就绪：这次会录制并统计口头禅，但不画骨骼线、不统计教态和视线。", 9000);
 
-  await runCountdown(3);
+  // 按真实秒数倒数，站到位置的时间与提示一致。
+  await runCountdown(countdownSeconds(s), 1000);
   if (mode !== "camera") return;
   liveStart = performance.now();
   session.aspect = videoAspectOf(video);

@@ -142,8 +142,24 @@ try {
   const kbdHint = await page.$eval("#coach-kbd-hint", (e) => e.textContent);
   check("站位页有试一下听写", !!(await page.$("#btn-speech-preflight")));
   check("站位页提示可用空格开始", /空格/.test(kbdHint || ""), kbdHint);
+  const cdSec = Number(((kbdHint || "").match(/(\d+) 秒倒计时/) || [])[1] || 0);
+  check("站位页写明倒计时秒数", cdSec === 3 || cdSec === 5, kbdHint);
   await page.keyboard.press("Space");
   await waitVisible("screen-live");
+  // 倒计时按真实秒数：从出现数字到出现「开始」应约等于提示的秒数。
+  const cd = await page.evaluate(async () => {
+    const cap = document.getElementById("hud-caption");
+    const t0 = performance.now();
+    let first = null;
+    while (performance.now() - t0 < 15000) {
+      const txt = cap && !cap.hidden ? cap.textContent.trim() : "";
+      if (first == null && /^\d+$/.test(txt)) first = performance.now();
+      if (first != null && txt === "开始") return (performance.now() - first) / 1000;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return null;
+  });
+  check("倒计时按真实秒数倒数", cd != null && cdSec > 0 && Math.abs(cd - cdSec) < 1.2, cd == null ? "未看到倒计时" : `${cd.toFixed(1)} 秒，提示 ${cdSec} 秒`);
   // GitHub-hosted runners are slower than a laptop; wait until enough pose
   // frames are recorded instead of assuming a fixed 18s is enough.
   const liveMs = Number(process.env.SMOKE_LIVE_MS || 45000);
