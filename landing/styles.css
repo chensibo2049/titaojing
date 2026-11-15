@@ -95,3 +95,13 @@ footer { padding: 36px 0 48px; font-size: 13px; color: var(--ink-faint); border-
 .faq summary::after { content: "+"; position: absolute; right: 4px; top: 0; color: var(--ink-faint); font-weight: 400; }
 .faq details[open] summary::after { content: "−"; }
 .faq details p { margin: 10px 0 0; color: var(--ink-faint); line-height: 1.8; }
+
+/* 键盘用户：跳到正文、清楚的焦点框 */
+.skip { position: absolute; left: 12px; top: -48px; z-index: 10; background: var(--ink); color: var(--paper); padding: 8px 14px; border-radius: 2px; text-decoration: none; font-size: 14px; }
+.skip:focus { top: 12px; }
+a:focus-visible, video:focus-visible { outline: 3px solid var(--cinnabar); outline-offset: 3px; }
+main:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -353,6 +353,12 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
   check("找不到页面：有 404.html 并在构建时拷进 dist", /write\("404\.html"/.test(bs) && /noindex/.test(nf) && /\/titaojing\//.test(nf) && /landing\//.test(nf) && !/赋能|大模型|智能诊断/.test(nf));
 }
 
+{
+  const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
+  const lc = fs.readFileSync(path.join(root, "landing/styles.css"), "utf8");
+  check("介绍页：有「跳到正文」、<main> 与减少动态效果的处理", /class="skip" href="#main"/.test(lh) && /<main id="main"/.test(lh) && /prefers-reduced-motion/.test(lh) && /prefers-reduced-motion/.test(lc) && /:focus-visible/.test(lc));
+}
+
 try { fs.unlinkSync(tmp); } catch (_) {}
 
 console.log(failed ? `\n${failed} 项失败` : "\n检查全部通过");

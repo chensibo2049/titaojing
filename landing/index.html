@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip" href="#main">跳到正文</a>
   <div class="wrap">
     <header>
       <span class="brand">沉思波 · 体态镜 <em>OpenPodium</em></span>
@@ -40,6 +41,7 @@
       </nav>
     </header>
 
+    <main id="main" tabindex="-1">
     <div class="hero">
       <div>
         <h1>一面给试讲用的镜子</h1>
@@ -62,7 +64,7 @@
       <p class="lead">封面和一键演示在 WebGL 可用时，会换成更写实的 3D 人物：老师站在讲台前，体态镜仍把骨架、视线和口头禅画在画面上。模拟课堂、模拟路演里的同学和嘉宾也是同一套人物。显卡较弱或设置里选择插画时，会自动退回原来的插画。</p>
       <div class="grid-2" style="margin-top:28px">
         <figure class="hero-fig">
-          <video autoplay muted loop playsinline poster="images/demo-3d.jpg">
+          <video id="demo3d-video" autoplay muted loop playsinline poster="images/demo-3d.jpg">
             <source src="images/demo-3d.mp4" type="video/mp4">
           </video>
           <figcaption>16 秒讲台演示。这是风格化的写实人物，手臂动作比较克制，骨架不会与网格完全重合。</figcaption>
@@ -186,11 +188,21 @@
         <a class="btn btn-ghost" href="../#/demo">先看演示</a>
       </div>
     </section>
+    </main>
 
     <footer>
       <p>沉思波 · 体态镜（OpenPodium）　南京市沉思波网络科技有限责任公司　<a href="https://github.com/chensibo2049/titaojing">开源仓库</a>，欢迎一起改。</p>
       <p>本页是产品介绍，不是应用本身。使用时请在浏览器中打开体态镜页面。</p>
     </footer>
   </div>
+  <script>
+    // 系统里开了「减少动态效果」时，演示视频不自动循环，改成带控制条、点了再播。
+    (function () {
+      var v = document.getElementById("demo3d-video");
+      var mq = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+      if (!v || !mq || !mq.matches) return;
+      v.removeAttribute("autoplay"); v.loop = false; v.controls = true; v.pause();
+    })();
+  </script>
 </body>
 </html>
