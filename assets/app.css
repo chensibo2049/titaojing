@@ -1128,6 +1128,8 @@ a.btn { text-decoration: none; color: inherit; }
 .sens-grid { display: grid; gap: 10px; }
 .sens-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; }
 .sticky-actions { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--line); padding: 12px 0 calc(8px + var(--safe-b)); margin-top: 0; z-index: 2; }
+/* 页面底部留白会让吸底的按钮条下方露出一截表单文字；用同色阴影盖住这段留白 */
+.sticky-actions { box-shadow: 0 calc(24px + var(--safe-b)) 0 var(--paper), -24px calc(24px + var(--safe-b)) 0 var(--paper), 24px calc(24px + var(--safe-b)) 0 var(--paper); }
 .save-hint { font-size: 13px; color: var(--teal); }
 .feedback-out textarea { width: 100%; margin-top: 18px; font-family: "Noto Sans Mono CJK SC", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.6; padding: 12px; border-radius: 12px; border: 1px solid var(--line-strong); background: #fff; }
 
