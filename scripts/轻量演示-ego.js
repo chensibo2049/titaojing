@@ -2,7 +2,8 @@
 const t = await taskSpace(config.space), p = t.page('p1');
 const {base,out,layoutOnly} = config;
 let count = 0;
-const check = (name, ok, detail = '') => { console.log((ok?'PASS ':'FAIL ')+name+' '+JSON.stringify(detail)); if(!ok) throw Error(name); count++; };
+const checks = [];
+const check = (name, ok, detail = '') => { checks.push({name,ok,detail}); console.log((ok?'PASS ':'FAIL ')+name+' '+JSON.stringify(detail)); if(!ok) throw Error(name); count++; };
 await p.cdp('Network.enable');
 await p.cdp('Network.setBypassServiceWorker',{bypass:true});
 await p.cdp('Network.setCacheDisabled',{cacheDisabled:true});
@@ -70,6 +71,14 @@ for(const [w,h] of [[1366,768],[390,844],[360,800],[844,390]]) {
     await p.goto(base + (route === 'landing/' ? route : '?noasrdl=1' + route));
     const m = await p.evaluate(() => ({width:innerWidth, overflow:document.documentElement.scrollWidth>innerWidth+1, text:document.body.innerText}));
     check('旧入口布局 '+w+' '+(route||'封面'), !m.overflow && m.text.trim().length>40 && m.width===w);
+    if (route === '#/about') {
+      const expected = await p.evaluate(async () => (await (await fetch('version.json', {cache:'no-store'})).json()).version);
+      check('关于页展示当前版本与轻量演示说明 '+w, await p.evaluate(version => {
+        const notes = document.querySelector('#about-changelog-body').textContent;
+        const capabilities = document.querySelector('#about-capabilities-list').textContent;
+        return notes.includes('v'+version) && notes.includes('轻量预设试讲演示') && capabilities.includes('按需加载轻量三维人物');
+      }, expected));
+    }
   }
   await go(''); await activate('#btn-camera');
   await p.waitForFunction(()=>!document.querySelector('#screen-permission').hidden);
@@ -85,4 +94,6 @@ for(const [w,h] of [[1366,768],[390,844],[360,800],[844,390]]) {
   await go('#/try');
   check('离开演示销毁 '+w,await p.evaluate(()=>window.__openpodiumDemo.status().state==='off'&&!document.querySelector('.demo-presenter-canvas')));
 }
+const fs = await import('node:fs/promises');
+await fs.writeFile(out+'/result.json', JSON.stringify({base,layoutOnly,count,checks,time:new Date().toISOString()},null,2)+'\n');
 console.log('PASS '+count+' ego checks. Desktop Chromium emulation; no physical device or camera permission test.');
