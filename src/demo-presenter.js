@@ -170,6 +170,16 @@ function createPresenter(host, onCleanup) {
   const shadow=add(new THREE.PlaneGeometry(1.6,.8),shadowMat);shadow.rotation.x=-Math.PI/2;shadow.position.set(-.42,.006,.06);
   let disposed=false, latestTime=0, width=0,height=0, frames=0, renderMs=0, lastState=null;
   const v = a => new THREE.Vector3(...a);
+  // Display the actual authored animation joints, never vision landmarks or confidence scores.
+  const rigGeometry = new THREE.BufferGeometry();
+  rigGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(24), 3));
+  const rigMaterial = new THREE.LineBasicMaterial({ color: "#ffd978", depthTest: false, depthWrite: false });
+  const jointMaterial = new THREE.PointsMaterial({ color: "#ffd978", size: .045, depthTest: false, depthWrite: false });
+  materials.add(rigMaterial); materials.add(jointMaterial);
+  const rigLines = new THREE.LineSegments(rigGeometry, rigMaterial);
+  const rigJoints = new THREE.Points(rigGeometry, jointMaterial);
+  rigLines.renderOrder = 10; rigJoints.renderOrder = 11;
+  scene.add(rigLines, rigJoints);
   function resize() {
     const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight); if(w===width&&h===height)return;
     width=w;height=h;renderer.setSize(w,h,false);camera.aspect=w/h;
@@ -203,6 +213,9 @@ function createPresenter(host, onCleanup) {
       a.hand.rotateY(side*.25*(1-s.write));a.chalk.visible=side===1&&s.write>.5;
       data.push({side,...solved});
     }
+    const joints = rigGeometry.getAttribute("position");
+    joints.array.set(data.flatMap(a => [...a.shoulder, ...a.elbow, ...a.elbow, ...a.wrist]));
+    joints.needsUpdate = true; rigGeometry.computeBoundingSphere();
     paintBoard(s.writingProgress);resize();
     if(!document.hidden){const before=performance.now();renderer.render(scene,camera);renderMs+=performance.now()-before;frames++;}
     canvas.dataset.time=String(s.t);canvas.dataset.phase=s.phase.label;
