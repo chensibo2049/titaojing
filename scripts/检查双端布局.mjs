@@ -83,8 +83,8 @@ try {
     await fresh.goto(base + '?noasrdl=1', { waitUntil: 'domcontentloaded' });
     await fresh.waitForSelector('#consent-veil:not([hidden])');
     assert(await fresh.$eval('#whats-new', e => e.hidden && getComputedStyle(e).display === 'none'), 'fresh updates overlap');
-    await fresh.$eval('#update-bar', e => e.hidden = false);
-    assert(await fresh.$eval('#update-bar', e => getComputedStyle(e).display === 'none'), 'service-worker update overlaps consent');
+    assert(await fresh.$eval('#consent-veil', e => { const r = e.getBoundingClientRect(); return r.top <= 0 && r.bottom >= innerHeight; }), 'consent veil missing');
+    assert(!(await fresh.$('#update-bar')), 'update bar should be gone');
     assert(await fresh.$eval('#btn-consent-ok', e => { const r=e.getBoundingClientRect(); const at=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return r.top >= 0 && r.bottom <= innerHeight && (at===e || e.contains(at)); }), 'first-use action not in viewport');
     await fresh.screenshot({ path:path.join(OUT, `入口-首次-${width}.png`) });
     await fresh.click('#btn-consent-ok');
