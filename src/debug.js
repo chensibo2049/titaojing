@@ -27,7 +27,7 @@ const r2 = (n) => (Number.isFinite(n) ? Math.round(n * 100) / 100 : null);
 const st = {
   source: "-", t: 0, frameTimes: [], inferMs: [], lastDet: null, gaze: null, flags: {}, onBoard: false,
   faceEvery: 1, events: [], speech: { state: "未启动", detail: "" }, transcripts: [], vision: null,
-  rec: null, lastTrace: null, includeText: false, collapsed: false,
+  rec: null, lastTrace: null, includeText: false, collapsed: true,
 };
 
 let panel = null;
@@ -52,6 +52,8 @@ export function initDebug({ getVisionStatus, getEnv, getSettings } = {}) {
  background:rgba(12,14,18,.86);color:#e8f0e8;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,"PingFang SC","Microsoft YaHei",monospace;
  border:1px solid rgba(120,255,170,.35);border-radius:8px;padding:8px 10px;box-shadow:0 4px 18px rgba(0,0,0,.4);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 #tj-debug.min .tjd-body{display:none}
+#tj-debug.min{top:auto;bottom:8px;width:auto;max-width:calc(100vw - 16px)}
+body:has(.consent-veil:not([hidden])) #tj-debug,body:has(.modal:not([hidden])) #tj-debug{visibility:hidden}
 #tj-debug h4{margin:6px 0 2px;font-size:11px;color:#7dffb0;font-weight:600}
 #tj-debug .tjd-top{display:flex;gap:6px;align-items:center;justify-content:space-between}
 #tj-debug .tjd-top b{color:#7dffb0}
@@ -67,9 +69,10 @@ export function initDebug({ getVisionStatus, getEnv, getSettings } = {}) {
 @media print{#tj-debug{display:none}}`);
   document.head.appendChild(css);
   panel = el("div", { id: "tj-debug", role: "region", "aria-label": "调试面板" });
+  panel.classList.add("min");
   panel.innerHTML = `
 <div class="tjd-top"><span><b>调试模式</b> <span class="muted">v${esc(APP_VERSION)}</span></span>
- <span><button data-a="rec">● 记录轨迹</button> <button data-a="dl" disabled>下载 JSON</button> <button data-a="min" title="收起">—</button></span></div>
+ <span><button data-a="rec">● 记录轨迹</button> <button data-a="dl" disabled>下载 JSON</button> <button data-a="min" title="展开或收起诊断">展开 / 收起</button></span></div>
 <div class="tjd-body">
  <div data-k="perf"></div>
  <h4>关键点置信度（姿态）</h4><div data-k="conf"></div>

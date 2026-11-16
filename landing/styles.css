@@ -156,3 +156,20 @@ nav a { display: inline-flex; align-items: center; min-height: 44px; }
   section { padding: 34px 0; }
   h2 { font-size: 24px; }
 }
+
+/* 精简的产品介绍：价值 → 步骤 → 可验证回看 → 边界 → 行动。 */
+.wrap { max-width: 1120px; }
+.hero { gap: 64px; padding: 64px 0; }
+.hero .lead { font-size: 18px; line-height: 1.8; }
+.hero h1 { line-height: 1.25; }
+.hero-fig { align-self: center; }
+.hero-fig img { max-height: 400px; object-fit: contain; }
+nav { flex-wrap: wrap; }
+.usage-detail { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+.usage-detail summary { cursor: pointer; min-height: 44px; font-weight: 600; color: var(--cinnabar-deep); }
+@media (max-width: 800px) {
+  nav { overflow: visible; gap: 4px 18px; }
+  .hero { grid-template-columns: 1fr; padding: 32px 0; gap: 28px; }
+  .hero .lead { font-size: 16px; }
+  .hero-fig img { max-height: 340px; width: 100%; }
+}

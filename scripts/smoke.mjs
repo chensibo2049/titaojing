@@ -34,7 +34,7 @@ console.log("serving at", BASE);
 const chrome = findChrome();
 if (!chrome) { console.error("找不到 Chrome，请设置 CHROME_PATH"); server.kill(); process.exit(2); }
 const browser = await puppeteer.launch({
-  executablePath: chrome, headless: "new",
+  executablePath: chrome, headless: "new", pipe: true,
   args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required", "--enable-unsafe-swiftshader", "--font-render-hinting=none"],
   defaultViewport: { width: 1400, height: 900 },
 });
@@ -58,8 +58,10 @@ try {
   check("封面版本号", /v\d+\.\d+\.\d+/.test(ver), ver);
   check("调试面板出现（?debug=1）", !!(await page.$("#tj-debug")));
   check("使用说明层已跳过（测试写入了同意）", await page.$eval("#consent-veil", (e) => e.hidden).catch(() => true));
-  const lead = await page.$eval(".lead", (e) => e.textContent);
-  check("封面提到课堂 10 到 20 分钟和两种构图", /10 到 20 分钟/.test(lead) && /半身/.test(await page.$eval(".cover-points", (e) => e.textContent)));
+  check("入口以开始练习为主、导入视频默认折叠", await page.$eval("#btn-camera", e => /开始练习/.test(e.textContent)) && await page.$eval(".local-import", e => e.tagName === "DETAILS" && !e.open));
+  await page.click("#btn-camera");
+  await waitVisible("screen-permission");
+  check("课堂时长与半身全身说明保留在准备页", await page.$eval("#screen-permission", e => /10 \/ 15 \/ 20/.test(e.textContent) && /半身/.test(e.textContent) && /全身/.test(e.textContent)));
 
   await page.evaluate(() => { location.hash = "#/demo"; });
   await waitVisible("screen-live");

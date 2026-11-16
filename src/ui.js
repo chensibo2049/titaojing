@@ -12,13 +12,41 @@ export function toast(msg, ms = 2800) {
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
+/** Keep keyboard focus in a visible dialog and restore the invoking control. */
+export function focusDialog(container, initial) {
+  const previous = document.activeElement;
+  const app = $("app");
+  const wasInert = app.inert;
+  app.inert = true;
+  const items = () => [...container.querySelectorAll('a[href], button, input, select, textarea, [tabindex="0"]')].filter(e => !e.disabled && e.getClientRects().length);
+  const onKey = e => {
+    if (e.key !== "Tab") return;
+    const list = items();
+    const first = list[0], last = list.at(-1);
+    if (e.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) { e.preventDefault(); last?.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !container.contains(document.activeElement))) { e.preventDefault(); first?.focus(); }
+  };
+  container.addEventListener("keydown", onKey);
+  (initial || items()[0])?.focus({ preventScroll: true });
+  return () => {
+    container.removeEventListener("keydown", onKey);
+    app.inert = wasInert;
+    if (previous?.isConnected && previous !== document.body && previous.getClientRects().length) previous.focus({ preventScroll: true });
+    else $("btn-camera")?.focus({ preventScroll: true });
+  };
+}
+
+export function closeModal() { $("modal").closeDialog?.(); }
+
 /** Simple modal. actions: [{label, primary, onClick}] ; returns close(). */
 export function modal(html, actions = [{ label: "关闭" }]) {
   const m = $("modal");
   $("modal-body").innerHTML = html;
   const host = $("modal-actions");
   host.innerHTML = "";
-  const close = () => { m.hidden = true; $("modal-body").innerHTML = ""; };
+  let restoreFocus;
+  const close = () => { m.hidden = true; $("modal-body").innerHTML = ""; restoreFocus?.(); m.closeDialog = null; };
+  m.closeDialog = close;
   for (const a of actions) {
     const b = document.createElement("button");
     b.type = "button";
@@ -31,6 +59,7 @@ export function modal(html, actions = [{ label: "关闭" }]) {
     host.appendChild(b);
   }
   m.hidden = false;
+  restoreFocus = focusDialog(m);
   return close;
 }
 

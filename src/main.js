@@ -1,5 +1,5 @@
 import { EVENT_META, STAGE_W, STAGE_H, setRuntime } from "./constants.js";
-import { renderScene, coverPose, landmarksFromRig, faceFromRig, applyShot, buildRig } from "./teacher.js";
+import { renderScene, applyShot, buildRig } from "./teacher.js";
 import { fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
 import { demoMotionAt } from "./demo-motion.js";
 import { createReplayClock } from "./replay-clock.js";
@@ -22,7 +22,7 @@ import { buildFillerReport } from "./fillers.js";
 import { installErrorCapture, logEvent, setLastSessionStats } from "./diagnostics.js";
 import { initPwa, pwaState, onPwaChange, promptInstall } from "./pwa.js";
 import { buildPrintReport, printReport } from "./report.js";
-import { $, esc, toast, modal, fitStage, copyText } from "./ui.js";
+import { $, esc, toast, modal, closeModal, focusDialog, fitStage, copyText } from "./ui.js";
 import { renderHistory, renderCompare, renderSettings, renderFeedback, renderAbout, renderProfile, trendPoints, wirePages } from "./pages.js";
 import { VERSION_LABEL, APP_VERSION } from "./version.js";
 import { initDebug, debugEnabled, debugFrame, debugSpeech, debugSessionStart, debugSessionEnd } from "./debug.js";
@@ -232,39 +232,10 @@ function route() {
 /* ——— Cover ——— */
 
 let coverRaf = 0;
-let runtimeShot = "";
 function startCoverLoop() {
-  runtimeShot = "";
+  // 首屏使用静态步骤，不下载人物模型、不运行不可见的动画。
   cancelAnimationFrame(coverRaf);
-  const canvas = $("cover-canvas");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
   setRuntime({});
-  ensurePresenter3d("cover-3d", "talk").then((p3) => {
-    if (p3 && canvas) canvas.classList.add("is-3d-overlay");
-  });
-  const tick = (ts) => {
-    if (mode !== "cover") return;
-    const cycle = (ts / 1000) % 16;
-    const shot = cycle < 8 ? "half" : "full";
-    if (runtimeShot !== shot) { runtimeShot = shot; setRuntime({ frameMode: shot, frameResolved: shot }); }
-    const t = cycle % 8;
-    const p = { ...coverPose(), shot, rArm: 1.6 + Math.sin(t * 0.8) * 0.4, headYaw: -0.05 + Math.sin(t * 0.5) * 0.04, speak: 0.15 + Math.abs(Math.sin(t * 2.4)) * 0.2, chalk: 0.55, bodyYaw: shot === "full" && t > 4 ? 0.7 : 0 };
-    if (presenter3d && presenter3dHost === "cover-3d") {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const projected = presenter3d.setDemoTime(cycle / 16 * DEMO_DURATION);
-      if (projected) drawSkeleton(ctx, projected, canvas.width, canvas.height);
-    } else {
-    const rig = renderScene(ctx, canvas.width, canvas.height, p, ts / 1000);
-    const pose = landmarksFromRig(rig);
-    const gaze = extractGaze(pose, faceFromRig(rig), null);
-    drawLiveOverlays(ctx, { pose, gaze, flags: {}, onBoard: false }, canvas.width, canvas.height, { showMap: true, clear: false });
-    }
-    const label = $("cover-shot-label");
-    if (label) label.textContent = shot === "full" ? "全身 · 教室侧前方" : "半身 · 讲台近景";
-    coverRaf = requestAnimationFrame(tick);
-  };
-  coverRaf = requestAnimationFrame(tick);
 }
 
 function renderWhatsNew() {
@@ -286,7 +257,7 @@ async function renderCover() {
   renderWhatsNew();
   const s = getSettings();
   const modeLab = s.sessionMode === "classroom" ? "课堂" : "练习";
-  $("cover-note").textContent = `演示约一分钟，不必等候模型加载。当前是${modeLab}模式，建议时长 ${s.targetMin} 分钟。半身请站到腰部以上入画；全身请再退远一些，让脚也进入画面。`;
+  $("cover-note").textContent = `当前${modeLab} · 建议 ${s.targetMin} 分钟 · 录像默认不保存`;
   const st = pwaState();
   $("btn-install").hidden = !st.canPrompt;
   try {
@@ -328,7 +299,7 @@ function startDemo() {
   if ($("live-asr-state")) $("live-asr-state").hidden = true;
   $("timer-hint").textContent = "演示约 00:55";
   $("btn-stop").disabled = true;
-  $("dock-note").textContent = "演示进行中，也可随时跳过到回放";
+  $("dock-note").textContent = "预设演示 · 非真实识别。留意：低头看稿 → 卡顿晃动 → 转身板书 → 回看学生。可随时跳过到回放。";
   liveStart = 0;
   paintDemoFrame(0);
   logEvent("demo", "start");
@@ -1728,9 +1699,11 @@ function showConsentIfNeeded() {
   veil.hidden = false;
   const box = $("consent-experience");
   if (box) box.checked = false;
+  const restoreFocus = focusDialog(veil, veil.querySelector(".consent-scroll"));
   $("btn-consent-ok").addEventListener("click", () => {
     acceptTerms({ experience: !!(box && box.checked) });
     veil.hidden = true;
+    restoreFocus();
   }, { once: true });
 }
 
@@ -1762,7 +1735,7 @@ function onDocumentKey(e) {
   if (isTextEntry(e.target)) return;
   const modal = $("modal");
   if (modal && !modal.hidden) {
-    if (e.key === "Escape") modal.hidden = true;
+    if (e.key === "Escape") closeModal();
     return;
   }
   const veil = $("consent-veil");
@@ -1826,6 +1799,10 @@ function onReady() {
   };
 
 
+  $("btn-view-whats-new")?.addEventListener("click", () => {
+    modal($("whats-new-body").innerHTML, [{ label: "关闭", onClick: () => { markVersionSeen(); $("whats-new").hidden = true; } }]);
+  });
+  document.querySelectorAll(".nav-more a").forEach(a => a.addEventListener("click", () => { a.closest("details").open = false; }));
   $("btn-dismiss-whats-new")?.addEventListener("click", () => {
     markVersionSeen();
     const box = $("whats-new");
@@ -1952,7 +1929,7 @@ function onReady() {
 
   $("btn-install").addEventListener("click", promptInstall);
   wirePages();
-  $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) $("modal").hidden = true; });
+  $("modal").addEventListener("click", (e) => { if (e.target === $("modal")) closeModal(); });
   document.addEventListener("keydown", onDocumentKey);
 
   document.addEventListener("visibilitychange", () => {
