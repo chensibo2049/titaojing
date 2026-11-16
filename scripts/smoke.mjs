@@ -147,7 +147,9 @@ try {
   check("站位页提示可用空格开始", /空格/.test(kbdHint || ""), kbdHint);
   const cdSec = Number(((kbdHint || "").match(/(\d+) 秒倒计时/) || [])[1] || 0);
   check("站位页写明倒计时秒数", cdSec === 3 || cdSec === 5, kbdHint);
-  await page.keyboard.press("Space");
+  check("站位页提示翻页笔可用", /翻页笔/.test(kbdHint || ""), kbdHint);
+  // 用翻页笔的「下一页」（PageDown）开始，结束仍用空格，两种按法都走一遍。
+  await page.keyboard.press("PageDown");
   await waitVisible("screen-live");
   // 倒计时按真实秒数：从出现数字到出现「开始」应约等于提示的秒数。
   const cd = await page.evaluate(async () => {
