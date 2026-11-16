@@ -54,6 +54,8 @@ export function initDebug({ getVisionStatus, getEnv, getSettings } = {}) {
 #tj-debug.min .tjd-body{display:none}
 #tj-debug.min{top:auto;bottom:8px;width:auto;max-width:calc(100vw - 16px)}
 body:has(.consent-veil:not([hidden])) #tj-debug,body:has(.modal:not([hidden])) #tj-debug{visibility:hidden}
+/* 入口页不叠调试条：它固定在底部，会盖住开始练习按钮 */
+body:has(#screen-cover:not([hidden])) #tj-debug.min{display:none}
 #tj-debug h4{margin:6px 0 2px;font-size:11px;color:#7dffb0;font-weight:600}
 #tj-debug .tjd-top{display:flex;gap:6px;align-items:center;justify-content:space-between}
 #tj-debug .tjd-top b{color:#7dffb0}

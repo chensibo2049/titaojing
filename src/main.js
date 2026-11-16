@@ -271,7 +271,7 @@ function startDemo() {
   $("timer-hint").textContent = "演示约 00:55";
   $("btn-stop").disabled = false;
   $("btn-stop").querySelector(".btn-label").textContent = "结束演示，看点评";
-  $("dock-note").textContent = "预设演示 · 非真实识别。可随时结束，查看完整样本点评与动画关节骨架。";
+  $("dock-note").textContent = "预设演示：低头看稿、卡顿、转身板书 · 非真实识别。可随时结束，查看完整样本点评与动画关节骨架。";
   liveStart = 0;
   paintDemoFrame(0);
   mountDemoView($("live-stage"));
