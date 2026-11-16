@@ -929,9 +929,9 @@ function banner(msg, ms = 6000, extra = null) {
   if (extra && extra.localOffer && !asrStatus().sherpa) {
     const note = document.createElement("span");
     note.className = "banner-local-note";
-    if (localDownloadRunning()) note.textContent = "听写包正在角落里下载，好了会自动换上本机听写。";
-    else if (autoDownloadBlockedReason() === "saveData") note.textContent = "可点右下角「听写包」下载本机听写，声音只留在这台设备上。";
-    else note.textContent = "可点右下角的听写包，在这台设备上下载并改用本机听写。";
+    if (localDownloadRunning()) note.textContent = "听写包正在后台下载，好了会自动换上本机听写（进度见设置）。";
+    else if (autoDownloadBlockedReason() === "saveData") note.textContent = "省流量模式已开，可在设置里下载本机听写，声音只留在这台设备上。";
+    else note.textContent = "可在设置里下载本机听写，改用离线识别，声音只留在这台设备上。";
     el.appendChild(note);
     const close = document.createElement("button");
     close.type = "button";
