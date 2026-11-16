@@ -179,25 +179,28 @@ export function initVision() {
       loadMs = Math.round(performance.now() - t0);
       emit(pose || face ? "ready" : "error");
 
-      // Optional hands: never fail the whole init.
-      try {
-        const handExpected = 7819105;
-        progress.total += handExpected;
-        const handBuf = await fetchWithProgress(HAND_MODEL, handExpected, onBytes);
-        bufs.hands = handBuf;
-        tA = performance.now();
-        try { hands = await createHands(handBuf, delegate.pose || "GPU"); delegate.hands = delegate.pose || "GPU"; }
-        catch (e) {
-          try { hands = await createHands(handBuf, "CPU"); delegate.hands = "CPU"; }
-          catch (e2) { handsError = e2?.message || String(e2); hands = null; }
+      // Core readiness must not wait for optional hands. Yield to the camera/UI
+      // before downloading/initializing the extra model; real hand tracking still starts automatically.
+      setTimeout(async () => {
+        try {
+          const handExpected = 7819105;
+          progress.total += handExpected;
+          const handBuf = await fetchWithProgress(HAND_MODEL, handExpected, onBytes);
+          bufs.hands = handBuf;
+          const handStart = performance.now();
+          try { hands = await createHands(handBuf, delegate.pose || first); delegate.hands = delegate.pose || first; }
+          catch (e) {
+            try { hands = await createHands(handBuf, "CPU"); delegate.hands = "CPU"; }
+            catch (e2) { handsError = e2?.message || String(e2); hands = null; }
+          }
+          timings.handsMs = Math.round(performance.now() - handStart);
+        } catch (e) {
+          hands = null;
+          handsError = e && e.message ? e.message : "手部模型未加载";
+          timings.handsMs = 0;
         }
-        timings.handsMs = Math.round(performance.now() - tA);
-      } catch (e) {
-        hands = null;
-        handsError = e && e.message ? e.message : "手部模型未加载";
-        timings.handsMs = 0;
-      }
-      emit(pose || face ? "ready" : "error");
+        emit(pose || face ? "ready" : "error");
+      }, 250);
     } catch (err) {
       initError = err && err.message ? err.message : String(err);
       loadMs = Math.round(performance.now() - t0);
@@ -206,14 +209,15 @@ export function initVision() {
     loadMs = Math.round(performance.now() - t0);
     return visionStatus();
   })();
-  const timeout = new Promise((resolve) => setTimeout(() => {
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(() => {
     if (!pose && !face) {
       initError = initError || "timeout";
       emit("timeout");
     }
     resolve(visionStatus());
-  }, LOAD_TIMEOUT_MS));
-  initPromise = Promise.race([work, timeout]);
+  }, LOAD_TIMEOUT_MS); });
+  initPromise = Promise.race([work, timeout]).finally(() => clearTimeout(timer));
   return initPromise;
 }
 

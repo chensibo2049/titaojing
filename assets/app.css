@@ -1660,46 +1660,8 @@ mark.shuici, .shuici {
 }
 
 
-/* 3D classroom / presenter (lazy-loaded; illustration remains the fallback) */
-.preview-frame { position: relative; }
-.preview-3d,
-.stage-3d,
-.sim-stage3d {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  background: #cfc4b4;
-}
-.preview-3d canvas,
-.stage-3d canvas,
-.sim-3d-canvas,
-.presenter-3d-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.stage-3d {
-  z-index: 1;
-}
 .stage-scene { z-index: 2; }
 .stage-overlay { z-index: 3; }
-.preview-3d { z-index: 0; }
-#cover-canvas { position: relative; z-index: 1; }
-#cover-canvas.is-3d-overlay { background: transparent; }
-.classroom-sim .sim-stage3d {
-  position: relative;
-  display: none;
-  height: min(42vh, 280px);
-  margin: 0 0 10px;
-  border-radius: 10px;
-  border: 1px solid #d8cbb8;
-}
-.classroom-sim.is-3d .sim-stage3d { display: block; }
-.classroom-sim.is-3d .sim-avatar-svg { display: none; }
-.classroom-sim.is-3d .sim-seat {
-  min-height: 0;
-  padding: 6px 8px;
-}
 
 /* 听写包角落进度不要盖住封面页脚的版本号，也不要在手机上压住「对着镜头试讲」 */
 body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 168px; }

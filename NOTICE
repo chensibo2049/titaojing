@@ -5,13 +5,16 @@ Copyright 2026 南京市沉思波网络科技有限责任公司
 本软件以 Apache License 2.0 授权，许可证全文见 LICENSE 文件。
 「沉思波」「开讲」「OpenPodium」是用于标识本项目官方版本的名称。Apache-2.0 不授予商标许可：你可以自由使用、修改和再分发本软件的代码，但未经书面同意，不得用上述名称或官方标识发布你的修改版，以免被误认为是官方版本。
 
-本软件包含或在构建时使用以下第三方组件：
+当前 v1.6.2 发布范围：演示与回放使用已有 2D 人物，模拟课堂使用 2D 插画与文字；不分发 three.js、Rocketbox 人物、Draco 解码器或旧 3D 宣传媒体。旧 3D 管线已退役，下方旧资源、脚本路径与许可记录仅供历史溯源，不是当前资源清单；发布前仍须核验构建产物符合此范围。
+
+本软件当前包含、在构建时使用或按需下载以下第三方组件：
 
 1. MediaPipe Tasks Vision（姿态与面部关键点模型及 WASM）
    Copyright 并由 Google LLC 等贡献者维护
    许可证：Apache License 2.0
    https://github.com/google-ai-edge/mediapipe
-   模型来源：https://storage.googleapis.com/mediapipe-models/ （Pose Landmarker Lite、Face Landmarker）
+   模型来源：https://storage.googleapis.com/mediapipe-models/ （Pose Landmarker Lite、Face Landmarker、Hand Landmarker）
+   首次使用视觉分析时，浏览器需从本站下载模型与 WASM；推理在本机完成，不上传视频。
 
 2. esbuild（仅用于构建，不进入浏览器运行时）
    许可证：MIT
@@ -29,27 +32,30 @@ Copyright 2026 南京市沉思波网络科技有限责任公司
    许可证：MIT
    https://github.com/snakers4/silero-vad
 
-5. Paraformer 中文小模型（sherpa-onnx-paraformer-zh-small-2024-03-09，int8；不随网站发布，用户使用本机听写时从公开镜像下载到自己的浏览器）
+5. Paraformer 中文小模型（sherpa-onnx-paraformer-zh-small-2024-03-09，int8；约 90 MB，不随网站发布，默认不自动下载；用户主动下载或开启自动下载后从公开镜像缓存到自己的浏览器，已开启的旧设置保留，下载后在本机识别声音）
    原始模型：FunASR（阿里巴巴达摩院语音实验室） https://github.com/modelscope/FunASR
    ONNX 导出：k2-fsa / sherpa-onnx https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09
    镜像：https://www.modelscope.cn/models/pengzhendong/sherpa-onnx-paraformer-zh-small （模型卡标注 Apache License 2.0）
    使用和再分发时请保留以上出处；FunASR 的模型许可要求注明模型来源。
 
-浏览器在使用「浏览器听写」时，还可能调用 Chrome / Edge / Safari 厂商自己的语音识别服务。那一部分不属于本软件的分发内容，由相应浏览器的隐私政策约束。
+浏览器在使用「浏览器听写」（Web Speech）时，还可能把声音发送给 Chrome / Edge / Safari 厂商自己的语音识别服务，不适用本机听写的「声音不上传」说明。那一部分不属于本软件的分发内容，由相应浏览器的隐私政策约束。
 
 训练脚手架（training/）在安装 PyTorch 等可选依赖时，还会受那些软件包自己的许可证约束。
 
-6. Microsoft Rocketbox Avatar Library（本仓库发布的 `assets/characters/*.glb` 人物网格、贴图与官方坐姿/讲解动作）
+历史组件记录（v1.5–v1.6.1；不是当前 v1.6.2 分发清单）
+以下来源与许可为旧版事实，保留供历史文件溯源；不代表当前仍发布 3D 资源。
+
+6. Microsoft Rocketbox Avatar Library（v1.6.0–v1.6.1 曾发布于 `assets/characters/*.glb` 的人物网格、贴图与官方坐姿/讲解动作）
    Copyright (c) 2020 Microsoft
    许可证：MIT License（见上游 LICENSE.md；允许商业使用与再分发，须保留版权声明与许可文本）
    https://github.com/microsoft/Microsoft-Rocketbox
-   本仓库只收录经 Blender 转换、压缩（WebP 贴图、Draco 网格）并重定向到课堂动作后的 glTF，不收录完整上游资源库。
+   当时只收录经 Blender 转换、压缩（WebP 贴图、Draco 网格）并重定向到课堂动作后的 glTF，不收录完整上游资源库。
    坐姿、讲解、张望、摊手、演示等动作来自同一套官方 Bip01 动画，经视觉重定向到各角色（官方动画的绑定姿势与角色网格并不相同）。举手、点头、齐读、转向黑板等缺失的动作由 OpenPodium · 开讲在 Bip01 上补了关键帧。不是 Mixamo。Adobe Mixamo 不允许把原始资源单独再分发，本仓库不收录 Mixamo 文件。
    构建脚本见 `scripts/characters/build_rocketbox.py`，说明见 `docs/CHARACTERS.md`。
-   v1.5.0 曾使用 MakeHuman / MPFB 的 CC0 资产；自 v1.6.0 起已替换为上述 Rocketbox 模型，仓库中不再分发 MakeHuman 网格。
+   v1.5.0 曾使用 MakeHuman / MPFB 的 CC0 资产；v1.6.0 替换为上述 Rocketbox 模型，当时不再分发 MakeHuman 网格。
 
-7. three.js（仅用于按需加载的 3D 课堂 / 讲台演示；源码在构建时打包进 assets/character-scene.js）
+7. three.js（旧版用于按需加载的 3D 课堂 / 讲台演示；当时源码在构建时打包进 assets/character-scene.js）
    Copyright 2010-2026 three.js authors
    许可证：MIT
    https://github.com/mrdoob/three.js
-   随仓库发布 Draco 解码器（assets/vendor/draco/），来自 three.js 所附的 Google Draco，许可证为 Apache-2.0。
+   旧版随仓库发布 Draco 解码器（assets/vendor/draco/），来自 three.js 所附的 Google Draco，许可证为 Apache-2.0。

@@ -24,13 +24,6 @@ await esbuild.build({
   define: { __APP_VERSION__: JSON.stringify(version), __BUILD_DATE__: JSON.stringify(buildDate), __BUILD_ID__: JSON.stringify("dev") },
   logLevel: "warning",
 });
-// Lazy 3D scene (ESM). Loaded only when WebGL is usable.
-await esbuild.build({
-  entryPoints: [path.join(root, "src/character-scene.js")],
-  bundle: true, format: "esm", minify: true, legalComments: "none",
-  outfile: path.join(root, "assets/character-scene.js"),
-  logLevel: "warning",
-});
 if (devOnly) { console.log("dev bundle ok"); process.exit(0); }
 
 // 2) production bundle
@@ -42,10 +35,8 @@ const tmp = await esbuild.build({
 });
 let bundle = tmp.outputFiles[0].text;
 const css = fs.readFileSync(path.join(root, "assets/app.css"), "utf8");
-const charScene = path.join(root, "assets/character-scene.js");
 const hash = crypto.createHash("sha1").update(bundle).update(css)
   .update(fs.readFileSync(path.join(root, "index.html"))).update(fs.readFileSync(path.join(root, "sw.js")))
-  .update(fs.existsSync(charScene) ? fs.readFileSync(charScene) : Buffer.from(""))
   .digest("hex").slice(0, 8);
 const buildId = `${version}-${hash}`;
 bundle = bundle.replaceAll("__BUILD_ID_SLOT__", buildId);
@@ -61,6 +52,8 @@ write("assets/app.css", css);
 write("index.html", fs.readFileSync(path.join(root, "index.html"), "utf8").replaceAll("__BUILD_ID__", buildId));
 write("sw.js", fs.readFileSync(path.join(root, "sw.js"), "utf8").replaceAll("__BUILD_ID__", buildId));
 cp("config.js");
+cp("LICENSE");
+cp("NOTICE");
 cp("manifest.webmanifest");
 cp("assets/favicon.svg");
 for (const f of fs.readdirSync(path.join(root, "assets/icons"))) cp(`assets/icons/${f}`);
@@ -76,19 +69,6 @@ const classroomDir = path.join(root, "assets/classroom");
 if (fs.existsSync(classroomDir)) {
   for (const f of fs.readdirSync(classroomDir)) cp(`assets/classroom/${f}`);
 }
-if (fs.existsSync(charScene)) cp("assets/character-scene.js");
-const charDir = path.join(root, "assets/characters");
-if (fs.existsSync(charDir)) {
-  for (const f of fs.readdirSync(charDir)) {
-    if (f.endsWith(".glb") || f === "manifest.json") cp(`assets/characters/${f}`);
-  }
-}
-const dracoDir = path.join(root, "assets/vendor/draco");
-if (fs.existsSync(dracoDir)) {
-  for (const f of fs.readdirSync(dracoDir)) cp(`assets/vendor/draco/${f}`);
-}
-
-
 // Host configs (harmless on hosts that ignore them)
 write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));
 write("vercel.json", fs.readFileSync(path.join(root, "deploy/vercel.json"), "utf8"));
@@ -98,17 +78,9 @@ write(".nojekyll", "");
 write("404.html", fs.readFileSync(path.join(root, "deploy/404.html"), "utf8"));
 
 // landing page (static, Chinese)
-const landSrc = path.join(root, "landing");
-if (fs.existsSync(path.join(landSrc, "index.html"))) {
-  const walkCopy = (from, to) => {
-    fs.mkdirSync(to, { recursive: true });
-    for (const e of fs.readdirSync(from, { withFileTypes: true })) {
-      const a = path.join(from, e.name), b = path.join(to, e.name);
-      if (e.isDirectory()) walkCopy(a, b);
-      else fs.copyFileSync(a, b);
-    }
-  };
-  walkCopy(landSrc, path.join(dist, "landing"));
+// Explicit public allowlist: do not recursively publish personal or unreferenced media.
+for (const f of ["index.html", "styles.css", "images/cover.jpg", "images/half.jpg", "images/replay.jpg"]) {
+  cp(`landing/${f}`);
 }
 
 // size report

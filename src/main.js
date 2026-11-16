@@ -39,56 +39,6 @@ const screens = Object.fromEntries(SCREEN_IDS.map((k) => [k, $(`screen-${k}`)]))
 const PAGES = ["history", "compare", "settings", "feedback", "about", "profile"];
 
 
-let presenter3d = null;
-let presenter3dHost = "";
-let presenterRequest = 0;
-
-function characterSceneHref() {
-  return new URL("assets/character-scene.js", document.baseURI).href;
-}
-
-function disposePresenter3d() {
-  presenterRequest++;
-  if (presenter3d && presenter3d.dispose) {
-    try { presenter3d.dispose(); } catch (_) {}
-  }
-  presenter3d = null;
-  presenter3dHost = "";
-  const a = $("cover-3d"); if (a) { a.hidden = true; a.innerHTML = ""; }
-  const b = $("live-3d"); if (b) { b.hidden = true; b.innerHTML = ""; }
-  const c = $("replay-3d"); if (c) { c.hidden = true; c.innerHTML = ""; }
-  const canvas = $("cover-canvas");
-  if (canvas) canvas.classList.remove("is-3d-overlay");
-}
-
-async function ensurePresenter3d(hostId, clip) {
-  const s = getSettings();
-  if (s.sim3d === "off" || s.perfMode === "smooth") return null;
-  if (presenter3d && presenter3dHost === hostId) {
-    if (clip && presenter3d.setClip) presenter3d.setClip(clip);
-    return presenter3d;
-  }
-  disposePresenter3d();
-  const request = presenterRequest;
-  const host = $(hostId);
-  if (!host) return null;
-  try {
-    const { canUse3D, mountPresenterScene } = await import(characterSceneHref());
-    if (request !== presenterRequest || !canUse3D({ force: s.sim3d })) return null;
-    host.hidden = false;
-    const mounted = await mountPresenterScene(host, { clip: clip || "talk" });
-    if (request !== presenterRequest) { mounted.dispose(); return null; }
-    presenter3d = mounted;
-    presenter3dHost = hostId;
-    return mounted;
-  } catch (err) {
-    console.warn("presenter 3d unavailable", err);
-    if (request === presenterRequest) disposePresenter3d();
-    return null;
-  }
-}
-
-
 let mode = "cover"; // cover | demo | coach | camera | replay | page
 let session = null;
 let raf = 0;
@@ -167,7 +117,6 @@ function stopEverything({ keepPreview = false } = {}) {
   $("pause-veil").hidden = true;
   if (speechHandle) { speechHandle.stop(); speechHandle = null; }
   stopClassroomSim();
-  disposePresenter3d();
   const wrap = $("live-wrap");
   if (wrap) wrap.classList.remove("has-sim");
   if (recorder && recorder.state !== "inactive") { try { recorder.stop(); } catch (_) {} }
@@ -290,9 +239,6 @@ function startDemo() {
   if (liveHint) liveHint.hidden = true;
   $("live-video").hidden = true;
   $("live-scene").hidden = false;
-  ensurePresenter3d("live-3d", "talk").then((p3) => {
-    if (mode === "demo" && p3) paintDemoFrame(liveStart ? Math.min(DEMO_DURATION, (performance.now() - liveStart) / 1000) : 0);
-  });
   $("live-demo-source").hidden = false;
   $("hud-caption").hidden = false;
   $("speech-banner").hidden = true;
@@ -318,32 +264,20 @@ function paintDemoFrame(t) {
   resizeCanvasTo(scene, scene.clientWidth || 360, scene.clientHeight || 640);
   resizeCanvasTo(overlay, overlay.clientWidth || 360, overlay.clientHeight || 640);
   const { p, pose, gaze } = sampleDemo(motion.t);
-  const is3d = !!presenter3d && presenter3dHost === "live-3d";
-  scene.hidden = is3d;
-  if (!is3d) renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
-  const projected = is3d ? presenter3d.setDemoTime(motion.t) : null;
+  scene.hidden = false;
+  renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
   const frame = frameAt(session, motion.t) || { flags: {}, onBoard: false };
-  paintDemoOverlay(overlay, is3d, projected, { ...frame, pose, gaze });
+  paintDemoOverlay(overlay, { ...frame, pose, gaze });
   updateFlagsHUD(frame.flags, gaze, frame.onBoard);
   const cap = $("hud-caption");
   cap.hidden = !motion.caption;
   if (motion.caption) cap.textContent = motion.caption.text;
 }
 
-function paintDemoOverlay(canvas, is3d, projected, scriptedFrame) {
-  const ctx = canvas.getContext("2d");
+function paintDemoOverlay(canvas, scriptedFrame) {
+  drawLiveOverlays(canvas.getContext("2d"), scriptedFrame, canvas.width, canvas.height, { showMap: true });
   const label = $(mode === "replay" ? "replay-demo-source" : "live-demo-source");
-  if (!is3d) {
-    drawLiveOverlays(ctx, scriptedFrame, canvas.width, canvas.height, { showMap: true });
-    if (label) label.textContent = "演示样本 · 预设动作/字幕/提示，2D 示意骨架（非视觉识别）";
-    return;
-  }
-  // Only actual 3D bone world positions may be drawn over the WebGL image.
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (projected) drawSkeleton(ctx, projected, canvas.width, canvas.height);
-  if (label) label.textContent = projected
-    ? "演示样本 · 预设字幕/提示 · 骨架来自 3D 骨骼投影（非视觉识别）"
-    : "演示样本 · 预设字幕/提示 · 3D 骨骼无法可靠投影，已关闭骨架";
+  if (label) label.textContent = "演示样本 · 预设动作/字幕/提示，2D 示意骨架（非视觉识别）";
 }
 
 /** 开讲倒计时：课堂模式要从电脑走到讲台或黑板前，多给两秒。 */
@@ -390,7 +324,6 @@ function loopDemo() {
 function finishDemo() {
   if (mode !== "demo") return;
   cancelAnimationFrame(raf);
-  disposePresenter3d();
   debugSessionEnd(session);
   openReplay(session);
   setHashSilently("#/replay");
@@ -532,8 +465,7 @@ async function importLocalVideo(file) {
     $("local-video-file").value = "";
     localImportStatus("");
     cancelAnimationFrame(coverRaf);
-    disposePresenter3d();
-    openReplay(imported);
+      openReplay(imported);
     setHashSilently("#/replay");
   } catch (e) {
     if (localImport === job) {
@@ -1298,9 +1230,6 @@ function openReplay(sess) {
   if (sess.kind === "demo") {
     setRuntime({});
     $("replay-demo-source").hidden = false;
-    ensurePresenter3d("replay-3d", "talk").then((p3) => {
-      if (p3 && mode === "replay" && session === sess) paintReplay(currentReplayTime());
-    });
   } else {
     $("replay-demo-source").hidden = true;
     const snap = sess.settingsSnapshot || {};
@@ -1531,15 +1460,11 @@ function paintReplay(t) {
   if (session.kind === "demo") {
     const motion = demoMotionAt(t);
     const { p, pose, gaze } = sampleDemo(motion.t);
-    const is3d = !!presenter3d && presenter3dHost === "replay-3d";
-    scene.hidden = is3d;
-    if (!is3d) {
-      resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
-      renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
-    }
-    const projected = is3d ? presenter3d.setDemoTime(motion.t) : null;
+    scene.hidden = false;
+    resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
+    renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
     const fr = frameAt(session, motion.t) || { flags: {}, onBoard: false };
-    paintDemoOverlay(overlay, is3d, projected, { ...fr, pose, gaze });
+    paintDemoOverlay(overlay, { ...fr, pose, gaze });
     cap.hidden = !motion.caption;
     if (motion.caption) cap.textContent = motion.caption.text;
   } else {
