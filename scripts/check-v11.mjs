@@ -16,7 +16,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.7", pkg.version === "1.6.7", pkg.version);
+check("package.json 版本为 1.6.8", pkg.version === "1.6.8", pkg.version);
 const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 check("锁文件版本与应用一致", lock.version === pkg.version && lock.packages[""].version === pkg.version);
 
