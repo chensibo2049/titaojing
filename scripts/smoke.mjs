@@ -8,6 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Local policy: --ego reuses the assigned browser; legacy headless CI remains available.
+if (process.argv.includes('--ego')) {
+  const { runEgoChecks } = await import('./检查轻量演示浏览器.mjs');
+  runEgoChecks(); process.exit(process.exitCode || 0);
+}
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.resolve(process.env.SMOKE_OUT || path.join(root, ".smoke-out"));
 fs.mkdirSync(OUT, { recursive: true });

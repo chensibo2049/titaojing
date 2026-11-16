@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-/** 静态检查、无装饰 3D 回归、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
+/** 静态检查、演示隔离与时间轴回归、口头禅和整节课文本分析单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 import { checkNo3dSource } from "./检查无3D构建.mjs";
+import { checkDemoTimeline } from "./检查演示时间轴.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let failed = 0;
@@ -15,7 +16,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.2", pkg.version === "1.6.2", pkg.version);
+check("package.json 版本为 1.6.3", pkg.version === "1.6.3", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
 check("CHANGELOG 含 v1.6.0、v1.5.0 与 v1.4.0", /## v1\.6\.0/.test(changelog) && /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog));
@@ -373,8 +374,9 @@ check("春晓样例有意象意境与批判性问题、表现性评价", ywRepor
 check("语文观察表总览含教态与口头表达", ywReport.law && /教态/.test(ywReport.law.title) && /口头表达/.test(ywReport.law.title));
 try { fs.unlinkSync(tmpYw); } catch (_) {}
 
-// 装饰性 3D 不再进入运行、配置或构建路径；真实 MediaPipe 与 2D 渲染另行断言。
+// 非演示依赖图零 Three；演示独立懒加载，真实 MediaPipe 与 2D 回退断言全部保留。
 await checkNo3dSource(root, check);
+await checkDemoTimeline(check);
 for (const f of ["index.html", "landing/index.html"]) {
   const html = fs.readFileSync(path.join(root, f), "utf8");
   const img = (html.match(/property="og:image" content="https:\/\/chensibo2049\.github\.io\/titaojing\/([^"]+)"/) || [])[1];

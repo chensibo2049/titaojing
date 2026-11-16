@@ -16,6 +16,13 @@ const buildDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.get
 
 const devOnly = process.argv.includes("--dev-only");
 
+// Separate ESM entry: its URL is referenced only by the demo lifecycle loader.
+const presenter = await esbuild.build({
+  entryPoints: [path.join(root, "src/demo-presenter.js")], bundle: true, format: "esm", minify: true,
+  legalComments: "none", write: false, logLevel: "warning",
+});
+const presenterBundle = presenter.outputFiles[0].text;
+fs.writeFileSync(path.join(root, "assets/demo-presenter.js"), presenterBundle);
 // 1) dev bundle for the source folder
 await esbuild.build({
   entryPoints: [path.join(root, "src/main.js")],
@@ -36,7 +43,7 @@ const tmp = await esbuild.build({
 let bundle = tmp.outputFiles[0].text;
 const css = fs.readFileSync(path.join(root, "assets/app.css"), "utf8");
 const hash = crypto.createHash("sha1").update(bundle).update(css)
-  .update(fs.readFileSync(path.join(root, "index.html"))).update(fs.readFileSync(path.join(root, "sw.js")))
+  .update(presenterBundle).update(fs.readFileSync(path.join(root, "index.html"))).update(fs.readFileSync(path.join(root, "sw.js")))
   .digest("hex").slice(0, 8);
 const buildId = `${version}-${hash}`;
 bundle = bundle.replaceAll("__BUILD_ID_SLOT__", buildId);
@@ -48,6 +55,7 @@ const cp = (from, to = from) => { mk(path.dirname(to)); fs.copyFileSync(path.joi
 const write = (to, text) => { mk(path.dirname(to)); fs.writeFileSync(path.join(dist, to), text); };
 
 write("assets/app.bundle.js", bundle);
+write("assets/demo-presenter.js", presenterBundle);
 write("assets/app.css", css);
 write("index.html", fs.readFileSync(path.join(root, "index.html"), "utf8").replaceAll("__BUILD_ID__", buildId));
 write("sw.js", fs.readFileSync(path.join(root, "sw.js"), "utf8").replaceAll("__BUILD_ID__", buildId));
