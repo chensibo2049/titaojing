@@ -26,7 +26,7 @@ try {
   const key = fs.readFileSync(path.join(root, 'src/consent.js'), 'utf8').match(/const KEY = "([^"]+)"/)[1];
   await page.evaluateOnNewDocument(k => {
     localStorage.setItem(k, JSON.stringify({ termsAccepted: true, experience: false }));
-    localStorage.setItem('titaojing.settings.v1', JSON.stringify({ sim3d: 'off', asrAutoDownload: false }));
+    localStorage.setItem('titaojing.settings.v1', JSON.stringify({ asrAutoDownload: false }));
     localStorage.setItem('titaojing.seenVersion', '1.6.0');
   }, key);
   fs.mkdirSync(path.join(root, '.smoke-out'), { recursive: true });

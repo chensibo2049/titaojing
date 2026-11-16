@@ -260,11 +260,10 @@ export function renderSettings() {
   if (ah) {
     if (asr.sherpa) ah.textContent = "本机听写已下载：「自动」会用本机听写，声音留在这台设备上。";
     else if (!asr.sherpaSupported) ah.textContent = "这个浏览器不能运行本机听写，只能用浏览器听写（Chrome / Edge 会把声音送到厂商的服务；在中国大陆经常连不上）。";
-    else ah.textContent = `本机听写还没下载（${asr.sherpaSize}，一次即可）。下载前「自动」会用浏览器听写；进入页面后会在后台下载听写包，角落里可以看到进度。`;
+    else ah.textContent = `本机听写还没下载（${asr.sherpaSize}，一次即可）。下载前「自动」会用浏览器听写；默认不下载约 90 MB 听写包，需主动下载或开启自动下载。`;
   }
   if (f.asrAutoDownload) f.asrAutoDownload.checked = s.asrAutoDownload !== false;
   if (f.classroomSim) f.classroomSim.value = s.classroomSim || "off";
-  if (f.sim3d) f.sim3d.value = s.sim3d || "auto";
   mountLocalAsr($("local-asr-box"), { onChange: () => renderSettings(), onReady: () => renderSettings() });
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
@@ -308,9 +307,8 @@ export function wireSettings() {
       targetMin: Number(f.targetMin.value),
       frameMode: f.frameMode.value,
       asrEngine: f.asrEngine.value,
-      asrAutoDownload: f.asrAutoDownload ? f.asrAutoDownload.checked : true,
+      asrAutoDownload: f.asrAutoDownload ? f.asrAutoDownload.checked : false,
       classroomSim: f.classroomSim ? f.classroomSim.value : "off",
-      sim3d: f.sim3d ? f.sim3d.value : "auto",
       perfMode: f.perfMode ? f.perfMode.value : "auto",
       boardSide: f.boardSide.value,
       facing: f.facing.value,
@@ -444,6 +442,8 @@ export function renderAbout() {
   const cap = $("about-capabilities-list");
   if (cap) {
     cap.innerHTML = [
+      "装饰性 3D 已移除：演示与回放为 2D 示意，模拟课堂为插画和文字；演示动作是预设，不是真实识别。",
+      "视觉模型首次练习仍需下载；真实教态与视线推理在本机浏览器进行，不上传视频。",
       "晃动、含胸、重心偏了、抱臂、走出讲台；全身构图下还会看是否来回走动、写板时是否整个人背对学生。",
       "视线落下（低头看稿），以及写完板书是否回视学生。",
       "口头禅：按设置里的词表统计（默认识别「然后」「就是说」「嗯、啊、呃」等），回放里给出次数和具体改法。",

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-/** 静态检查（v1.6.0）、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
+/** 静态检查、无装饰 3D 回归、口头禅与整节课文本分析单元测试（不启动浏览器）。 */
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
+import { checkNo3dSource } from "./检查无3D构建.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let failed = 0;
@@ -14,7 +15,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.1", pkg.version === "1.6.1", pkg.version);
+check("package.json 版本为 1.6.2", pkg.version === "1.6.2", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
 check("CHANGELOG 含 v1.6.0、v1.5.0 与 v1.4.0", /## v1\.6\.0/.test(changelog) && /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog));
@@ -372,36 +373,13 @@ check("春晓样例有意象意境与批判性问题、表现性评价", ywRepor
 check("语文观察表总览含教态与口头表达", ywReport.law && /教态/.test(ywReport.law.title) && /口头表达/.test(ywReport.law.title));
 try { fs.unlinkSync(tmpYw); } catch (_) {}
 
-// v1.6.0 3D characters
-const charDir = path.join(root, "assets/characters");
-const glbs = ["students.glb", "guests.glb", "teacher.glb", "classroom.glb", "podium.glb"];
-let charBytes = 0;
-for (const f of glbs) {
-  const fp = path.join(charDir, f);
-  check(`角色文件存在 ${f}`, fs.existsSync(fp));
-  if (fs.existsSync(fp)) charBytes += fs.statSync(fp).size;
-}
-check("3D 角色合计不超过约 25 MB", charBytes > 1e6 && charBytes <= 25.5 * 1024 * 1024, `${(charBytes / 1048576).toFixed(2)} MB`);
-const notice = fs.readFileSync(path.join(root, "NOTICE"), "utf8");
-check("NOTICE 记录 Rocketbox MIT 与 three.js，并写明不是 Mixamo", /Rocketbox/.test(notice) && /MIT/.test(notice) && /Microsoft/.test(notice) && /three\.js/.test(notice) && /Mixamo/.test(notice) && /不是 Mixamo/.test(notice));
-const mainSrc = fs.readFileSync(path.join(root, "src/main.js"), "utf8");
-const simUi = fs.readFileSync(path.join(root, "src/classroom-sim-ui.js"), "utf8");
-check("3D 为按需加载且可退回插画", simUi.includes("sim-stage3d") && simUi.includes("character-scene.js") && settingsSrc.includes('sim3d: "auto"') && mainSrc.includes("ensurePresenter3d"));
-check("构建会打包 character-scene 并复制 glb", fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("character-scene.js") && fs.readFileSync(path.join(root, "scripts/build.mjs"), "utf8").includes("assets/characters"));
-check("changelog 写明 3D 限制", /发片|卡片头发|扫描|插画/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")) && /1\.6\.0/.test(fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8")));
-const sceneSrc = fs.readFileSync(path.join(root, "src/character-scene.js"), "utf8");
-check("课堂相机在黑板前方而不是墙后", /position\.set\(2\.35, 1\.72, -1\.25\)/.test(sceneSrc) && !/position\.set\(0, 1\.45, -3\.5\)/.test(sceneSrc));
-for (const f of ["docs/images/demo-3d.mp4", "docs/images/demo-3d.webp", "docs/images/demo-3d.gif", "docs/images/demo-3d.jpg", "landing/images/demo-3d.mp4"]) {
-  const fp = path.join(root, f);
-  check(`演示媒资存在 ${f}`, fs.existsSync(fp) && fs.statSync(fp).size > 1024);
-}
+// 装饰性 3D 不再进入运行、配置或构建路径；真实 MediaPipe 与 2D 渲染另行断言。
+await checkNo3dSource(root, check);
 for (const f of ["index.html", "landing/index.html"]) {
   const html = fs.readFileSync(path.join(root, f), "utf8");
   const img = (html.match(/property="og:image" content="https:\/\/chensibo2049\.github\.io\/titaojing\/([^"]+)"/) || [])[1];
   check(`${f} 有分享卡片（og:image 指向仓库内的图）`, !!img && fs.existsSync(path.join(root, img)) && /twitter:card/.test(html) && !/chensibo\.cn/.test(html.match(/og:[^>]+/g).join(" ")), img);
 }
-const mp4 = fs.statSync(path.join(root, "docs/images/demo-3d.mp4")).size;
-check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(mp4 / 1024).toFixed(0)} KB`);
 
 
 
@@ -415,13 +393,14 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
 {
   const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
   const lc = fs.readFileSync(path.join(root, "landing/styles.css"), "utf8");
-  check("介绍页：有「跳到正文」、<main> 与减少动态效果的处理", /class="skip" href="#main"/.test(lh) && /<main id="main"/.test(lh) && /prefers-reduced-motion/.test(lh) && /prefers-reduced-motion/.test(lc) && /:focus-visible/.test(lc));
+  check("介绍页：有「跳到正文」、<main> 与减少动态效果的处理", /class="skip" href="#main"/.test(lh) && /<main id="main"/.test(lh) && /prefers-reduced-motion/.test(lc) && /:focus-visible/.test(lc));
 }
 
 {
   const lh = fs.readFileSync(path.join(root, "landing/index.html"), "utf8");
   const lc = fs.readFileSync(path.join(root, "landing/styles.css"), "utf8");
-  check("介绍页：可打印成练习讲义（隐藏导航与视频，打印时展开常见问题）", /@media print/.test(lc) && /#demo3d/.test(lc.split("@media print")[1] || "") && /beforeprint/.test(lh) && /afterprint/.test(lh) && /summary:focus-visible/.test(lc));
+  const demoId = (lh.match(/id="(demo[^"\s]*)"/) || [])[1];
+  check("介绍页：可打印成练习讲义（隐藏导航与演示入口，打印时展开常见问题）", /@media print/.test(lc) && /nav[^{}]*\{[^{}]*display:\s*none/.test(lc.split("@media print")[1] || "") && (!demoId || (lc.split("@media print")[1] || "").includes(`#${demoId}`)) && /beforeprint/.test(lh) && /afterprint/.test(lh) && /summary:focus-visible/.test(lc));
 }
 
 {

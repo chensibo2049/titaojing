@@ -31,7 +31,6 @@ export const DEFAULT_SETTINGS = {
   saveVideo: false,
   showMap: true,
   classroomSim: "off",  // off | class | roadshow（练习用模拟，默认关）
-  sim3d: "auto",        // auto | on | off（3D 人物；auto 在 WebGL 弱时退回插画）
   stemRequirement: "",  // 开讲页选填的题干要求，供语文观察表对照
 };
 
@@ -47,6 +46,7 @@ export function getSettings() {
 
 export function normalize(raw) {
   const s = { ...DEFAULT_SETTINGS, ...(raw || {}) };
+  delete s.sim3d; // 丢弃旧版本已废弃的装饰人物设置
   s.sens = { ...DEFAULT_SETTINGS.sens, ...((raw && raw.sens) || {}) };
   for (const k of Object.keys(s.sens)) if (!["low", "mid", "high"].includes(s.sens[k])) s.sens[k] = "mid";
   s.sessionMode = s.sessionMode === "classroom" ? "classroom" : "practice";
@@ -65,7 +65,6 @@ export function normalize(raw) {
   s.facing = s.facing === "environment" ? "environment" : "user";
   if (!["zh-CN", "zh-TW", "zh-HK", "en-US"].includes(s.speechLang)) s.speechLang = "zh-CN";
   s.classroomSim = ["class", "roadshow"].includes(s.classroomSim) ? s.classroomSim : "off";
-  s.sim3d = ["auto", "on", "off"].includes(s.sim3d) ? s.sim3d : "auto";
   s.stemRequirement = String(s.stemRequirement || "").slice(0, 800);
   return s;
 }

@@ -18,14 +18,14 @@
   <meta property="og:title" content="OpenPodium · 开讲">
   <meta property="og:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
   <meta property="og:url" content="https://chensibo2049.github.io/titaojing/">
-  <meta property="og:image" content="https://chensibo2049.github.io/titaojing/landing/images/demo-3d.jpg">
+  <meta property="og:image" content="https://chensibo2049.github.io/titaojing/landing/images/cover.jpg">
   <meta property="og:image:width" content="960">
-  <meta property="og:image:height" content="540">
-  <meta property="og:image:alt" content="试讲老师站在讲台前，开讲把骨架、视线和口头禅叠在画面上">
+  <meta property="og:image:height" content="617">
+  <meta property="og:image:alt" content="开讲的练习入口与本机试讲工具">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="OpenPodium · 开讲">
   <meta name="twitter:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
-  <meta name="twitter:image" content="https://chensibo2049.github.io/titaojing/landing/images/demo-3d.jpg">
+  <meta name="twitter:image" content="https://chensibo2049.github.io/titaojing/landing/images/cover.jpg">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/icons/icon-192.png" sizes="192x192" type="image/png">
@@ -112,7 +112,6 @@
           </ol>
           <p class="entry-example">步骤示意 · 观看演示可体验完整回放<br>演示动作与提示为预设，并非真实识别。</p>
           <div hidden aria-hidden="true">
-            <div id="cover-3d" hidden></div>
             <canvas id="cover-canvas" width="720" height="1280"></canvas>
             <span id="cover-shot-label">步骤示意</span>
           </div>
@@ -143,7 +142,7 @@
         <p class="eyebrow">对着镜头试讲</p>
         <h2>需要使用镜头和麦克风</h2>
         <p class="plain-lead">画面只在这台设备的浏览器里分析。不需要账号。录像默认不保存；若勾选保存，也只写入本机历史，沉思波不会收到。练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析随录制在本机进行，结束后不会继续分析（回放已保存的记录除外）。</p>
-        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：进入页面后会在后台下载听写包（约 90 MB，一次即可，可在设置里关掉）。声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商。没下载完时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
+        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：默认不下载听写包，需主动下载（约 90 MB，一次即可）。声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商。没下载完时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
         <div class="perm-modes">
           <p class="field-label">这次怎么讲</p>
           <div class="seg" role="radiogroup" aria-label="试讲模式" id="perm-session-mode">
@@ -265,7 +264,6 @@
       <div class="stage-wrap" id="live-wrap">
         <div class="stage" id="live-stage">
           <video id="live-video" class="stage-video" playsinline autoplay muted></video>
-          <div id="live-3d" class="stage-3d" hidden></div>
           <canvas id="live-scene" class="stage-scene"></canvas>
           <canvas id="live-overlay" class="stage-overlay"></canvas>
           <div class="hud-left" id="hud-gaze" aria-hidden="true"></div>
@@ -307,7 +305,6 @@
           <div class="stage" id="replay-stage">
             <img id="replay-thumb" class="stage-thumb" alt="" hidden>
             <video id="replay-video" class="stage-video" playsinline></video>
-            <div id="replay-3d" class="stage-3d" hidden></div>
             <canvas id="replay-scene" class="stage-scene"></canvas>
             <canvas id="replay-overlay" class="stage-overlay"></canvas>
             <button type="button" class="play-fab" id="btn-play" aria-label="播放或暂停">播放</button>
@@ -488,15 +485,7 @@
             </select>
             <small>打开后，试讲画面旁边会出现虚拟同学或嘉宾，按您的话举手、回答或提问。全部在本机演算，不联网。题库是一份普通 JSON（assets/classroom/banks.json），老师可直接改。不是真实课堂。</small>
           </label>
-          <label class="field">
-            <span>模拟人物与封面演示</span>
-            <select name="sim3d">
-              <option value="auto">自动（能用 3D 就用 3D，显卡弱或软件渲染时退回插画）</option>
-              <option value="on">尽量使用 3D 人物</option>
-              <option value="off">只用插画</option>
-            </select>
-            <small>3D 人物改用 Microsoft Rocketbox（MIT）里更写实的绑定角色，会按需加载（合计约 9 MB）。在「流畅优先」或浏览器是软件渲染时，自动改回原来的插画。</small>
-          </label>
+          <p class="fs-note">装饰性 3D 已移除。演示与回放使用 2D 示意；模拟课堂使用插画与文字交互。真实视觉识别仍在本机运行，首次需要下载模型。</p>
         </fieldset>
         <fieldset>
           <legend>流畅度</legend>

@@ -49,6 +49,11 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // Retired decorative assets must never re-enter the shell cache.
+  if (/\/assets\/(?:characters\/|vendor\/draco\/|character-scene\.js)|\/[^/]*3d\.(?:jpg|gif|webp|mp4)$|\.(?:glb|gltf)$/i.test(url.pathname)) {
+    event.respondWith(new Response("Decorative 3D removed", { status: 410 }));
+    return;
+  }
   if (req.headers.has("range")) return;
 
   // Navigations: network first, fall back to cached shell (offline).

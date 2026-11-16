@@ -15,13 +15,13 @@
   &nbsp;
   <a href="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml"><img src="https://github.com/chensibo2049/titaojing/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/版本-v1.6.0-A33B28?style=flat-square" alt="v1.6.0">
+  <img src="https://img.shields.io/badge/版本-v1.6.2-A33B28?style=flat-square" alt="v1.6.2">
 </p>
 
 <p align="center">
-  <a href="https://chensibo2049.github.io/titaojing/landing/">产品介绍</a>
+  <a href="https://openpodium.chensibo.cn/landing/">产品介绍</a>
   &nbsp;·&nbsp;
-  <a href="https://chensibo2049.github.io/titaojing/">在线打开</a>
+  <a href="https://openpodium.chensibo.cn/">在线打开</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/chensibo2049/titaojing/issues">反馈问题</a>
 </p>
@@ -31,16 +31,15 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/demo-3d.webp" alt="3D 试讲老师站在讲台前，开讲把骨架、视线和口头禅叠在画面上" width="800">
+  <img src="docs/images/demo-half.jpg" alt="2D 预设演示：人物、骨架和提示用于说明回看流程，非真实识别" width="800">
 </p>
 
 <p align="center">
-  <a href="docs/images/demo-3d.mp4">16 秒演示（mp4）</a>
-  ·
-  <a href="docs/images/demo-3d.gif">GIF 预览</a>
-  ·
-  模拟课堂里的同学见下面说明。WebGL 较弱时会自动改用插画。
+  <a href="https://openpodium.chensibo.cn/#/demo">观看 2D 预设演示与回放</a> · 动作、字幕和提示均为预设，非真实识别。<br>
+  v1.6.2 移除全部装饰性 3D，演示与回放沿用已有 2D 人物，模拟课堂使用 2D 插画与文字。旧版 3D 仅作历史记录，不作为当前宣传。
 </p>
+
+正式站：[openpodium.chensibo.cn](https://openpodium.chensibo.cn/)；[GitHub Pages 兼容入口](https://chensibo2049.github.io/titaojing/)继续保留。新站本次为手动制品部署，不会随 main 自动更新；部署与回滚见 [部署记录](docs/OpenPodium部署记录-20261116.md)。切换域名不会迁移旧域名浏览器内的历史与听写缓存。
 
 ## 为什么做这面镜子
 
@@ -70,14 +69,22 @@
 | **回放与转写** | 时间线上有标记，转写里的水词会标出，并给出具体改法。点某一句就能跳到那里。 |
 | **手与板书** | 能看见双手，判断是否伸向板书区、是否在写、写完是否回视。**目前不能认出黑板上的字**；写板时会留下板书区静帧，供你自己看字迹。 |
 | **观察记录与语文试讲观察表** | 回放页按评课表列出语气词、停顿、语速、站位、提问等，只摆事实，不做好坏评分。语文试讲另有一张观察表：能从转写里定位的给出原话和时刻，看不出的用自查清单；方法提示来自师范生备考笔记。开讲页可把题干 2–3 条粘进去，用来对照「紧扣题干」。说明与打印稿见 [`docs/YUWEN_RUBRIC.md`](docs/YUWEN_RUBRIC.md)。 |
-| **模拟课堂（练习用）** | 默认关闭。打开后，画面旁会出现几位虚拟同学或路演嘉宾，按你的话举手、回答或提问，用来练点名、追问和应对提问。说「齐读」会全班齐读，说「请你来读」会有一位同学站起来读。WebGL 可用时默认用我们二改的 3D 人物，弱设备或设置里可退回插画。全部在本机演算，不联网。题库是一份可编辑的 JSON，见 [`docs/SIM_CLASS.md`](docs/SIM_CLASS.md)；人物来源见 [`docs/CHARACTERS.md`](docs/CHARACTERS.md)。 |
-| **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频默认不上传，只保存在这台设备的浏览器里。 |
+| **模拟课堂（练习用）** | 默认关闭。打开后，画面旁会出现几位虚拟同学或路演嘉宾，按你的话举手、回答或提问，用来练点名、追问和应对提问。说「齐读」会全班齐读，说「请你来读」会有一位同学站起来读。人物使用已有 2D 插画，状态和回答以文字显示。互动规则在本机演算，不调用远程生成服务；语音识别是否联网取决于听写方式（见下方说明）。题库是一份可编辑的 JSON，见 [`docs/SIM_CLASS.md`](docs/SIM_CLASS.md)；人物来源见 [`docs/CHARACTERS.md`](docs/CHARACTERS.md)。 |
+| **历史留在本机** | 可以和上一次对比，也可以导出小结图片、PDF 或 JSON。视频不上传，录像默认不保存；开讲前勾选保存后，也只存在这台设备的浏览器里。 |
 
 <p align="center">
   <img src="docs/images/history.jpg" alt="本机历史记录与对比" width="920">
 </p>
 
 > 画面来自单个摄像头的估计，只作训练提示，不是精确测量，也不是心理或医学评估。
+
+### 模型与隐私
+
+- **视觉模型**：首次使用视觉分析时，浏览器需从本站下载 MediaPipe 模型与 WASM；缓存可用后可复用。姿态、面部与手部推理都在本机完成，不上传视频。首次下载不等于上传练习数据，也不意味着首次就能断网使用。
+- **本机听写**：约 90 MB 的中文识别模型默认不自动下载，需在设置里主动下载或开启自动下载；旧设置中已开启的选项仍保留。下载完成后声音在本机识别，不上传声音。
+- **浏览器听写（Web Speech）**：可能把声音发送给 Chrome / Edge 等浏览器厂商，不受本机听写的「声音不上传」保证覆盖；由厂商隐私政策约束，在中国大陆也可能连不上。
+
+当前 v1.6.2 发布范围不包含 three.js、Rocketbox、Draco 或旧 3D 宣传媒体；旧版条目与资源路径仅供历史溯源，不等同于当前分发内容。仍实际使用的 MediaPipe、ASR 等组件许可见 [`NOTICE`](NOTICE)。
 
 ## 三步开始
 

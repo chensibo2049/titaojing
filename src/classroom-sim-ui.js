@@ -1,10 +1,4 @@
 import { loadBank, createSim } from "./classroom-sim.js";
-import { getSettings } from "./settings.js";
-
-let scene3d = null;
-let scene3dMode = null;
-let lastStates = "";
-let want3d = true;
 
 const PALETTES = {
   s1: { skin: "#f3d7b8", hair: "#3a2a1c", shirt: "#5d6d57", ink: "#2c241c" },
@@ -161,16 +155,9 @@ export function stopClassroomSim() {
   }
   sim = null;
   lastSpeak = "";
-  lastStates = "";
-  if (scene3d && scene3d.dispose) {
-    try { scene3d.dispose(); } catch (_) {}
-  }
-  scene3d = null;
-  scene3dMode = null;
   if (host) {
     host.hidden = true;
     host.innerHTML = "";
-    host.classList.remove("is-3d");
   }
 }
 
@@ -200,48 +187,6 @@ function maybeSpeakFrom(r) {
   }
 }
 
-async function ensureClassroom3d(mode, snap) {
-  if (scene3d && scene3dMode === mode) return scene3d;
-  if (scene3d && scene3d.dispose) {
-    try { scene3d.dispose(); } catch (_) {}
-  }
-  scene3d = null;
-  scene3dMode = null;
-  const settings = getSettings();
-  const force = settings.perfMode === "smooth" ? "off" : (settings.sim3d || "auto");
-  let mod;
-  try {
-    const href = new URL("assets/character-scene.js", document.baseURI).href;
-    const { canUse3D, mountClassroomScene } = await import(href);
-    if (!canUse3D({ force })) return null;
-    const stage = host.querySelector(".sim-stage3d");
-    if (!stage) return null;
-    stage.innerHTML = "";
-    scene3d = await mountClassroomScene(stage, {
-      mode,
-      onPick: (id) => {
-        if (!sim) return;
-        const person = (sim.snapshot(nowSec()).people || []).find((p) => p.id === id);
-        if (!person || person.state !== "hand") return;
-        const r = sim.pick(id, nowSec());
-        if (r) {
-          maybeSpeakFrom({ answer: r.answer });
-          if (onPick) onPick(r);
-        }
-        renderClassroomSim(nowSec());
-      },
-    });
-    scene3dMode = mode;
-    host.classList.add("is-3d");
-    return scene3d;
-  } catch (err) {
-    console.warn("classroom 3d unavailable", err);
-    scene3d = null;
-    host.classList.remove("is-3d");
-    return null;
-  }
-}
-
 export function renderClassroomSim(t = 0) {
   if (!sim || !host) return;
   const snap = sim.snapshot(t);
@@ -268,44 +213,16 @@ export function renderClassroomSim(t = 0) {
       </div>`
     : "";
 
-  const existed = host.querySelector(".sim-stage3d");
-  const keep3d = existed && scene3d && scene3dMode === snap.mode;
   host.innerHTML = `
     <div class="sim-head">
       <p class="sim-kicker">练习用模拟</p>
       <h2>${esc(snap.label)}</h2>
-      <p class="sim-note">这些是本机规则生成的虚拟${snap.mode === "roadshow" ? "嘉宾" : "同学"}，用来练点名、追问和应对提问，不是真实课堂。画面是 3D 人物时，WebGL 较弱的设备会自动改回插画。</p>
+      <p class="sim-note">这些是本机规则生成的虚拟${snap.mode === "roadshow" ? "嘉宾" : "同学"}，用来练点名、追问和应对提问，不是真实课堂。</p>
     </div>
-    <div class="sim-stage3d" hidden></div>
     <div class="sim-row">${cards}</div>
     ${timerHtml}
     <p class="sim-hint">${hint(snap, voice)}</p>
   `;
-  if (keep3d && existed) {
-    const stage = host.querySelector(".sim-stage3d");
-    stage.replaceWith(existed);
-    existed.hidden = false;
-    host.classList.add("is-3d");
-  } else if (want3d) {
-    ensureClassroom3d(snap.mode, snap).then((s3) => {
-      if (!host || !sim) return;
-      const stage = host.querySelector(".sim-stage3d");
-      if (s3 && stage) {
-        stage.hidden = false;
-        host.classList.add("is-3d");
-        const key = (snap.people || []).map((p) => p.id + ":" + p.state).join("|");
-        lastStates = key;
-        s3.setStates(snap.people);
-      }
-    });
-  }
-
-  const key = (snap.people || []).map((p) => p.id + ":" + p.state).join("|");
-  if (scene3d && key !== lastStates) {
-    lastStates = key;
-    scene3d.setStates(snap.people);
-  }
-
   host.querySelectorAll("[data-pick]").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (!sim) return;
