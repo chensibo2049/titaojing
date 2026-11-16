@@ -1848,3 +1848,290 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
   .screen-cover .cover-actions .btn { min-height: 70px; padding: 10px; }
   .entry-preview { padding: 20px; }
 }
+
+/* ——— 2026-11-17 入口改版：中性底色＋森林绿，把“练完看到什么”放到首屏 ——— */
+
+:root {
+  --paper: #f6f6f3;
+  --paper-soft: #ffffff;
+  --paper-deep: #ecece7;
+  --ink: #14171a;
+  --ink-soft: #454b52;
+  --ink-faint: #6b7279;
+  --line: rgba(20, 23, 26, 0.10);
+  --line-strong: rgba(20, 23, 26, 0.22);
+  --cinnabar: #1e6f5c;
+  --cinnabar-deep: #175647;
+  --cinnabar-soft: rgba(30, 111, 92, 0.12);
+  --gold: #b98a3c;
+  --teal: #1e6f5c;
+  --teal-soft: #4d8c86;
+  --shadow: 0 18px 40px rgba(18, 22, 26, 0.10);
+}
+
+.screen-cover .cover-head { align-items: center; }
+
+.screen-cover .brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.screen-cover .brand-name {
+  font-family: var(--sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.screen-cover .brand-latin {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+.screen-cover .cover-nav a { letter-spacing: 0.02em; }
+
+.screen-cover { overflow-y: auto; }
+
+.screen-cover .cover-layout {
+  grid-template-columns: minmax(300px, 1fr) minmax(320px, 430px);
+  gap: 48px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.screen-cover .cover-copy { max-width: 34rem; }
+
+.screen-cover .eyebrow {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--cinnabar);
+  margin-bottom: 16px;
+}
+
+.screen-cover .cover-copy h1 {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(32px, 4.1vw, 48px);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.screen-cover .cover-copy .lead {
+  margin-top: 16px;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+  max-width: 26em;
+}
+
+.screen-cover .cover-actions { margin-top: 26px; gap: 12px; }
+
+.screen-cover .cover-actions .btn {
+  align-items: flex-start;
+  min-height: 0;
+  padding: 13px 22px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease), background-color 0.16s var(--ease);
+}
+
+.screen-cover .cover-actions .btn:hover { transform: translateY(-1px); }
+.screen-cover .cover-actions .btn:active { transform: translateY(0); }
+
+.screen-cover .cover-actions .btn-primary {
+  background: var(--cinnabar);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(30, 111, 92, 0.22);
+}
+
+.screen-cover .cover-actions .btn-primary:hover { background: var(--cinnabar-deep); }
+
+.screen-cover .cover-actions .btn-secondary {
+  background: var(--paper-soft);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.screen-cover .cover-actions .btn-secondary:hover { border-color: var(--ink-faint); }
+
+.screen-cover .cover-actions .btn-label {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.screen-cover .cover-actions .btn-kicker {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.82;
+}
+
+.screen-cover .cover-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.screen-cover .local-import,
+.screen-cover .start-guide { margin-top: 14px; }
+
+.screen-cover .local-import summary,
+.screen-cover .start-guide summary {
+  display: inline-block;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 1px;
+  list-style: none;
+}
+
+.screen-cover .local-import summary::-webkit-details-marker,
+.screen-cover .start-guide summary::-webkit-details-marker { display: none; }
+
+.screen-cover .local-import summary:hover,
+.screen-cover .start-guide summary:hover { color: var(--cinnabar); border-color: var(--cinnabar); }
+
+/* 首屏结果示例 */
+
+.sample-card {
+  width: 100%;
+  max-width: 430px;
+  padding: 22px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 14px 36px rgba(18, 22, 26, 0.07);
+}
+
+.sample-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.sample-tag {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(30, 111, 92, 0.10);
+  color: var(--cinnabar-deep);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.sample-title {
+  font-size: 13px;
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+
+.sample-strip {
+  position: relative;
+  height: 64px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #1c2126, #13171a);
+  overflow: hidden;
+}
+
+.sample-strip::after {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 50%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.sample-mark {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #4ecba9;
+  box-shadow: 0 0 0 4px rgba(78, 203, 169, 0.18);
+}
+
+.sample-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.sample-list {
+  list-style: none;
+  margin: 18px 0 0;
+  display: grid;
+  gap: 13px;
+}
+
+.sample-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.sample-time {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(30, 111, 92, 0.08);
+  color: var(--cinnabar-deep);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sample-list strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sample-list p {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+.sample-foot {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 900px) {
+  .screen-cover .cover-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .sample-card { max-width: none; }
+}
+
+@media (max-width: 640px) {
+  .screen-cover .cover-copy h1 { font-size: 32px; }
+  .screen-cover .cover-actions .btn { width: 100%; min-height: 0; padding: 13px 18px; }
+  .sample-card { padding: 18px; border-radius: 16px; }
+}

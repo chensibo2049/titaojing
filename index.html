@@ -34,8 +34,6 @@
   <script src="config.js?v=__BUILD_ID__"></script>
 </head>
 <body>
-  <div id="grain" aria-hidden="true"></div>
-
   <div id="file-warning" class="file-warning" hidden>
     请先在本文件夹运行 <code>./start.sh</code>，再用 Chrome 或 Edge 打开 <code>http://127.0.0.1:8765/</code>。直接双击打开时，镜头、历史记录和离线功能都无法使用；「一键演示」仍可观看。
   </div>
@@ -47,7 +45,10 @@
     <!-- COVER -->
     <section id="screen-cover" class="screen screen-cover" data-screen="cover">
       <header class="cover-head">
-        <span class="brand-mark">OpenPodium · 开讲</span>
+        <a class="brand" href="#/" aria-label="开讲首页">
+          <span class="brand-name">开讲</span>
+          <span class="brand-latin">OpenPodium</span>
+        </a>
         <nav class="cover-nav" aria-label="主菜单">
           <a href="#/history">历史</a>
           <a href="#/settings">设置</a>
@@ -66,22 +67,22 @@
 
       <div class="cover-layout">
         <div class="cover-copy">
-          <p class="eyebrow">试讲练习工作台</p>
-          <h1>讲一段，<br>看见下一步。</h1>
-          <p class="lead">用镜头留下教态与视线线索，讲完回看。<br>一次只改一处，再练一遍。</p>
+          <p class="eyebrow">试讲与表达练习</p>
+          <h1>讲完这一段，<br>知道下次改哪儿。</h1>
+          <p class="lead">回看不用从头找。低头、看稿、转身、口头禅都会标在时间线上，点一下就跳回那个瞬间。</p>
           <div class="cover-actions">
             <button type="button" class="btn btn-primary" id="btn-camera">
-              <span class="btn-label">开始练习 <span aria-hidden="true">↗</span></span>
-              <span class="btn-kicker">使用摄像头与麦克风</span>
+              <span class="btn-label">开始练习</span>
+              <span class="btn-kicker">用摄像头，约两分钟</span>
             </button>
             <button type="button" class="btn btn-secondary" id="btn-demo">
-              <span class="btn-label">观看演示</span>
-              <span class="btn-kicker">约一分钟 · 无需镜头</span>
+              <span class="btn-label">看一遍演示</span>
+              <span class="btn-kicker">55 秒 · 不用镜头</span>
             </button>
           </div>
-          <p class="cover-note" id="cover-note">视频在本机处理，录像默认不保存。</p>
+          <p class="cover-note" id="cover-note">不需要账号 · 画面在本机分析 · 录像默认不保存</p>
           <details class="local-import">
-            <summary>已有录像？导入本机视频 <span aria-hidden="true">＋</span></summary>
+            <summary>已有录像？导入本机视频</summary>
             <div class="entry-detail-body">
               <label for="local-video-file">选择 MP4 / MOV / WebM 视频</label>
               <input id="local-video-file" type="file" accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm">
@@ -102,19 +103,36 @@
           <button type="button" class="install-chip" id="btn-install" hidden>安装到桌面 · 可离线使用</button>
         </div>
 
-        <aside class="entry-preview" aria-label="练习步骤示意">
-          <p class="eyebrow">从开口，到回看</p>
-          <h2>不用一次练好全部。</h2>
-          <ol class="entry-steps">
-            <li><span>01</span><div><strong>摆好镜头</strong><p>确认人物与双手入画</p></div></li>
-            <li><span>02</span><div><strong>讲一段课</strong><p>先从两分钟练习开始</p></div></li>
-            <li><span>03</span><div><strong>回看一个时刻</strong><p>对照提示，挑一处再练</p></div></li>
-          </ol>
-          <p class="entry-example">步骤示意 · 观看演示可体验完整回放<br>演示动作与提示为预设，并非真实识别。</p>
-          <div hidden aria-hidden="true">
-            <canvas id="cover-canvas" width="720" height="1280"></canvas>
-            <span id="cover-shot-label">步骤示意</span>
+        <aside class="sample-card" aria-label="回看结果示例">
+          <div class="sample-head">
+            <span class="sample-tag">示例</span>
+            <span class="sample-title">一次练习的回看</span>
           </div>
+          <div class="sample-strip" aria-hidden="true">
+            <span class="sample-mark" style="left: 24%"></span>
+            <span class="sample-mark" style="left: 47%"></span>
+            <span class="sample-mark" style="left: 79%"></span>
+          </div>
+          <div class="sample-scale" aria-hidden="true">
+            <span>00:00</span><span>01:00</span><span>02:00</span>
+          </div>
+          <ul class="sample-list">
+            <li>
+              <span class="sample-time">00:38</span>
+              <div>
+                <strong>连续低头 9 秒</strong>
+                <p>这一段抬头把话讲完，会更有把握。</p>
+              </div>
+            </li>
+            <li>
+              <span class="sample-time">01:12</span>
+              <div>
+                <strong>「嗯」出现 4 次</strong>
+                <p>停顿放在句尾，比垫字更稳。</p>
+              </div>
+            </li>
+          </ul>
+          <p class="sample-foot">示例数据，不是你的识别结果；真实练习会标出对应画面。</p>
         </aside>
       </div>
 
