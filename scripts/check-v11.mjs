@@ -16,7 +16,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.8", pkg.version === "1.6.8", pkg.version);
+check("package.json 版本为 1.6.9", pkg.version === "1.6.9", pkg.version);
 const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 check("锁文件版本与应用一致", lock.version === pkg.version && lock.packages[""].version === pkg.version);
 
@@ -45,7 +45,9 @@ const walk = (p) => {
     return;
   }
   if (!/\.(js|md|html|css)$/.test(p)) return;
-  const text = fs.readFileSync(p, "utf8");
+  // 「AI 赋能教育计划」是沉思波的正式计划名，属专有名词，不算营销用语；
+  // 其余场合的「赋能」仍按禁止用语处理。
+  const text = fs.readFileSync(p, "utf8").replaceAll("AI 赋能教育计划", "");
   for (const w of banned) if (text.includes(w)) hits.push(`${path.relative(root, p)}:${w}`);
 };
 for (const d of scanDirs) walk(path.join(root, d));
