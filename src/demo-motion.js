@@ -1,4 +1,5 @@
 import { captionAt, paramsAt, DEMO_DURATION } from "./demo.js";
+import { presenterAt } from "./demo-rig.js";
 
 // The same 55-second script drives the animation, on-screen subtitle and replay.
 // Clip phases are anchored at each beat, never advanced by a renderer clock.
@@ -23,7 +24,7 @@ export function demoMotionAt(time) {
   const t = Number.isFinite(time) ? Math.max(0, Math.min(DEMO_DURATION, time)) : 0;
   let beat = BEATS[0];
   for (const next of BEATS) { if (t >= next.t) beat = next; else break; }
-  return { t, clip: beat.clip, clipTime: t - beat.t, params: paramsAt(t), caption: captionAt(t) };
+  return { t, clip: beat.clip, clipTime: t - beat.t, params: paramsAt(t), caption: captionAt(t), presenter: presenterAt(t) };
 }
 
 // Three's projected NDC is in [-1, 1], with Y increasing upwards.

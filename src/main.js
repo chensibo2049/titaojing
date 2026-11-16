@@ -2,6 +2,7 @@ import { EVENT_META, STAGE_W, STAGE_H, setRuntime } from "./constants.js";
 import { renderScene, applyShot, buildRig } from "./teacher.js";
 import { fillersUntil, DEMO_DURATION, bakeDemoSession, sampleDemo } from "./demo.js";
 import { demoMotionAt } from "./demo-motion.js";
+import { createDemoView } from "./demo-view.js";
 import { createReplayClock } from "./replay-clock.js";
 import { createSession, tickFrame, addFiller, addTranscript, extractGaze, extractPosture, diagnose, frameAt, maybeCaptureBoardStill } from "./analyze.js";
 import { drawLiveOverlays, drawSkeleton, drawCoachSilhouette, resizeCanvasTo } from "./overlays.js";
@@ -62,6 +63,29 @@ let camLabel = "";
 let liveTiming = timing();
 let saveVideoThisTime = false;
 let localImport = null;
+let demoGeneration = 0;
+let demoHiddenAt = 0;
+const demoView = createDemoView({ onReady: () => {
+  if (mode === "demo") paintDemoFrame(liveStart ? Math.min(55, (performance.now() - liveStart) / 1000) : 0);
+  else if (mode === "replay" && session?.kind === "demo") paintReplay(currentReplayTime());
+} });
+function mountDemoView(stage) {
+  demoView.mount(stage);
+}
+function paintDemoBeat(stage, motion) {
+  let beat = stage.querySelector(".demo-beat");
+  if (!beat) { beat = document.createElement("div"); beat.className = "demo-beat"; stage.append(beat); }
+  const { phase } = motion.presenter;
+  const text = `${phase.label} · ${phase.detail}`;
+  if (beat.dataset.phase !== phase.label) { beat.innerHTML = `<strong>${esc(phase.label)}</strong>${esc(phase.detail)}`; beat.dataset.phase = phase.label; }
+  beat.setAttribute("aria-label", `预设演示：${text}`);
+}
+function clearDemoView() {
+  demoGeneration++; demoView.dispose();
+  document.querySelectorAll(".demo-beat").forEach(el => el.remove());
+}
+// Read-only evidence for focused browser regression; no commands that bypass real app controls.
+window.__openpodiumDemo = { status: () => demoView.status() };
 
 function localImportStatus(text, busy = false) {
   const status = $("local-video-status");
@@ -105,6 +129,7 @@ function setHashSilently(hash) {
 /* ——— lifecycle ——— */
 
 function stopEverything({ keepPreview = false } = {}) {
+  clearDemoView();
   cancelLocalImport();
   releaseLocalReplay();
   cancelAnimationFrame(raf);
@@ -233,7 +258,7 @@ function startDemo() {
   debugSessionStart({ kind: "demo" });
   fillerSeen = new Set();
   showScreen("live");
-  fitStage($("live-stage"), STAGE_W / STAGE_H);
+  fitStage($("live-stage"), 4 / 3);
   $("btn-skip-demo").hidden = false;
   const liveHint = $("live-kbd-hint");
   if (liveHint) liveHint.hidden = true;
@@ -248,12 +273,15 @@ function startDemo() {
   $("dock-note").textContent = "预设演示 · 非真实识别。留意：低头看稿 → 卡顿晃动 → 转身板书 → 回看学生。可随时跳过到回放。";
   liveStart = 0;
   paintDemoFrame(0);
+  mountDemoView($("live-stage"));
+  const generation = demoGeneration;
   logEvent("demo", "start");
-  runCountdown(2).then(() => {
-    if (mode !== "demo") return;
+  runCountdown(2, 700, () => mode === "demo" && generation === demoGeneration).then(() => {
+    if (mode !== "demo" || generation !== demoGeneration) return;
     liveStart = performance.now();
     $("btn-stop").disabled = false;
-    loopDemo();
+    if (document.hidden) demoHiddenAt = liveStart;
+    else loopDemo();
   });
 }
 
@@ -264,8 +292,10 @@ function paintDemoFrame(t) {
   resizeCanvasTo(scene, scene.clientWidth || 360, scene.clientHeight || 640);
   resizeCanvasTo(overlay, overlay.clientWidth || 360, overlay.clientHeight || 640);
   const { p, pose, gaze } = sampleDemo(motion.t);
-  scene.hidden = false;
-  renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+  scene.hidden = demoView.status().state === "ready";
+  if (!scene.hidden) renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+  demoView.setTime(motion.t);
+  paintDemoBeat($("live-stage"), motion);
   const frame = frameAt(session, motion.t) || { flags: {}, onBoard: false };
   paintDemoOverlay(overlay, { ...frame, pose, gaze });
   updateFlagsHUD(frame.flags, gaze, frame.onBoard);
@@ -275,9 +305,11 @@ function paintDemoFrame(t) {
 }
 
 function paintDemoOverlay(canvas, scriptedFrame) {
-  drawLiveOverlays(canvas.getContext("2d"), scriptedFrame, canvas.width, canvas.height, { showMap: true });
+  // No unrelated 2D skeleton or gaze map may be drawn over the actual 3D rig.
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  const status = demoView.status();
   const label = $(mode === "replay" ? "replay-demo-source" : "live-demo-source");
-  if (label) label.textContent = "演示样本 · 预设动作/字幕/提示，2D 示意骨架（非视觉识别）";
+  if (label) label.textContent = `预设演示 · 动作/字幕/提示非真实识别 · 无音轨，非 ASR/情绪识别 · ${status.state === "ready" ? "轻量 3D" : status.state === "loading" ? "3D 加载中（2D 占位）" : "2D 简洁模式"}`;
 }
 
 /** 开讲倒计时：课堂模式要从电脑走到讲台或黑板前，多给两秒。 */
@@ -285,13 +317,14 @@ function countdownSeconds(settings) {
   return settings && settings.sessionMode === "classroom" ? 5 : 3;
 }
 
-function runCountdown(seconds, tickMs = 700) {
+function runCountdown(seconds, tickMs = 700, isActive = () => true) {
   return new Promise((resolve) => {
     const cap = $("hud-caption");
     cap.hidden = false;
     let n = seconds;
     cap.textContent = String(n);
     const id = setInterval(() => {
+      if (!isActive()) { clearInterval(id); resolve(); return; }
       n -= 1;
       if (n <= 0) {
         cap.textContent = "开始";
@@ -1219,10 +1252,11 @@ function sizeReplayWrap(sess) {
 }
 
 function replayAspect(sess) {
-  return sess.kind === "demo" ? STAGE_W / STAGE_H : (sess.aspect || 9 / 16);
+  return sess.kind === "demo" ? 4 / 3 : (sess.aspect || 9 / 16);
 }
 
 function openReplay(sess) {
+  clearDemoView();
   cancelAnimationFrame(raf);
   session = sess;
   mode = "replay";
@@ -1273,6 +1307,7 @@ function openReplay(sess) {
     }
   }
   paintReplay(0);
+  if (sess.kind === "demo") mountDemoView($("replay-stage"));
   $("replay-clock").textContent = `00:00 / ${fmt(sess.duration)}`;
   $("save-status").textContent = sess.localImport ? "本机视频仅供本次回放，分析结果和原视频都未保存到历史；离开后请重新选文件。"
     : sess.stored ? (sess.fromHistory ? `已在本机历史中${sess.hasVideo ? "（含录像）" : ""}。` : "") : "正在保存到本机历史…";
@@ -1460,9 +1495,13 @@ function paintReplay(t) {
   if (session.kind === "demo") {
     const motion = demoMotionAt(t);
     const { p, pose, gaze } = sampleDemo(motion.t);
-    scene.hidden = false;
-    resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
-    renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+    scene.hidden = demoView.status().state === "ready";
+    if (!scene.hidden) {
+      resizeCanvasTo(scene, scene.clientWidth, scene.clientHeight);
+      renderScene(scene.getContext("2d"), scene.width, scene.height, p, motion.t);
+    }
+    demoView.setTime(motion.t);
+    paintDemoBeat($("replay-stage"), motion);
     const fr = frameAt(session, motion.t) || { flags: {}, onBoard: false };
     paintDemoOverlay(overlay, { ...fr, pose, gaze });
     cap.hidden = !motion.caption;
@@ -1859,9 +1898,14 @@ function onReady() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && mode === "camera") pauseLive();
-    if (document.visibilityState === "hidden" && mode === "demo") { /* demo keeps its wall clock; fine */ }
+    if (mode === "demo") {
+      if (document.hidden) { demoHiddenAt = performance.now(); cancelAnimationFrame(raf); }
+      else { if (liveStart && demoHiddenAt) liveStart += performance.now() - demoHiddenAt; demoHiddenAt = 0; if (liveStart) loopDemo(); }
+    }
+    if (document.hidden && mode === "replay") stopReplayPlay();
   });
-  window.addEventListener("pagehide", () => { if (mode === "camera") pauseLive(); cancelLocalImport(); releaseLocalReplay(); });
+  window.addEventListener("pagehide", () => { if (mode === "camera") pauseLive(); clearDemoView(); cancelLocalImport(); releaseLocalReplay(); });
+  window.addEventListener("pageshow", (e) => { if (e.persisted) route(); });
 
   window.addEventListener("resize", () => {
     if (mode === "replay") { sizeReplayWrap(session); paintReplay(currentReplayTime()); }

@@ -5,6 +5,10 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+if (process.argv.includes('--ego')) {
+  const { runEgoChecks } = await import('./检查轻量演示浏览器.mjs');
+  runEgoChecks(true); process.exit(process.exitCode || 0);
+}
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.resolve(process.env.LAYOUT_OUT || path.join(root, '.smoke-out', '入口验收-20261116'));
 fs.mkdirSync(OUT, { recursive: true });
