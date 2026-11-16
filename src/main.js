@@ -255,13 +255,19 @@ function startCoverLoop() {
   const stage = $("cover-stage");
   if (!stage) return;
   coverStart = performance.now();
-  coverView.mount(stage);
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    coverView.setTime(12);
-    paintCoverFallback(12);
-    return;
-  }
-  if (coverVisible) coverRaf = requestAnimationFrame(loopCover);
+  // 等页面 load 后再挂三维：主线程建场景不能拖慢首屏与首字节渲染。
+  const begin = () => {
+    if (mode !== "cover") return;
+    coverView.mount(stage);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      coverView.setTime(12);
+      paintCoverFallback(12);
+      return;
+    }
+    if (coverVisible) coverRaf = requestAnimationFrame(loopCover);
+  };
+  if (document.readyState === "complete") begin();
+  else window.addEventListener("load", begin, { once: true });
 }
 
 function applyPendingUpdate() {
