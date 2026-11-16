@@ -117,7 +117,7 @@ function watchBackgroundFetch(rec) {
 
 /** 进入应用时调用：已缓存则静默；已有后台任务可继续，新下载须用户开启自动下载。 */
 export async function maybeAutoDownload() {
-  ensureChip();
+  removeChip();
   try { await importBackgroundStash(); } catch (_) {}
   if (!engineSupported()) {
     emit({ phase: "unsupported" });
@@ -127,7 +127,6 @@ export async function maybeAutoDownload() {
   await inspectSherpa();
   if (st.cached) {
     emit({ phase: "ready" });
-    hideChipSoon();
     return { started: false, reason: "cached" };
   }
   const bf = await adoptBackgroundFetch();
@@ -242,64 +241,15 @@ function paintProgress(host, p) {
     : "正在连接下载源…";
 }
 
-function ensureChip() {
-  if (typeof document === "undefined") return null;
-  let el = document.getElementById("asr-dl-chip");
-  if (el) return el;
-  el = document.createElement("div");
-  el.id = "asr-dl-chip";
-  el.className = "asr-dl-chip";
-  el.hidden = true;
-  document.body.appendChild(el);
-  return el;
+/** 以前右下角的浮动听写条已取消：下载与进度只留在设置页，避免在首页和练习时打扰。 */
+function removeChip() {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById("asr-dl-chip");
+  if (el) el.remove();
 }
 
-let hideTimer = 0;
-function hideChipSoon() {
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => {
-    const el = document.getElementById("asr-dl-chip");
-    if (el && (lastState.phase === "ready" || lastState.phase === "done")) el.hidden = true;
-  }, 3200);
-}
-
-function renderChip(state = lastState) {
-  const el = ensureChip();
-  if (!el) return;
-  const st = sherpaAvailable();
-  clearTimeout(hideTimer);
-  if (state.phase === "unsupported") { el.hidden = true; return; }
-  if (state.phase === "ready" || (st.ok && state.phase !== "progress" && state.phase !== "error")) {
-    el.hidden = false;
-    el.innerHTML = `<button type="button" class="asr-dl-chip-btn" id="asr-dl-chip-btn">听写已就绪</button>`;
-    hideChipSoon();
-    return;
-  }
-  if (state.phase === "progress") {
-    const pct = state.total ? Math.min(100, Math.round((state.loaded / state.total) * 100)) : 0;
-    el.hidden = false;
-    el.innerHTML = `<button type="button" class="asr-dl-chip-btn" id="asr-dl-chip-btn" aria-live="polite">
-      <span class="asr-dl-chip-label">听写包 ${pct}%</span>
-      <span class="asr-dl-chip-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
-    </button>`;
-    return;
-  }
-  if (state.phase === "error") {
-    el.hidden = false;
-    el.innerHTML = `<button type="button" class="asr-dl-chip-btn" id="asr-dl-chip-btn">听写包未完成，点此重试</button>`;
-    el.querySelector("button").addEventListener("click", () => startLocalDownload());
-    return;
-  }
-  const blocked = state.blocked || autoDownloadBlockedReason();
-  if (blocked === "test") { el.hidden = true; return; }
-  if (blocked === "saveData" || blocked === "off") {
-    el.hidden = false;
-    const label = blocked === "saveData" ? "省流量已开，点此下载听写包" : "点此下载听写包";
-    el.innerHTML = `<button type="button" class="asr-dl-chip-btn" id="asr-dl-chip-btn">${label}</button>`;
-    el.querySelector("button").addEventListener("click", () => startLocalDownload());
-    return;
-  }
-  el.hidden = true;
+function renderChip() {
+  removeChip();
 }
 
 function escapeHtml(s) {

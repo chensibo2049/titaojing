@@ -1396,46 +1396,6 @@ mark.shuici, .shuici {
 
 
 /* ——— 听写包角落进度 ——— */
-.asr-dl-chip {
-  position: fixed;
-  right: max(16px, var(--safe-r));
-  bottom: max(16px, var(--safe-b));
-  z-index: 60;
-}
-.asr-dl-chip-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  min-width: 132px;
-  padding: 8px 12px;
-  background: var(--paper-soft);
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  box-shadow: 0 8px 20px rgba(27, 23, 18, 0.08);
-}
-.asr-dl-chip-bar {
-  display: block;
-  height: 2px;
-  background: var(--paper-deep);
-  overflow: hidden;
-}
-.asr-dl-chip-bar i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: var(--teal);
-}
-.banner-local-note {
-  display: block;
-  margin-top: 6px;
-  font-size: 13px;
-}
-
 /* ——— 观察记录（评课表） ——— */
 .observe-sheet {
   background: var(--paper);
@@ -1671,13 +1631,8 @@ mark.shuici, .shuici {
 .stage-overlay { z-index: 3; }
 
 /* 听写包角落进度不要盖住封面页脚的版本号，也不要在手机上压住「对着镜头试讲」 */
-body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 168px; }
 /* The global download shortcut must not intercept live exit or replay navigation. */
-body:has(#screen-live:not([hidden]), #screen-replay:not([hidden])) .asr-dl-chip { display: none; }
 @media (max-width: 720px) {
-  .asr-dl-chip { top: max(10px, var(--safe-t)); bottom: auto; right: max(10px, var(--safe-r)); }
-  .asr-dl-chip-btn { min-width: 0; padding: 6px 10px; box-shadow: none; }
-  body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 0; }
 }
 
 /* Desktop report length must not determine the fitted video stage height. */

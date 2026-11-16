@@ -16,7 +16,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.6", pkg.version === "1.6.6", pkg.version);
+check("package.json 版本为 1.6.7", pkg.version === "1.6.7", pkg.version);
 const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 check("锁文件版本与应用一致", lock.version === pkg.version && lock.packages[""].version === pkg.version);
 
@@ -129,8 +129,8 @@ globalThis.asrTestDownloads = 0;
 globalThis.asrTestCached = false;
 globalThis.asrTestAutoEnabled = false;
 const originalSetTimeout = globalThis.setTimeout;
-globalThis.setTimeout = () => 0; // ready 芯片的延时隐藏与此单测无关
-const asrTestChip = { querySelector: () => ({ addEventListener() {} }) };
+globalThis.setTimeout = () => 0;
+const asrTestChip = { querySelector: () => ({ addEventListener() {} }), remove() {} };
 globalThis.document = { getElementById: () => asrTestChip, createElement: () => asrTestChip, body: { appendChild() {} } };
 globalThis.window = { addEventListener() {} };
 const originalNavigator = globalThis.navigator;
