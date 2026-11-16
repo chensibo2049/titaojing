@@ -266,8 +266,12 @@ function startCoverLoop() {
     }
     if (coverVisible) coverRaf = requestAnimationFrame(loopCover);
   };
-  if (document.readyState === "complete") begin();
-  else window.addEventListener("load", begin, { once: true });
+  const idle = () => {
+    if ("requestIdleCallback" in window) requestIdleCallback(begin, { timeout: 1500 });
+    else setTimeout(begin, 300);
+  };
+  if (document.readyState === "complete") idle();
+  else window.addEventListener("load", idle, { once: true });
 }
 
 function applyPendingUpdate() {

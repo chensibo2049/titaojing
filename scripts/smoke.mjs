@@ -58,7 +58,8 @@ try {
 
   const waitVisible = (id, timeout = 15000) => page.waitForFunction((i) => { const e = document.getElementById(i); return e && !e.hidden; }, { timeout }, id);
 
-  await page.goto(BASE + "?debug=1", { waitUntil: "networkidle0", timeout: 30000 });
+  await page.goto(BASE + "?debug=1", { waitUntil: "domcontentloaded", timeout: 30000 });
+  await waitVisible("cover-stage", 20000);
   const ver = await page.$eval("#cover-version", (e) => e.textContent);
   check("封面版本号", /v\d+\.\d+\.\d+/.test(ver), ver);
   check("调试面板出现（?debug=1）", !!(await page.$("#tj-debug")));
