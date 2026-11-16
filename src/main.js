@@ -646,7 +646,7 @@ async function startCoach() {
     }
   }
   const kbdHint = $("coach-kbd-hint");
-  if (kbdHint) kbdHint.innerHTML = `站到位置后，也可以按 <kbd>空格</kbd> 开始（先有 ${countdownSeconds(s)} 秒倒计时）`;
+  if (kbdHint) kbdHint.innerHTML = `站到位置后，也可以按 <kbd>空格</kbd> 或翻页笔的「下一页」开始（先有 ${countdownSeconds(s)} 秒倒计时）`;
   const sub = $("coach-sub");
   if (sub) sub.textContent = `半透框是「板书区」（画面${s.boardSide === "left" ? "左" : "右"}侧），可对准教室里的黑板。没有黑板也可以忽略。目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生。`;
   const canvas = $("coach-canvas");
@@ -1718,9 +1718,11 @@ function onDocumentKey(e) {
 
   const space = e.key === " " || e.key === "Spacebar";
   const enter = e.key === "Enter";
+  // 翻页笔的「下一页」一般发出 PageDown：站在讲台前按一下，和空格一样开始 / 结束。
+  const clickerNext = e.key === "PageDown";
 
   // 电脑放在讲台上时，按空格即可开始 / 结束，不必走回去点按钮。
-  if (mode === "coach" && (space || enter)) {
+  if (mode === "coach" && (space || enter || clickerNext)) {
     const btn = $("btn-start-countdown");
     if (btn && !btn.disabled && !btn.hidden) {
       e.preventDefault();
@@ -1749,7 +1751,7 @@ function onDocumentKey(e) {
     return;
   }
 
-  if (mode === "camera" && space) {
+  if (mode === "camera" && (space || clickerNext)) {
     const pauseVeil = $("pause-veil");
     if (pauseVeil && !pauseVeil.hidden) return;
     e.preventDefault();
