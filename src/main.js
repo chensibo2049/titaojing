@@ -806,9 +806,9 @@ async function startCameraLive() {
   const asrLive = $("live-asr-state");
   if (micOn) {
     const speechSession = session;
-    const speechStartedAt = liveStart;
+    speechSession.speechStartedAt = liveStart;
     const speechOpen = () => !speechSession.speechClosed && (speechSession.finishing || (isActive() && liveStart && !paused));
-    const speechT = (meta) => Math.max(0, Math.min(speechSession.finishing ? speechSession.duration : Infinity, (performance.now() - speechStartedAt) / 1000 - ((meta && meta.agoSec) || 0)));
+    const speechT = (meta) => Math.max(0, Math.min(speechSession.finishing ? speechSession.duration : Infinity, (performance.now() - speechSession.speechStartedAt) / 1000 - ((meta && meta.agoSec) || 0)));
     speechHandle = startAsr({
       engine: s.asrEngine,
       lang: s.speechLang,
@@ -1133,6 +1133,8 @@ function resumeLive() {
   if (!paused || streamEnded) return;
   const gap = performance.now() - pausedAt;
   liveStart += gap;
+  // Keep ASR evidence on this session's active recording clock, not wall time.
+  if (Number.isFinite(session?.speechStartedAt)) session.speechStartedAt += gap;
   paused = false;
   try { if (recorder && recorder.state === "paused") recorder.resume(); } catch (_) {}
   if (speechHandle) speechHandle.resume();
@@ -1722,7 +1724,9 @@ function stillCanvas() {
   const ctx = still.getContext("2d");
   ctx.fillStyle = "#161410";
   ctx.fillRect(0, 0, still.width, still.height);
-  if (!$("replay-scene").hidden) ctx.drawImage($("replay-scene"), 0, 0, still.width, still.height);
+  const presenter = session?.kind === "demo" && $("replay-stage").querySelector(".demo-presenter-canvas");
+  if (presenter) ctx.drawImage(presenter, 0, 0, still.width, still.height);
+  else if (!$("replay-scene").hidden) ctx.drawImage($("replay-scene"), 0, 0, still.width, still.height);
   else if (!$("replay-video").hidden) drawVideoInto($("replay-video"), session?.mirror)(ctx, still.width, still.height);
   ctx.drawImage(ov, 0, 0, still.width, still.height);
   return still;

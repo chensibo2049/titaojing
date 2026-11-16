@@ -1358,6 +1358,7 @@ mark.shuici, .shuici {
 .speech-banner .local-asr .la-bar i { background: var(--gold-bright); }
 .speech-banner .btn-mini { pointer-events: auto; }
 .speech-banner .banner-close { margin-left: 8px; opacity: 0.8; }
+.speech-banner .banner-local-note { display: block; margin-top: 6px; line-height: 1.6; }
 #speech-preflight-local { margin: 4px 0 8px; }
 
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
+import vm from "node:vm";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -14,7 +15,7 @@ const print = host();
 globalThis.document = { getElementById: () => print };
 try {
   const result = await esbuild.build({
-    stdin: { contents: `export * from './src/observe.js'; export * from './src/report.js'; export * from './src/observe-ui.js'; export * from './src/records.js'; export { diagnose } from './src/analyze.js'; export { bakeDemoSession } from './src/demo.js';`, resolveDir: root },
+    stdin: { contents: `export * from './src/observe.js'; export * from './src/report.js'; export * from './src/observe-ui.js'; export * from './src/records.js'; export { diagnose } from './src/analyze.js'; export { bakeDemoSession } from './src/demo.js'; export { INDICATORS, trendSvg } from './src/chart.js';`, resolveDir: root },
     outfile: path.join(tmp, "test.mjs"), bundle: true, platform: "node", format: "esm", metafile: true, logLevel: "silent",
   });
   const api = await import(pathToFileURL(path.join(tmp, "test.mjs")).href);
@@ -135,6 +136,135 @@ try {
     const html = api.buildPrintReport(unsafe);
     assert.ok(!html.includes("<script>"));
     assert.ok(html.includes("&lt;script&gt;"));
+  });
+  // Run the actual page functions with only DOM/storage dependencies stubbed.
+  // Do not duplicate their arithmetic or rendering logic in the test.
+  const pageSource = (await readFile(path.join(root, "src/pages.js"), "utf8"))
+    .replace(/^import .*;\r?\n/gm, "")
+    .replace(/^export \{[^\n]*\};?\r?\n/gm, "")
+    .replace(/^export /gm, "");
+  const elements = new Map();
+  const element = id => {
+    if (!elements.has(id)) elements.set(id, { ...host(), listeners: {}, addEventListener(type, fn) { this.listeners[type] = fn; } });
+    return elements.get(id);
+  };
+  let stored = [], chartCalls = 0;
+  const legend = { checked: true, dataset: { k: "filler" }, addEventListener(type, fn) { this.change = fn; } };
+  element("compare-body").querySelectorAll = () => [legend];
+  const pages = vm.createContext({
+    $: element, esc: value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    fmtDate: api.fmtDate, fmtShortDate: api.fmtShortDate, fmtDur: api.fmtDur, fmtBytes: api.fmtBytes,
+    INDICATORS: api.INDICATORS,
+    trendSvg(points, options) {
+      chartCalls++;
+      assert.ok(points.every(p => api.INDICATORS.every(i => Number.isFinite(p.values[i.key]))), "chart must not receive missing data");
+      return api.trendSvg(points, options);
+    },
+    listSessions: async () => stored,
+    usage: async () => ({ videos: 0, sessionsBytes: 0, videoBytes: 0 }),
+    getLicense: () => ({ label: "测试", features: { compare: true, maxHistory: Infinity } }),
+  });
+  vm.runInContext(pageSource, pages);
+  const metricRecord = (id, startedAt, value) => ({
+    id, kind: "camera", startedAt, duration: 60,
+    metrics: { duration: 60, ...Object.fromEntries(api.INDICATORS.map(i => [i.key, value])), perMin: Object.fromEntries(api.INDICATORS.map(i => [i.key, value])), classRatio: value === null ? null : 0 },
+    diagnosis: { next: "保留旧建议", counts: { filler: value } },
+  });
+  const oldMetric = metricRecord("old-1", 1700000000000, 2);
+  const missingMetric = metricRecord("new-1", 1700000060000, null);
+  stored = [missingMetric, oldMetric];
+  const storedBefore = JSON.stringify(stored);
+  await pages.renderHistory({});
+  check("真实历史函数显示未统计，保留已知值且不改存储", () => {
+    const html = element("history-list").innerHTML;
+    assert.equal((html.match(/<b>未统计<\/b>/g) || []).length, 4);
+    assert.ok(html.includes("<b>2</b>"));
+    assert.equal(JSON.stringify(stored), storedBefore);
+  });
+  await pages.renderCompare({});
+  check("真实对比函数不把缺失次数、频率或朝向判为改善", () => {
+    const html = element("compare-body").innerHTML;
+    assert.equal((html.match(/未统计，无法比较/g) || []).length, 5);
+    assert.ok(!html.includes("少了 2.0"));
+    assert.ok(!html.includes("null"));
+    assert.ok(!html.includes("undefined"));
+    assert.ok(html.includes("不绘制补零趋势"));
+    assert.equal(chartCalls, 0);
+    assert.equal(JSON.stringify(stored), storedBefore);
+    legend.checked = false;
+    legend.change();
+    assert.ok(element("trend-host").innerHTML.includes("未统计"));
+    assert.equal(chartCalls, 0, "legend redraw must also avoid the chart");
+    legend.checked = true;
+  });
+  for (const [name, values] of [["较早缺失", [null, 2]], ["两次均缺失", [null, null]]]) {
+    stored = [metricRecord("new-1", 1700000060000, values[1]), metricRecord("old-1", 1700000000000, values[0])];
+    await pages.renderCompare({});
+    check(`真实对比函数在${name}时也不判断改善或变差`, () => {
+      const html = element("compare-body").innerHTML;
+      assert.equal((html.match(/未统计，无法比较/g) || []).length, 5);
+      assert.ok(!html.includes('class="delta better"'));
+      assert.ok(!html.includes('class="delta worse"'));
+      assert.equal(chartCalls, 0);
+    });
+  }
+  stored = [missingMetric, metricRecord("zero-1", 1700000000000, 0)];
+  await pages.renderCompare({});
+  check("缺失趋势表同时保留未统计和真实零值", () => {
+    const html = element("compare-body").innerHTML;
+    assert.ok(html.includes("<td>未统计</td>"));
+    assert.ok(html.includes("<td>0</td>"));
+    assert.equal(chartCalls, 0);
+  });
+  const zeroMetric = metricRecord("zero-1", 1700000060000, 0);
+  stored = [zeroMetric, oldMetric];
+  await pages.renderHistory({});
+  await pages.renderCompare({});
+  check("真实数值零在列表、对比、朝向与完整趋势中仍保留", () => {
+    assert.equal((element("history-list").innerHTML.match(/<b>0<\/b>/g) || []).length, 4);
+    const html = element("compare-body").innerHTML;
+    assert.ok(html.includes("0 次 <small>0/分</small>"));
+    assert.ok(html.includes("少了 2.0 次/分"));
+    assert.ok(html.includes("<td>0%</td>"));
+    assert.ok(!html.includes("未统计，无法比较"));
+    assert.equal(chartCalls, 1);
+  });
+  stored = [{ ...missingMetric, metrics: { duration: null } }, oldMetric];
+  await pages.renderHistory({});
+  await pages.renderCompare({});
+  check("旧记录缺少数值字段也不会补零或使对比崩溃", () => {
+    assert.ok(element("history-list").innerHTML.includes("未统计"));
+    assert.equal((element("compare-body").innerHTML.match(/未统计，无法比较/g) || []).length, 5);
+    assert.equal(chartCalls, 1);
+  });
+  check("真实 JSON 清洗函数保留缺失、零与无时间事件，不修改原记录", () => {
+    const imported = JSON.parse(JSON.stringify({
+      ...missingMetric, duration: null,
+      metrics: { duration: null, posture: 0, gaze: null, filler: "", perMin: { posture: 0, gaze: null, filler: false }, classRatio: null, notesRatio: 0 },
+      diagnosis: { good: "旧点评", next: "旧建议", counts: { posture: 0, gaze: null }, classRatio: null },
+      events: [{ t: null, label: "无时间" }, { label: "未记录时间" }, { t: 0, label: "零秒" }],
+    }));
+    const before = JSON.stringify(imported);
+    const clean = pages.sanitizeRecord(imported);
+    for (const key of ["gaze", "filler", "board"]) {
+      assert.equal(clean.metrics[key], null, key);
+      assert.equal(clean.metrics.perMin[key], null, key);
+      assert.equal(clean.diagnosis.counts[key], null, key);
+    }
+    assert.equal(clean.duration, null);
+    assert.equal(clean.metrics.duration, null);
+    assert.equal(clean.diagnosis.duration, null);
+    assert.equal(clean.metrics.classRatio, null);
+    assert.equal(clean.diagnosis.classRatio, null);
+    assert.equal(clean.metrics.posture, 0);
+    assert.equal(clean.metrics.perMin.posture, 0);
+    assert.equal(clean.metrics.notesRatio, 0);
+    assert.equal(clean.diagnosis.counts.posture, 0);
+    assert.equal(clean.events[0].t, null);
+    assert.equal(clean.events[1].t, null);
+    assert.equal(clean.events[2].t, 0);
+    assert.equal(clean.diagnosis.good, "旧点评");
+    assert.equal(JSON.stringify(imported), before);
   });
   check("模块依赖图没有循环", () => {
     const graph = result.metafile.inputs;

@@ -1,5 +1,5 @@
-export const PRODUCT = "试讲体态镜";
-export const BRAND = "沉思波 · 体态镜";
+export const PRODUCT = "开讲 · 试讲小结";
+export const BRAND = "沉思波 · OpenPodium";
 
 export const SUGGESTED_SEC = 120;
 export const MIN_STOP_SEC = 15;

@@ -17,6 +17,9 @@ import { currentNotes, notesHtml } from "./changelog.js";
 import { renderProfile, wireProfile } from "./profile.js";
 
 const KIND_LABEL = { camera: "真实试讲", demo: "一键演示" };
+const metricText = (value, suffix = "") => Number.isFinite(value) ? `${value}${suffix}` : "未统计";
+const ratioText = value => Number.isFinite(value) ? `${Math.round(value * 100)}%` : "未统计";
+const durationText = value => Number.isFinite(value) ? fmtDur(value) : "未统计";
 
 /* ——— 历史记录 ——— */
 
@@ -48,9 +51,9 @@ export async function renderHistory(ctx) {
     return `<article class="hist-item" data-id="${esc(s.id)}">
       <a class="hist-thumb" href="#/session/${esc(s.id)}">${s.thumb ? `<img src="${esc(s.thumb)}" alt="" loading="lazy">` : `<span>无缩略图</span>`}</a>
       <div class="hist-main">
-        <div class="hist-top"><span class="tag ${s.kind === "demo" ? "demo" : "camera"}">${KIND_LABEL[s.kind] || "记录"}</span><span class="hist-date">${esc(fmtDate(s.startedAt))}</span><span class="hist-dur">${fmtDur(m.duration)}</span>${s.hasVideo ? `<span class="tag video">录像 ${fmtBytes(s.videoSize)}</span>` : ""}</div>
+        <div class="hist-top"><span class="tag ${s.kind === "demo" ? "demo" : "camera"}">${KIND_LABEL[s.kind] || "记录"}</span><span class="hist-date">${esc(fmtDate(s.startedAt))}</span><span class="hist-dur">${durationText(m.duration)}</span>${s.hasVideo ? `<span class="tag video">录像 ${fmtBytes(s.videoSize)}</span>` : ""}</div>
         <div class="hist-counts">
-          ${INDICATORS.map((i) => `<span><i style="background:${i.color}"></i>${i.label} <b>${m[i.key] ?? 0}</b></span>`).join("")}
+          ${INDICATORS.map((i) => `<span><i style="background:${i.color}"></i>${i.label} <b>${metricText(m[i.key])}</b></span>`).join("")}
         </div>
         <p class="hist-next">${esc((s.diagnosis && s.diagnosis.next) || "")}</p>
         <div class="hist-actions">
@@ -125,7 +128,8 @@ export function wireHistoryActions() {
   });
 }
 
-const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+// Missing or malformed JSON numbers are unknown, never measured zero.
+const num = (v) => (Number.isFinite(v) ? v : null);
 const str = (v, n = 400) => String(v ?? "").slice(0, n);
 
 /** Imported files are untrusted: coerce every field we render. */
@@ -159,7 +163,20 @@ function sanitizeRecord(s) {
 /* ——— 进步对比 ——— */
 
 export function trendPoints(listNewestFirst) {
-  return listNewestFirst.slice().reverse().map((s) => ({ label: fmtShortDate(s.startedAt).split(" ")[0], values: s.metrics.perMin, id: s.id }));
+  return listNewestFirst.slice().reverse().map((s) => ({ label: fmtShortDate(s.startedAt).split(" ")[0], values: s.metrics?.perMin || {}, id: s.id }));
+}
+
+function historyTrend(list, visible) {
+  if (list.length < 2) return `<p class="page-note">真实试讲达到两次后显示趋势。</p>`;
+  const points = trendPoints(list);
+  // The legacy chart coerces missing values to zero. Use a plain table instead.
+  if (points.some(p => INDICATORS.some(i => !Number.isFinite(p.values[i.key])))) {
+    const indicators = INDICATORS.filter(i => visible.has(i.key));
+    return `<p class="page-note">存在未统计项，改用表格保留历史值，不绘制补零趋势。未统计不是零；旧记录的来源、覆盖与规则版本可能不同，不作同口径优劣判断。</p>
+      <table class="cmp-table"><thead><tr><th>记录</th>${indicators.map(i => `<th>${i.label}</th>`).join("")}</tr></thead>
+      <tbody>${points.map(p => `<tr><th>${esc(p.label)}</th>${indicators.map(i => `<td>${metricText(p.values[i.key])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  }
+  return trendSvg(points, { visible, unit: " 次/分" });
 }
 
 export async function renderCompare(ctx, focusId) {
@@ -179,22 +196,27 @@ export async function renderCompare(ctx, focusId) {
   }
   let b = pool.find((x) => x.id === focusId) || pool[0];
   let a = pool.find((x) => x.startedAt < b.startedAt) || pool.find((x) => x.id !== b.id);
-  const opt = (sel) => pool.map((s) => `<option value="${esc(s.id)}" ${s.id === sel.id ? "selected" : ""}>${esc(fmtDate(s.startedAt))} · ${KIND_LABEL[s.kind]} · ${fmtDur(s.metrics.duration)}</option>`).join("");
+  const opt = (sel) => pool.map((s) => `<option value="${esc(s.id)}" ${s.id === sel.id ? "selected" : ""}>${esc(fmtDate(s.startedAt))} · ${KIND_LABEL[s.kind]} · ${durationText(s.metrics?.duration)}</option>`).join("");
   const visible = new Set(INDICATORS.map((i) => i.key));
 
   const draw = () => {
     const [older, newer] = a.startedAt <= b.startedAt ? [a, b] : [b, a];
     const rows = [
-      ["时长", fmtDur(older.metrics.duration), fmtDur(newer.metrics.duration), ""],
+      ["时长", durationText(older.metrics?.duration), durationText(newer.metrics?.duration), ""],
       ...INDICATORS.map((ind) => {
-        const x = older.metrics, y = newer.metrics;
-        const dx = x.perMin[ind.key], dy = y.perMin[ind.key];
-        const cls = dy < dx - 0.05 ? "better" : dy > dx + 0.05 ? "worse" : "same";
-        const txt = cls === "better" ? `少了 ${(dx - dy).toFixed(1)} 次/分` : cls === "worse" ? `多了 ${(dy - dx).toFixed(1)} 次/分` : "差不多";
-        return [ind.label, `${x[ind.key]} 次 <small>${dx}/分</small>`, `${y[ind.key]} 次 <small>${dy}/分</small>`, `<span class="delta ${cls}">${txt}</span>`];
+        const x = older.metrics || {}, y = newer.metrics || {};
+        const dx = x.perMin?.[ind.key], dy = y.perMin?.[ind.key];
+        const comparable = Number.isFinite(dx) && Number.isFinite(dy);
+        const cls = !comparable ? "" : dy < dx - 0.05 ? "better" : dy > dx + 0.05 ? "worse" : "same";
+        const txt = !comparable ? "未统计，无法比较" : cls === "better" ? `少了 ${(dx - dy).toFixed(1)} 次/分` : cls === "worse" ? `多了 ${(dy - dx).toFixed(1)} 次/分` : "差不多";
+        return [ind.label, `${metricText(x[ind.key], " 次")} <small>${metricText(dx, "/分")}</small>`, `${metricText(y[ind.key], " 次")} <small>${metricText(dy, "/分")}</small>`, `<span class="delta ${cls}">${txt}</span>`];
       }),
-      ["面向学生", `${Math.round(older.metrics.classRatio * 100)}%`, `${Math.round(newer.metrics.classRatio * 100)}%`,
-        (() => { const d = Math.round((newer.metrics.classRatio - older.metrics.classRatio) * 100); return `<span class="delta ${d > 2 ? "better" : d < -2 ? "worse" : "same"}">${d > 0 ? "+" : ""}${d}%</span>`; })()],
+      ["面向学生", ratioText(older.metrics?.classRatio), ratioText(newer.metrics?.classRatio),
+        (() => {
+          if (!Number.isFinite(older.metrics?.classRatio) || !Number.isFinite(newer.metrics?.classRatio)) return "未统计，无法比较";
+          const d = Math.round((newer.metrics.classRatio - older.metrics.classRatio) * 100);
+          return `<span class="delta ${d > 2 ? "better" : d < -2 ? "worse" : "same"}">${d > 0 ? "+" : ""}${d}%</span>`;
+        })()],
     ];
     const trendList = cams.slice(0, 20);
     host.innerHTML = `
@@ -211,17 +233,17 @@ export async function renderCompare(ctx, focusId) {
         <thead><tr><th></th><th>较早</th><th>较新</th><th>变化</th></tr></thead>
         <tbody>${rows.map((r) => `<tr><th>${r[0]}</th><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")}</tbody>
       </table>
-      <p class="page-note">两次时长不同，所以「变化」按每分钟次数比较。次数越少越好；「面向学生」越高越好。</p>
+      <p class="page-note">「变化」仅在两次都有统计值时按每分钟次数计算；未统计不是零。旧记录的来源、覆盖与规则版本可能不同，变化仅供回看，不直接判断表现优劣。</p>
       <section class="trend-card">
         <h3>四项指标趋势 <small>每分钟次数 · 最近 ${trendList.length} 次真实试讲</small></h3>
         <div class="trend-legend">${INDICATORS.map((i) => `<label><input type="checkbox" data-k="${i.key}" ${visible.has(i.key) ? "checked" : ""}><i style="background:${i.color}"></i>${i.label}</label>`).join("")}</div>
-        <div id="trend-host">${trendList.length >= 2 ? trendSvg(trendPoints(trendList), { visible, unit: " 次/分" }) : `<p class="page-note">真实试讲达到两次后显示趋势。</p>`}</div>
+        <div id="trend-host">${historyTrend(trendList, visible)}</div>
       </section>`;
     $("cmp-a").addEventListener("change", (e) => { a = pool.find((x) => x.id === e.target.value) || a; draw(); });
     $("cmp-b").addEventListener("change", (e) => { b = pool.find((x) => x.id === e.target.value) || b; draw(); });
     host.querySelectorAll(".trend-legend input").forEach((cb) => cb.addEventListener("change", () => {
       if (cb.checked) visible.add(cb.dataset.k); else visible.delete(cb.dataset.k);
-      if (trendList.length >= 2) $("trend-host").innerHTML = trendSvg(trendPoints(trendList), { visible, unit: " 次/分" });
+      $("trend-host").innerHTML = historyTrend(trendList, visible);
     }));
   };
   draw();

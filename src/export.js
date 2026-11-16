@@ -111,7 +111,7 @@ export async function exportSummary(session, stillCanvas, opts = {}) {
       const a = document.createElement("a");
       const url = URL.createObjectURL(blob);
       a.href = url;
-      a.download = `试讲体态镜-${when.getMonth() + 1}月${when.getDate()}日.png`;
+      a.download = `开讲小结-${when.getMonth() + 1}月${when.getDate()}日.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
       resolve(blob);

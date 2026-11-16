@@ -33,7 +33,7 @@ export function buildPrintReport(session, { stillDataUrl = "", watermark = false
   const missing = o.missing.length ? o.missing.map(text => `<li>${esc(text)}</li>`).join("") : "<li>已覆盖项目仍受单摄像头与转写误差限制；未标记不代表没有发生。</li>";
   const html = `
     <header class="pr-head">
-      <div><p class="pr-brand">沉思波 · 体态镜</p><h1>试讲小结</h1></div>
+      <div><p class="pr-brand">沉思波 · OpenPodium 开讲</p><h1>试讲小结</h1></div>
       ${watermark ? `<span class="pr-mark">试用版</span>` : ""}
     </header>
     <p class="pr-meta">${fmtDate(session.startedAt || Date.now())} · 时长 ${fmtDur(duration)} · ${esc(context.sourceLabel)}${session.profileName ? " · " + esc(session.profileName) : ""} · 朝向镜头约 ${ratio}</p>

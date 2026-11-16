@@ -91,6 +91,17 @@ for(const [w,h] of [[1366,768],[390,844],[360,800],[844,390]]) {
     return {vp:[innerWidth,innerHeight],overflow:document.documentElement.scrollWidth>innerWidth+1,stage:box('replay-stage'),overlay:box('replay-overlay'),timeline:box('timeline')};
   });
   check('双端布局 '+w,!m.overflow&&m.stage.width>0&&m.stage.height<h&&m.stage.y>=-1&&m.stage.bottom<=h+1&&Math.abs(m.stage.width-m.overlay.width)<2&&Math.abs(m.stage.height-m.overlay.height)<2,m);
+  const controls = await p.evaluate(() => {
+    const dock = document.querySelector('.timeline-dock');
+    const r = dock.getBoundingClientRect();
+    const details = document.getElementById('observe-details');
+    return {collapsed: !details.open, position: getComputedStyle(dock).position, top:r.top, bottom:r.bottom, height:innerHeight};
+  });
+  check('观察默认折叠与控制条可达 '+w, controls.collapsed && (w>900 || (controls.position==='fixed' && controls.top>=0 && controls.bottom<=h+1)), controls);
+  await activate('#observe-details > summary');
+  check('完整观察可以展开 '+w, await p.evaluate(()=>document.getElementById('observe-details').open && !document.getElementById('observe-sheet').hidden && document.getElementById('observe-sheet').textContent.length>200));
+  await activate('#observe-details > summary');
+  await p.evaluate(()=>document.getElementById('replay-stage').scrollIntoView({block:'start',behavior:'instant'}));
   await p.screenshot({path:out+'/'+w+'x'+h+'-板书.png'});
   await seek(4);
   await p.evaluate(()=>document.getElementById('replay-stage').scrollIntoView({block:'start',behavior:'instant'}));

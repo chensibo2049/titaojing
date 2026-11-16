@@ -129,7 +129,7 @@ function mainHarness() {
     visionStatus: () => visionDeferred ? {} : ({ pose: true }), initVision: () => visionDeferred.promise,
     banner: (...args) => banners.push(args), speechSupported: () => true,
     currentProfileName: async () => '', debugSessionStart() {}, debugSessionEnd() {}, debugEnabled: () => false,
-    startAsr(options) { const stop = deferred(); const h = { options, stopDeferred: stop, engine: 'webspeech', stop: () => stop.promise }; recognizers.push(h); return h; },
+    startAsr(options) { const stop = deferred(); const h = { options, stopDeferred: stop, engine: 'webspeech', stop: () => stop.promise, pause() {}, resume() {} }; recognizers.push(h); return h; },
     addFiller: (sess, t, word) => sess.events.push({ t, word }),
     addTranscript: (sess, t, text, final) => sess.transcripts.push({ t, text, final }),
     flashFiller() {}, debugSpeech() {}, feedClassroomSim() {}, setAsrStatusLabel() {},
@@ -148,7 +148,7 @@ function mainHarness() {
   });
   const text = sources['main.js'];
   box.run(text.slice(text.indexOf('let mode ='), text.indexOf('\nfunction applyPendingUpdate')));
-  const names = ['applyPendingUpdate', 'clearDemoView', 'stopEverything', 'startDemo', 'countdownSeconds', 'runCountdown', 'startCameraLive', 'pickMime', 'startRecording', 'finishCamera', 'saveToHistory', 'enqueueIfConsented', 'setHashSilently'];
+  const names = ['applyPendingUpdate', 'clearDemoView', 'stopEverything', 'startDemo', 'countdownSeconds', 'runCountdown', 'startCameraLive', 'pickMime', 'startRecording', 'pauseLive', 'resumeLive', 'finishCamera', 'saveToHistory', 'enqueueIfConsented', 'setHashSilently'];
   box.run(`let coverRaf = 0; let lastSaveStatus = null;\n${names.map(mainFunction).join('\n')}`);
   box.run('mode = "coach"; micOn = true; mediaStream = {};');
   const api = box.run(`({${names.join(',')}})`);
@@ -215,6 +215,40 @@ test('A finishing while B starts: recorder/transcript/finalization stay with A',
   assert.equal(a.videoBlob.size, size);
   assert.equal(aChunks.length, chunkCount);
   assert.equal(a.transcripts.length, transcripts);
+});
+
+test('ASR timestamps exclude repeated pauses and keep A clock while B starts', async () => {
+  const h = mainHarness();
+  const a = await h.start(), asr = h.recognizers[0];
+  await h.timers.tick(10000);
+  h.api.pauseLive('synthetic pause');
+  await h.timers.tick(60000);
+  asr.options.onTranscript({ text: 'ignored while paused', final: true });
+  assert.equal(a.transcripts.length, 0);
+  h.api.resumeLive();
+  await h.timers.tick(5000);
+  asr.options.onTranscript({ text: 'after first pause', final: true });
+  asr.options.onFiller('然后', { agoSec: 2 });
+  assert.equal(a.transcripts.at(-1).t, 15);
+  assert.equal(a.events.at(-1).t, 13);
+  h.api.pauseLive('second pause');
+  await h.timers.tick(30000);
+  h.api.resumeLive();
+  await h.timers.tick(4000);
+  asr.options.onTranscript({ text: 'after second pause', final: true });
+  assert.equal(a.transcripts.at(-1).t, 19);
+  a.duration = 19;
+  const finishing = h.api.finishCamera();
+  await drain();
+  h.switchAway();
+  const startingB = h.api.startCameraLive();
+  h.attachments[1].resolve(); await drain();
+  asr.options.onTranscript({ text: 'A final while B starts', final: true, agoSec: 2 });
+  assert.equal(a.transcripts.at(-1).t, 17);
+  assert.equal(h.get('session').transcripts.length, 0);
+  h.recordings[0].end(); asr.stopDeferred.resolve();
+  await settled(finishing);
+  await h.timers.tick(3280); await settled(startingB);
 });
 
 for (const stage of ['attach', 'vision', 'countdown']) {
@@ -487,6 +521,31 @@ test('Server ASR positive control: explicit consent can display an in-memory res
   assert.equal(h.q('result').value, 'synthetic successful result');
   assert.equal(h.q('code').value, '');
   assert.equal(h.q('consent').checked, false);
+});
+
+test('Replay still captures the visible demo presenter, with 2D/video fallbacks', () => {
+  for (const mode of ['three', '2d', 'video']) {
+    const draws = [];
+    const presenter = { kind: 'presenter' };
+    const overlay = { kind: 'overlay', width: 800, height: 600 };
+    const scene = { kind: 'scene', hidden: mode !== '2d' };
+    const video = { kind: 'video', hidden: mode !== 'video' };
+    const nodes = {
+      'replay-stage': { querySelector: () => mode === 'three' ? presenter : null },
+      'replay-overlay': overlay, 'replay-scene': scene, 'replay-video': video,
+    };
+    const context = { fillRect() {}, drawImage: image => draws.push(image.kind) };
+    const box = sandbox({
+      session: { kind: mode === 'video' ? 'camera' : 'demo', mirror: true },
+      $: id => nodes[id],
+      document: { createElement: () => ({ getContext: () => context }) },
+      drawVideoInto: image => ctx => ctx.drawImage(image),
+    });
+    box.run(mainFunction('stillCanvas'));
+    const still = box.run('stillCanvas()');
+    assert.equal(still.width, 800); assert.equal(still.height, 600);
+    assert.deepEqual(draws, [mode === 'three' ? 'presenter' : mode === '2d' ? 'scene' : 'video', 'overlay']);
+  }
 });
 
 let failed = 0;
