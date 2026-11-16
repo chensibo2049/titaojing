@@ -1,4 +1,5 @@
 import { BRAND, PRODUCT } from "./constants.js";
+import { metricsOf } from "./records.js";
 import { VERSION_LABEL } from "./version.js";
 
 function fmt(sec) {
@@ -33,7 +34,7 @@ export async function exportSummary(session, stillCanvas, opts = {}) {
   ctx.font = "400 28px 'Noto Sans CJK SC', 'PingFang SC', sans-serif";
   ctx.fillStyle = "#6f675c";
   ctx.fillText(dateStr, 72, 255);
-  ctx.fillText(session.kind === "demo" ? "一键演示样本" : "本机试讲记录", 72, 298);
+  ctx.fillText(session.kind === "demo" ? "预设动画／字幕样本，非识别结果" : "本机试讲记录 · 单摄像头估计", 72, 298);
 
   if (stillCanvas) {
     const sw = 936, sh = Math.round(sw * (stillCanvas.height / stillCanvas.width || 16 / 9));
@@ -52,11 +53,12 @@ export async function exportSummary(session, stillCanvas, opts = {}) {
     ctx.stroke();
   }
 
+  const metrics = metricsOf(session);
   const counts = [
-    ["教态", d.counts?.posture ?? 0],
-    ["视线落下", d.counts?.gaze ?? 0],
-    ["口头禅", d.counts?.filler ?? 0],
-    ["写板未回视", d.counts?.board ?? 0],
+    ["教态", metrics.posture ?? "未统计"],
+    ["视线落下", metrics.gaze ?? "未统计"],
+    ["口头禅", metrics.filler ?? "未统计"],
+    ["写板未回视", metrics.board ?? "未统计"],
   ];
   const boxY = 1080;
   counts.forEach((item, i) => {
@@ -77,7 +79,7 @@ export async function exportSummary(session, stillCanvas, opts = {}) {
 
   ctx.fillStyle = "#2f6f6a";
   ctx.font = "500 22px 'Noto Sans CJK SC', 'PingFang SC', sans-serif";
-  ctx.fillText("这一次最提神的一点", 72, 1440);
+  ctx.fillText("本次观测与来源", 72, 1440);
   ctx.fillStyle = "#1b1712";
   ctx.font = "400 30px 'Noto Serif CJK SC', 'Songti SC', serif";
   wrapText(ctx, d.good || "", 72, 1490, 936, 48);
@@ -92,7 +94,7 @@ export async function exportSummary(session, stillCanvas, opts = {}) {
   ctx.fillStyle = "#6f675c";
   ctx.font = "400 20px 'Noto Sans CJK SC', sans-serif";
   ctx.fillText("视频留在本机，不上传。这不是心理或医学测评。", 72, 1860);
-  ctx.fillText(`沉思波 · 体态镜  ${VERSION_LABEL}`, 72, 1892);
+  ctx.fillText(`OpenPodium · 开讲  ${VERSION_LABEL}`, 72, 1892);
 
   if (watermark) {
     ctx.save();

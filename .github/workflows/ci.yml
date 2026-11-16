@@ -3,9 +3,12 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
-# 同一分支连续推送时，只跑最新一次，省下排队时间。
+permissions:
+  contents: read
+# PR 更新取消旧检查；分支和 tag 的发布检查不因后续运行中断。
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -20,13 +23,17 @@ jobs:
           node-version: "20"
           cache: npm
       - name: 文档链接检查
-        run: node scripts/check-docs.mjs
+        run: npm run check-docs
       - name: 安装依赖并取 WASM
         run: npm ci
       - name: 规则与页面检查（npm test：听写包清单、规则引擎、介绍页、404 页等）
         run: npm test
       - name: 构建
         run: npm run build
+      - name: 制品来源与完整性
+        run: node scripts/verify-build.mjs dist --release
+      - name: 服务器听写客户端契约（模拟传输，不代验公网）
+        run: node server/asr/test-client.mjs
       - name: 冒烟测试
         run: npm run smoke
       - name: 训练脚手架（合成数据，无需 GPU）
@@ -46,14 +53,29 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "20", cache: npm }
+      - name: 校验 tag 与 package 版本一致
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const { version } = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const expected = `v${version}`;
+          if (process.env.GITHUB_REF_NAME !== expected) {
+            throw new Error(`tag ${process.env.GITHUB_REF_NAME} 与 package 版本不一致，应为 ${expected}`);
+          }
+          NODE
       - run: npm ci && npm run build && python3 scripts/package.py
       - uses: softprops/action-gh-release@v2
         with:
           files: release/*.zip
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

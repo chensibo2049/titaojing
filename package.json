@@ -1,10 +1,10 @@
 {
   "name": "titaojing",
-  "version": "1.6.9",
+  "version": "1.7.0",
   "private": true,
   "description": "OpenPodium · 开讲：一面给试讲与表达用的镜子",
   "license": "Apache-2.0",
-  "homepage": "https://chensibo2049.github.io/titaojing/",
+  "homepage": "https://openpodium.chensibo.cn/",
   "engines": {
     "node": ">=18"
   },
@@ -15,7 +15,7 @@
     "build:dev": "node scripts/fetch-models.mjs && node scripts/build.mjs --dev-only",
     "serve": "python3 scripts/serve.py dist",
     "dev": "npm run build:dev && python3 scripts/serve.py .",
-    "test": "node scripts/check-v11.mjs",
+    "test": "node scripts/check-v11.mjs && node scripts/check-observations.mjs && node scripts/check-report.mjs && node scripts/check-lifecycle.mjs",
     "check-docs": "node scripts/check-docs.mjs",
     "smoke": "node scripts/smoke.mjs",
     "qa": "node scripts/qa-v1.mjs",

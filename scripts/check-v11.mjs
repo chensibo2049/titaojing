@@ -16,7 +16,7 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.9", pkg.version === "1.6.9", pkg.version);
+check("package.json 版本为 1.7.0", pkg.version === "1.7.0", pkg.version);
 const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 check("锁文件版本与应用一致", lock.version === pkg.version && lock.packages[""].version === pkg.version);
 
@@ -33,7 +33,8 @@ check("authEndpoint 默认为空", /authEndpoint:\s*""/.test(config));
 const banned = ["赋能", "大模型", "智能诊断"];
 const scanDirs = ["src", "docs", "landing", "index.html", "README.md", "CHANGELOG.md", "config.js"];
 const hits = [];
-const skip = new Set(["TRAINING.md"]);
+// 内部梳理是历史事实快照，不是产品展示文案；仍扫描其余公开说明。
+const skip = new Set(["TRAINING.md", "项目梳理"]);
 const walk = (p) => {
   const st = fs.statSync(p);
   if (st.isDirectory()) {
@@ -130,9 +131,7 @@ await esbuild.build({
 globalThis.asrTestDownloads = 0;
 globalThis.asrTestCached = false;
 globalThis.asrTestAutoEnabled = false;
-const originalSetTimeout = globalThis.setTimeout;
-globalThis.setTimeout = () => 0;
-const asrTestChip = { querySelector: () => ({ addEventListener() {} }), remove() {} };
+const asrTestChip = { remove() {}, querySelector: () => ({ addEventListener() {} }) };
 globalThis.document = { getElementById: () => asrTestChip, createElement: () => asrTestChip, body: { appendChild() {} } };
 globalThis.window = { addEventListener() {} };
 const originalNavigator = globalThis.navigator;
@@ -156,7 +155,6 @@ delete globalThis.asrTestCached;
 delete globalThis.asrTestDownloads;
 delete globalThis.document;
 delete globalThis.window;
-globalThis.setTimeout = originalSetTimeout;
 Object.defineProperty(globalThis, "navigator", { configurable: true, value: originalNavigator });
 try { fs.unlinkSync(tmpAsrUi); } catch (_) {}
 
@@ -383,8 +381,8 @@ await checkNo3dSource(root, check);
 await checkDemoTimeline(check);
 for (const f of ["index.html", "landing/index.html"]) {
   const html = fs.readFileSync(path.join(root, f), "utf8");
-  const img = (html.match(/property="og:image" content="https:\/\/chensibo2049\.github\.io\/titaojing\/([^"]+)"/) || [])[1];
-  check(`${f} 有分享卡片（og:image 指向仓库内的图）`, !!img && fs.existsSync(path.join(root, img)) && /twitter:card/.test(html) && !/chensibo\.cn/.test(html.match(/og:[^>]+/g).join(" ")), img);
+  const img = (html.match(/property="og:image" content="https:\/\/openpodium\.chensibo\.cn\/([^"]+)"/) || [])[1];
+  check(`${f} 有分享卡片（正式域名与仓库内图片）`, !!img && fs.existsSync(path.join(root, img)) && /twitter:card/.test(html) && /property="og:url" content="https:\/\/openpodium\.chensibo\.cn\//.test(html), img);
 }
 
 

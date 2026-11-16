@@ -8,6 +8,7 @@ if [[ "$HOST" != quan2 ]]; then
   exit 1
 fi
 node scripts/检查无3D构建.mjs dist
+node scripts/verify-build.mjs dist --release
 BUILD_ID="$(node -p 'JSON.parse(require("fs").readFileSync("dist/version.json", "utf8")).buildId')"
 [[ "$BUILD_ID" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]{8}$ ]]
 RELEASE="$(date -u +%Y%m%dT%H%M%SZ)-$BUILD_ID"
@@ -32,7 +33,7 @@ BASE="$1"
 RELEASE="$2"
 cd "$BASE/releases/$RELEASE"
 sha256sum --check "$BASE/manifests/$RELEASE.sha256"
-python3 - "$BASE/manifests/$RELEASE.sha256" <<'PY'
+python3 -I - "$BASE/manifests/$RELEASE.sha256" <<'PY'
 from pathlib import Path
 import sys
 expected = {line.rstrip('\n').split('  ', 1)[1] for line in Path(sys.argv[1]).read_text().splitlines()}

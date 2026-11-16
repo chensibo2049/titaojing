@@ -15,7 +15,7 @@ window.TITAOJING_CONFIG = {
   editions: {
     trial: {
       label: "试用版",
-      maxHistory: 5,        // 本机最多保留几次真实试讲（一键演示不计入）
+      maxHistory: Infinity,        // 本机最多保留几次真实试讲（一键演示不计入）
       saveVideo: true,      // 是否允许把录像存进本机历史
       compare: true,        // 进步对比
       printReport: true,    // 打印 / 存为 PDF
@@ -52,6 +52,9 @@ window.TITAOJING_CONFIG = {
   // 若填写，目录下需有 model.int8.onnx 与 tokens.txt（见 assets/asr/manifest.json 的 sha256），并允许跨域（Access-Control-Allow-Origin）。
   // 可用 `npm run fetch-asr` 下载到本地后上传到自己的对象存储。
   asrModelBase: "",
+
+  // 可选录后服务：仅同源 HTTPS，空值表示未接入；访问码不放配置。
+  asrServerEndpoint: "",
 
   // 云端账号服务地址。留空（默认）时，注册 / 登录表单只作说明，不会发送邮箱或密码。
   authEndpoint: ""

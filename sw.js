@@ -13,6 +13,7 @@ const SHELL = [
   "index.html",
   `assets/app.bundle.js?v=${BUILD_ID}`,
   `assets/app.css?v=${BUILD_ID}`,
+  `assets/tokens.css?v=${BUILD_ID}`,
   `config.js?v=${BUILD_ID}`,
   "manifest.webmanifest",
   "assets/favicon.svg",
@@ -49,6 +50,7 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes("/api/")) return; // Never cache authenticated API/audio results.
   // Retired decorative assets must never re-enter the shell cache.
   if (/\/assets\/(?:characters\/|vendor\/draco\/|character-scene\.js)|\/[^/]*3d\.(?:jpg|gif|webp|mp4)$|\.(?:glb|gltf)$/i.test(url.pathname)) {
     event.respondWith(new Response("Decorative 3D removed", { status: 410 }));

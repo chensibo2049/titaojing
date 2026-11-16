@@ -67,7 +67,7 @@ export function startAsr(opts = {}) {
     switchToLocal() {
       if (switched) return false;
       switched = true;
-      try { inner && inner.stop(); } catch (_) {}
+      try { if (inner) Promise.resolve(inner.stop()).catch(() => {}); } catch (_) {}
       inner = startSherpa(opts);
       proxy.engine = "sherpa";
       proxy.ready = inner.ready;

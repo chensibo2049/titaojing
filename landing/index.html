@@ -10,19 +10,20 @@
   <meta property="og:locale" content="zh_CN">
   <meta property="og:title" content="OpenPodium · 开讲：一面给试讲用的镜子">
   <meta property="og:description" content="把电脑放在讲台或课桌上，对着镜头讲一段课。教态、视线和口头禅画在画面上，讲完即可回看。视频默认只留在本机。">
-  <meta property="og:url" content="https://chensibo2049.github.io/titaojing/landing/">
-  <meta property="og:image" content="https://chensibo2049.github.io/titaojing/landing/images/replay.jpg">
+  <meta property="og:url" content="https://openpodium.chensibo.cn/landing/">
+  <meta property="og:image" content="https://openpodium.chensibo.cn/landing/images/replay.jpg">
   <meta property="og:image:width" content="960">
   <meta property="og:image:height" content="617">
   <meta property="og:image:alt" content="2D 人物演示回放示例：时间线与预设提示，非真实识别">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="OpenPodium · 开讲：一面给试讲用的镜子">
   <meta name="twitter:description" content="把电脑放在讲台或课桌上，对着镜头讲一段课。教态、视线和口头禅画在画面上，讲完即可回看。视频默认只留在本机。">
-  <meta name="twitter:image" content="https://chensibo2049.github.io/titaojing/landing/images/replay.jpg">
-  <link rel="canonical" href="https://chensibo2049.github.io/titaojing/landing/">
-  <meta name="theme-color" content="#f3eee4">
+  <meta name="twitter:image" content="https://openpodium.chensibo.cn/landing/images/replay.jpg">
+  <link rel="canonical" href="https://openpodium.chensibo.cn/landing/">
+  <meta name="theme-color" content="#f8f7f3">
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="../assets/tokens.css">
   <link rel="stylesheet" href="styles.css">
   <!-- 结构化数据：搜索引擎能认出这是一个免费的开源课堂工具；常见问题与页面上的文字保持一致（npm test 会核对） -->
   <script type="application/ld+json">
@@ -37,10 +38,10 @@
     ],
     "applicationCategory": "EducationalApplication",
     "operatingSystem": "Web 浏览器（Chrome、Edge）",
-    "url": "https://chensibo2049.github.io/titaojing/",
+    "url": "https://openpodium.chensibo.cn/",
     "inLanguage": "zh-CN",
     "description": "把电脑放在讲台或课桌上，对着镜头讲一段课。教态、视线和口头禅画在画面上，讲完即可回看。视频默认只留在本机。",
-    "image": "https://chensibo2049.github.io/titaojing/landing/images/replay.jpg",
+    "image": "https://openpodium.chensibo.cn/landing/images/replay.jpg",
     "license": "https://www.apache.org/licenses/LICENSE-2.0",
     "isAccessibleForFree": true,
     "offers": {
@@ -144,29 +145,37 @@
     <main id="main" tabindex="-1">
     <div class="hero">
       <div>
-        <p class="eyebrow">给试讲，也给下一次更好的表达</p>
-        <h1>先讲出来，<br>再看清楚。</h1>
-        <p class="lead">开讲是一面给试讲用的镜子。留下教态、视线与语言线索，回到具体时刻，找到下一次能改的一处。</p>
+        <p class="eyebrow">试讲复盘工具 / 给师范生与课堂教师</p>
+        <h1>先讲两分钟，<br>再练好一处。</h1>
+        <p class="lead">不要只记得「刚才没讲好」。<br>回到一句话、一个动作，找到下一次能改的一处。</p>
+        <p class="hero-path">讲两分钟 <span>→</span> 证据回看 <span>→</span> 改一处 <span>→</span> 再练</p>
         <div class="actions">
           <a class="btn btn-primary" href="../#/try">开始练习 ↗</a>
           <a class="btn btn-ghost" href="../#/demo">观看演示</a>
         </div>
         <p class="note">免费开源 · 无需账号 · 录像默认不保存</p>
       </div>
-      <figure class="hero-fig">
-        <img src="images/half.jpg" alt="半身构图下，教态和视线画在讲课的人身上">
-        <figcaption>2D 预设演示示例 · 无需摄像头，非真实识别，提示不是评分。</figcaption>
-      </figure>
+      <aside class="result-example" aria-labelledby="example-title">
+        <div class="example-head"><span>一处可回看的线索</span><span class="sample-tag">预设示例</span></div>
+        <p class="example-time">00:14.8 <span>语言线索</span></p>
+        <h2 id="example-title">「然后……然后我们看<br>『疑是地上霜』。」</h2>
+        <p class="example-observation">这句预设字幕里，「然后」重复出现。<br>先回到原处听，再决定要不要改。</p>
+        <div class="example-next"><h3>下一次，只练这一处</h3><p>用半拍停顿代替重复的「然后」，<br>把这一句再讲一遍。</p></div>
+        <a class="example-link" href="../#/demo">看这段预设演示与回放 <span aria-hidden="true">→</span></a>
+        <p class="example-source">来源：55 秒预设演示的字幕与口头禅脚本（00:14.8）。这是产品结果的说明示例，不是用户记录、真实识别或评分。</p>
+      </aside>
     </div>
 
     <section id="start">
-      <p class="eyebrow">先放好设备，再开始观察</p>
-      <h2>三步开始，讲完有处可看</h2>
+      <p class="eyebrow">从开口，到下一次更从容</p>
+      <h2>一轮练习，走四步就够。</h2>
       <div class="guide-grid">
-        <article><span class="num">01</span><h3>摆好镜头</h3><p>电脑放在讲台或课桌上，用书本垫稳，让镜头接近眼平齐；手机固定在稳固支架上，横竖屏都先检查人物和双手入画。板书时要能拍到手伸向板书区，避免逆光与遮挡。</p></article>
-        <article><span class="num">02</span><h3>选输入方式</h3><p>实时练习用摄像头，允许麦克风才能留下转写与水词提示；也可导入已有 MP4 / MOV / WebM，本机只分析画面，不听音轨、不转写、不统计口头禅，导入结果不进历史。</p></article>
-        <article><span class="num">03</span><h3>用回放练一处</h3><p>先拖时间线找提示，再读转写和观察记录，看看是否能找到对应的讲述或动作；挑一处重新练。观测只给线索，判断留给讲述者与同伴。</p></article>
+        <article><span class="num">01</span><h3>讲两分钟</h3><p>固定设备，让腰部以上和双手入画。允许镜头与麦克风，检查站位后，先讲一小段。</p></article>
+        <article><span class="num">02</span><h3>回看证据</h3><p>在回放里点一个时刻，对照画面与转写。没有转写时，仍可回看画面线索。</p></article>
+        <article><span class="num">03</span><h3>只改一处</h3><p>是重复的口头禅，还是写板后忘了回头？提示只给线索，由你判断原因。</p></article>
+        <article><span class="num">04</span><h3>再练一遍</h3><p>带着这一处改法，重新讲同一段。先把一个动作练稳，再看下一处。</p></article>
       </div>
+      <details class="usage-detail"><summary>设备摆放、视频导入与高级工具</summary><p>电脑垫稳，镜头接近眼平齐；手机固定在支架上，横竖屏都先检查入画。已有 MP4 / MOV / WebM 可从工作台导入，只分析画面，不转写、不统计口头禅，结果不进历史。准备页可展开模式、构图、模拟课堂和题干要求；设置与历史里的导出、删除在手机和电脑上都可用。</p></details>
     </section>
 
     <section id="flow">

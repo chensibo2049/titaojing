@@ -1,0 +1,59 @@
+/* OpenPodium shared visual tokens.
+ * Scandinavian palette reference: luckymaomi/UI (MIT), mirrored by chensibo.cn/ui/.
+ * Deep pine and readable muted text adapt the reference for WCAG AA tool controls.
+ */
+:root {
+  --scandinavian-bg: #f5f0eb;
+  --scandinavian-text: #3d3d3d;
+  --scandinavian-muted: #a89279;
+  --scandinavian-accent: #5a7a6b;
+  --scandinavian-border: #d4cdc5;
+  --paper: #f8f7f3;
+  --paper-soft: #fffefa;
+  --paper-deep: #e9eee8;
+  --ink: #202d27;
+  --ink-soft: #3e5046;
+  --ink-faint: #5e6d63;
+  --line: #dbe1d9;
+  --line-strong: #a4b1a6;
+  --pine: #285641;
+  --pine-deep: #1d4432;
+  --pine-soft: #eaf1e9;
+  --cinnabar: var(--pine);
+  --cinnabar-deep: var(--pine-deep);
+  --cinnabar-soft: var(--pine-soft);
+  --teal: var(--pine);
+  --teal-soft: #5a7a6b;
+  --gold: #836728;
+  --gold-bright: #e6ce93;
+  --danger: #9c352d;
+  --board: #243b2f;
+  --stage-bg: #151e19;
+  --shadow: 0 8px 24px rgb(32 45 39 / 5%);
+  --serif: "Noto Serif CJK SC", "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --ease: ease-in-out;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+/* A hidden attribute always wins over component display rules. */
+[hidden] { display: none !important; }
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--pine);
+  outline-offset: 4px;
+}
+:where(button, a, summary) { touch-action: manipulation; }
+:where(input, select, textarea) { accent-color: var(--pine); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

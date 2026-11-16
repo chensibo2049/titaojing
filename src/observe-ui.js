@@ -41,12 +41,11 @@ function barChart(bins, { width = 280, height = 72 } = {}) {
 
 function lineChart(points, key, { width = 320, height = 72, color = "currentColor" } = {}) {
   if (!points.length) return "";
-  const vals = points.map((p) => Number(p[key]) || 0);
-  const max = Math.max(1, ...vals);
-  const min = 0;
+  const vals = points.map((p) => Number.isFinite(p[key]) ? p[key] : null);
+  if (!vals.some(Number.isFinite)) return "";
+  const max = Math.max(1, ...vals.filter(Number.isFinite));
   const xs = points.map((p, i) => (i / Math.max(1, points.length - 1)) * (width - 8) + 4);
-  const ys = vals.map((v) => height - 14 - ((v - min) / (max - min || 1)) * (height - 24));
-  const d = xs.map((x, i) => `${i ? "L" : "M"}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  const d = vals.map((v, i) => v === null ? "" : `${i && vals[i - 1] !== null ? "L" : "M"}${xs[i].toFixed(1)},${(height - 14 - v / max * (height - 24)).toFixed(1)}`).join(" ");
   return `<svg class="ob-svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">
     <path class="ob-line" d="${d}" fill="none" stroke="${color}" stroke-width="1.4"></path>
   </svg>`;
@@ -80,20 +79,24 @@ function stackBar(segs, duration, { width = 360, height = 28 } = {}) {
 function row(title, hint, body, { missing = "" } = {}) {
   if (missing) {
     return `<article class="ob-row is-missing">
-      <header><h4>${esc(title)}</h4><p class="ob-hint">可以从这个角度看什么：${esc(hint)}</p></header>
+      <header><h4>${esc(title)}</h4><p class="ob-hint">自查角度（建议）：${esc(hint)}</p></header>
       <p class="ob-why">${esc(missing)}</p>
     </article>`;
   }
   return `<article class="ob-row">
-    <header><h4>${esc(title)}</h4><p class="ob-hint">可以从这个角度看什么：${esc(hint)}</p></header>
+    <header><h4>${esc(title)}</h4><p class="ob-hint">自查角度（建议）：${esc(hint)}</p></header>
     <div class="ob-body">${body}</div>
   </article>`;
+}
+
+function evidenceList(items) {
+  return jumpList(items, e => `${esc(e.label || e.word || e.type || e.kind || "标记")} · ${esc(e.source || "来源未记录")} · 观测规则 ${esc(e.observationVersion || "未记录")}`);
 }
 
 function jumpList(items, textFn) {
   if (!items || !items.length) return `<p class="ob-empty">这一次没有记下可列出的条目。</p>`;
   return `<ul class="ob-jumps">${items.map((it) =>
-    `<li><button type="button" class="ob-jump" data-jump="${it.t}">${fmt(it.t)}</button> ${textFn(it)}</li>`
+    `<li>${Number.isFinite(it.t) ? `<button type="button" class="ob-jump" data-jump="${it.t}">${fmt(it.t)}</button>` : "时间未记录"} ${textFn(it)}</li>`
   ).join("")}</ul>`;
 }
 
@@ -139,8 +142,11 @@ function checkList(items) {
   ).join("")}</ul>`;
 }
 
-function yuwenSection(session) {
-  const y = buildYuwenReport(session);
+function yuwenSection(session, report) {
+  // Sanitize only the presentation input; never erase historical raw data.
+  const safe = { ...session, transcript: report.hasSpeech ? session.transcript : [], speechWhy: report.speechWhy,
+    frames: session.kind !== "demo" && session.visionAvailable === false ? [] : report.hasPose ? session.frames : (session.frames || []).map(f => ({ ...f, pose: null, hands: null })) };
+  const y = buildYuwenReport(safe);
   const credit = `<p class="ob-kicker-lead">方法提示${esc(y.credit)}。能定位的列出原话和时刻，看不出的用自查清单。仍然不作评分。</p>`;
 
   const law = y.law;
@@ -259,7 +265,7 @@ function yuwenSection(session) {
     <h3 class="ob-sec-title">语文试讲观察表</h3>
     ${credit}
     <article class="ob-row ob-law">
-      <header><h4>${esc(law.title)}</h4><p class="ob-hint">可以从这个角度看什么：${esc(YUWEN_LAW_HINT)}</p></header>
+      <header><h4>${esc(law.title)}</h4><p class="ob-hint">自查角度（建议）：${esc(YUWEN_LAW_HINT)}</p></header>
       <div class="ob-body">${lawBody}</div>
     </article>
     ${row("以生为本、师生对话", "把对话还给学生，少唱独角戏，师生对话才显出民主。", talkBody, { missing: y.speechWhy })}
@@ -270,7 +276,7 @@ function yuwenSection(session) {
     ${row("朗读次数与形式", "齐读、点读、范读、分角色，目标至少三次，每次换一种办法。", readBody, { missing: y.speechWhy })}
     ${row("范读的语速与停顿", "听老师读、我来读的那一段，语速要稳，停顿要留给诗句喘气。", modelBody, { missing: y.speechWhy })}
     ${row("朗读指导", "要说出「读出」「重音」「停顿」「读慢一点」「入情」，不要读完就过。", guideBody, { missing: y.speechWhy })}
-    ${row("板书过程", "写板的时机要跟讲解中的关键词对上，让学生看见思考是怎么写上去的。", boardAuto, { missing: y.hasSpeech ? "" : y.speechWhy })}
+    ${row("板书过程", "写板的时机要跟讲解中的关键词对上，让学生看见思考是怎么写上去的。", boardAuto, { missing: y.board.why || (y.hasSpeech ? "" : y.speechWhy) })}
     ${row("主板书、副板书、彩笔与布局", "主板书承题干与结构，副板书随课堂生成；重点字词用彩色粉笔标出；先想好位置再写。", `<p class="ob-lead">这几项要从板书画面里自查，软件无法代看。</p>${checkList(y.boardChecklists)}`)}
     ${row("炼字、换字比较", "用「换成」「改成」「如果把 X 换成 Y」来比；少说「为什么不用……用……」这种自问自答。", swapBody, { missing: y.speechWhy })}
     ${row("重过程，不直接给结论", "别一上来就说「十分经典」「非常好」「表达了作者……的思想感情」。不要说「翻译」，改成「谁来说说这句话什么含义」。不要句句翻译。", procBody, { missing: y.speechWhy })}
@@ -290,7 +296,7 @@ export function renderObserveSheet(host, session, opts = {}) {
   const particleBody = report.particles
     ? `<p class="ob-lead">共 ${report.particles.total} 次。按词分列，不合并计算。</p>
        <ul class="ob-pills">${(report.particles.words.length ? report.particles.words : [{ word: "（词表内未出现）", count: 0 }]).map((w) =>
-         `<li><b>${esc(w.word)}</b> ${w.count} 次</li>`).join("")}</ul>`
+         `<li><b>${esc(w.word)}</b> ${w.count} 次${(w.times || []).map(t => ` <button type="button" class="ob-jump" data-jump="${t}">${fmt(t)}</button>`).join("")}</li>`).join("")}</ul>`
     : "";
 
   const pauseBody = report.pauses
@@ -340,7 +346,7 @@ export function renderObserveSheet(host, session, opts = {}) {
        <ul class="ob-segs">${st.segments.map((s) =>
          `<li><button type="button" class="ob-jump" data-jump="${s.start}">${fmt(s.start)}</button> ${st.source === "estimate" ? "估计 · " : ""}${esc(s.label)} ${fmt(s.start)}–${fmt(s.end)}（${num(s.end - s.start)} 秒）</li>`
        ).join("")}</ul>`
-    : `<p class="ob-empty">时长不足，无法划分段落。</p>`;
+    : `<p class="ob-empty">时长或转写依据不足，未自动划分段落；可自行对照录像标注。</p>`;
 
   const qBody = report.questions
     ? `<p class="ob-lead">问句 ${report.questions.count} 处：封闭 ${report.questions.closed}，开放 ${report.questions.open}${report.questions.other ? `，其余 ${report.questions.other}` : ""}。问后平均等候 ${num(report.questions.meanWait)} 秒。</p>
@@ -361,12 +367,12 @@ export function renderObserveSheet(host, session, opts = {}) {
 
   const rhythm = L.rhythm;
   const rhythmBody = rhythm && rhythm.minutes
-    ? `<p class="ob-lead">按每分钟列出语速、停顿、移动和手势。段落来自上面的估计（讲授 / 提问 / 小结）。</p>
+    ? `<p class="ob-lead">按每分钟列出语速、估计间隙、移动和手势。「—」表示该项数据不足，不是零；没有转写的时段不能判定为静默。段落仅供自查。</p>
        ${st && st.segments ? stackBar(st.segments, st.duration) : ""}
        ${lineChart(rhythm.minutes, "cpm")}
        <table class="ob-table"><thead><tr><th>分钟</th><th>字/分</th><th>停顿秒</th><th>移动</th><th>手势</th></tr></thead>
        <tbody>${rhythm.minutes.map((m) =>
-         `<tr><td><button type="button" class="ob-jump" data-jump="${m.t0}">${m.minute}</button></td><td>${num(m.cpm, 0)}</td><td>${num(m.pause)}</td><td>${num(m.move, 2)}</td><td>${m.gestures}</td></tr>`
+         `<tr><td><button type="button" class="ob-jump" data-jump="${m.t0}">${m.minute}</button></td><td>${num(m.cpm, 0)}</td><td>${num(m.pause)}</td><td>${num(m.move, 2)}</td><td>${num(m.gestures, 0)}</td></tr>`
        ).join("")}</tbody></table>`
     : "";
 
@@ -408,13 +414,32 @@ export function renderObserveSheet(host, session, opts = {}) {
       : `<p class="ob-empty">没有出现「很好」「不错」「谢谢」「大家想一想」。</p>`)
     : "";
 
+  const o = report.observation;
+  const advice = report.interpretation;
+  const evidence = o.evidence;
+  const summary = `<section class="ob-section"><h3 class="ob-sec-title">观测来源与证据</h3>
+    <p>${esc(report.sourceLabel)} · ${esc(o.source)}</p><p>${esc(report.sourceNote)}</p>
+    <p>观测规则：${esc(o.observationVersion)} · 细项规则：${esc(report.detailRuleVersion)} · 建议规则：${esc(advice.ruleVersion || "未记录")}</p>
+    ${evidence.length ? evidenceList(evidence) : "<p>没有可定位标记；不代表没有发生，也不代表表现正常。</p>"}
+    <p>语气词、问句等仅按词表与转写估计；时刻是句段起点，不是逐词精确定位。间隙按字数估时，不是声学静默检测。</p>
+    </section>
+    <section class="ob-section"><h3 class="ob-sec-title">练习建议（不是观测结论）</h3>
+      <p>${esc(advice.good || "")}</p><p>${esc(advice.next || "")}</p><p>${esc(advice.basis || "建议依据未记录。")}</p>
+      ${advice.evidence?.length ? jumpList(advice.evidence, e => esc(e.source || "来源未记录")) : "<p>没有关联证据，不能当作已检测到问题。</p>"}
+      <p>下方每栏的「自查角度」和语文方法提示是可替换的练习建议，不是对这次教学质量的判定。</p>
+    </section>
+    <section class="ob-section"><h3 class="ob-sec-title">缺失与限制</h3>
+      ${report.missing.length ? `<ul>${report.missing.map(text => `<li>${esc(text)}</li>`).join("")}</ul>` : "<p>已有数据仍受画面和转写误差限制，未标记不代表没有发生。</p>"}
+    </section>`;
+
   host.classList.add("observe-sheet");
   host.hidden = false;
   host.innerHTML = `
     <header class="ob-sheet-head">
       <h3>这一次的观察记录</h3>
-      <p>只摆事实，不做好坏评分。每一栏附一句：可以从这个角度看什么。</p>
+      <p>观测、练习建议与缺失分开列出，不做好坏评分。</p>
     </header>
+    ${summary}
     <section class="ob-section">
       <h3 class="ob-sec-title">细项</h3>
       ${row("语气词", "看哪些垫话出现得多，以及出现在哪一段。", particleBody, { missing: report.speechWhy })}
@@ -426,7 +451,7 @@ export function renderObserveSheet(host, session, opts = {}) {
       ${row("站位分布与移动", "看人在画面里经常站在哪里，以及走动的路程。", motionBody || "", { missing: report.poseWhy })}
       ${row("手势", "看手是否抬起、大约几次、幅度多大。", (report.gestures && report.gestures.available) || !report.poseWhy ? gesBody : "", { missing: report.gestures && report.gestures.available ? "" : (report.poseWhy || "") })}
       ${row("面向学生与视线覆盖", "看抬眼对着镜头的时间，以及视线在画面左、中、右的分布。", gazeBody, { missing: gaze ? "" : (report.gaze && report.gaze.why) || "没有足够的视线记录。" })}
-      ${row("背对写板", "看有没有较长时间背对学生写板，以及手在板书区停留多久。", gaze ? `<p class="ob-lead">背对写板约 ${num(gaze.backTime)} 秒；手在板书区约 ${num(gaze.boardTime)} 秒。</p>` : "", { missing: gaze ? "" : (report.gaze && report.gaze.why) || "没有足够的画面记录。" })}
+      ${row("背对写板", "看有没有较长时间背对学生写板，以及手在板书区停留多久。", gaze ? `<p class="ob-lead">背对写板约 ${num(gaze.backTime)} 秒；手在板书区约 ${num(gaze.boardTime)} 秒。</p>` : "", { missing: report.poseWhy || (gaze ? "" : (report.gaze && report.gaze.why) || "没有足够的画面记录。") })}
       ${row("结构时间线", "看导入、新授、小结大约各占多久，便于对照自己的教案节奏。", stBody)}
       ${row("提问与候答", "看问了几次、问法偏封闭还是开放，以及问完后留了多久。", qBody, { missing: report.speechWhy })}
     </section>
@@ -439,11 +464,11 @@ export function renderObserveSheet(host, session, opts = {}) {
       ${row("提问与互动", "把封闭问（是不是、对不对、吗）和开放问（为什么、怎么看、你觉得）分开看，并记下问后的等待。", qBody, { missing: report.speechWhy })}
       ${row("衔接过渡", "看「接下来」「我们再看」「刚才说到」出现的位置。", trBody, { missing: report.speechWhy })}
       ${row("首尾呼应", "看开头和结尾大约各 15% 的时间里，有没有用到相同的词。", echoBody, { missing: report.speechWhy })}
-      ${row("板书与讲解对应", "看写板前后你口头提到的词，是否和板书动作落在同一时段。", boardBody, { missing: report.speechWhy })}
+      ${row("板书与讲解对应", "看写板前后你口头提到的词，是否和板书动作落在同一时段。", boardBody, { missing: L.board.why || report.speechWhy })}
       ${row("讲解方式", "看举例、类比、追问各用了几次、出现在何时。", styleBody, { missing: report.speechWhy })}
       ${row("激励与启发", "看「很好」「不错」「谢谢」「大家想一想」出现的位置。", cheerBody, { missing: report.speechWhy })}
     </section>
-    ${yuwenSection(session)}
+    ${yuwenSection(session, report)}
     ${simSection(session)}
   `;
 

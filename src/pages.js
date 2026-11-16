@@ -1,5 +1,6 @@
 /** Secondary pages: 历史记录、进步对比、设置、反馈问题、关于与隐私. */
 import { mountLocalAsr } from "./asr-ui.js";
+import { mountServerAsr } from "./asr-server-ui.js";
 import { $, esc, toast, confirmBox, downloadBlob, copyText, modal } from "./ui.js";
 import { listSessions, deleteSession, deleteVideo, clearAll, usage, putSession, getSession, requestPersist } from "./store.js";
 import { fmtDate, fmtShortDate, fmtBytes, fmtDur } from "./records.js";
@@ -265,6 +266,7 @@ export function renderSettings() {
   if (f.asrAutoDownload) f.asrAutoDownload.checked = s.asrAutoDownload !== false;
   if (f.classroomSim) f.classroomSim.value = s.classroomSim || "off";
   mountLocalAsr($("local-asr-box"), { onChange: () => renderSettings(), onReady: () => renderSettings() });
+  mountServerAsr($("server-asr-controls"));
   f.boardSide.value = s.boardSide;
   f.facing.value = s.facing;
   f.mirror.checked = s.mirror;

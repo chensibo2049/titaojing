@@ -15,7 +15,7 @@ import { exportSummary } from "./export.js";
 import { getSettings, saveSettings, timing, SESSION_MODES, FRAME_MODES } from "./settings.js";
 import { getLicense } from "./license.js";
 import { preflight, openCamera, listCameras, stopStream as stopTracks, streamFacing, keepAwake, errorCopy, envInfo } from "./camera.js";
-import { putSession, putVideo, listSessions, getSession, getVideo, deleteSession, requestPersist } from "./store.js";
+import { putSession, putVideo, listSessions, getSession, getVideo, requestPersist } from "./store.js";
 import { toRecord, fromRecord, metricsOf, fmtDate, fmtShortDate, fmtDur } from "./records.js";
 import { currentProfileName } from "./profile.js";
 import { hasUnseenNotes, currentNotes, notesHtml, markVersionSeen } from "./changelog.js";
@@ -65,6 +65,16 @@ let saveVideoThisTime = false;
 let localImport = null;
 let demoGeneration = 0;
 let demoHiddenAt = 0;
+let pendingUpdate = null;
+let cameraGeneration = 0;
+let pendingSaves = 0;
+
+function applyPendingUpdate() {
+  if (!pendingUpdate || pendingSaves || (mode !== "cover" && mode !== "page")) return;
+  const apply = pendingUpdate;
+  pendingUpdate = null;
+  apply();
+}
 const demoView = createDemoView({ onReady: () => {
   if (mode === "demo") paintDemoFrame(liveStart ? Math.min(55, (performance.now() - liveStart) / 1000) : 0);
   else if (mode === "replay" && session?.kind === "demo") paintReplay(currentReplayTime());
@@ -129,8 +139,8 @@ function setHashSilently(hash) {
 /* ——— lifecycle ——— */
 
 function stopEverything({ keepPreview = false } = {}) {
+  cameraGeneration++;
   clearDemoView();
-  stopCoverStage();
   cancelLocalImport();
   releaseLocalReplay();
   cancelAnimationFrame(raf);
@@ -141,7 +151,7 @@ function stopEverything({ keepPreview = false } = {}) {
   playing = false;
   paused = false;
   $("pause-veil").hidden = true;
-  if (speechHandle) { speechHandle.stop(); speechHandle = null; }
+  if (speechHandle) { Promise.resolve(speechHandle.stop()).catch(() => {}); speechHandle = null; }
   stopClassroomSim();
   const wrap = $("live-wrap");
   if (wrap) wrap.classList.remove("has-sim");
@@ -208,78 +218,10 @@ function route() {
 /* ——— Cover ——— */
 
 let coverRaf = 0;
-let coverStart = 0;
-let coverVisible = true;
-let pendingUpdate = null;
-
-/* 首屏的预设试讲者：仅在首页可见时循环，离开即释放；失败退回 2D 静态画面。 */
-const coverView = createDemoView({
-  onReady: () => {
-    const scene = $("cover-scene");
-    if (scene) scene.hidden = coverView.status().state === "ready";
-  },
-});
-
-function stopCoverStage() {
-  cancelAnimationFrame(coverRaf);
-  coverRaf = 0;
-  coverView.dispose();
-  const scene = $("cover-scene");
-  if (scene) {
-    const ctx = scene.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, scene.width, scene.height);
-    scene.hidden = false;
-  }
-}
-
-function paintCoverFallback(t) {
-  const scene = $("cover-scene");
-  if (!scene || coverView.status().state === "ready") return;
-  resizeCanvasTo(scene, scene.clientWidth || 320, scene.clientHeight || 240);
-  const { p } = sampleDemo(t);
-  renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
-}
-
-function loopCover(now) {
-  if (mode !== "cover" || !coverVisible) { coverRaf = 0; return; }
-  const t = ((now - coverStart) / 1000) % 55;
-  coverView.setTime(t);
-  paintCoverFallback(t);
-  coverRaf = requestAnimationFrame(loopCover);
-}
-
 function startCoverLoop() {
+  // 首屏使用静态步骤，不下载人物模型、不运行不可见的动画。
   cancelAnimationFrame(coverRaf);
-  coverRaf = 0;
   setRuntime({});
-  const stage = $("cover-stage");
-  if (!stage) return;
-  coverStart = performance.now();
-  // 等页面 load 后再挂三维：主线程建场景不能拖慢首屏与首字节渲染。
-  const begin = () => {
-    if (mode !== "cover") return;
-    coverView.mount(stage);
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      coverView.setTime(12);
-      paintCoverFallback(12);
-      return;
-    }
-    if (coverVisible) coverRaf = requestAnimationFrame(loopCover);
-  };
-  const idle = () => {
-    if ("requestIdleCallback" in window) requestIdleCallback(begin, { timeout: 1500 });
-    else setTimeout(begin, 300);
-  };
-  if (document.readyState === "complete") idle();
-  else window.addEventListener("load", idle, { once: true });
-}
-
-function applyPendingUpdate() {
-  if (!pendingUpdate) return;
-  if (mode !== "cover" && mode !== "page") return;
-  const run = pendingUpdate;
-  pendingUpdate = null;
-  run();
 }
 
 function renderWhatsNew() {
@@ -310,7 +252,7 @@ async function renderCover() {
     const host = $("cover-recent");
     if (last) {
       const m = last.metrics || {};
-      host.innerHTML = `<span>上次试讲 ${esc(fmtShortDate(last.startedAt))} · ${fmtDur(m.duration)} · 口头禅 ${m.filler} · 视线落下 ${m.gaze}</span> <a href="#/session/${esc(last.id)}">看回放</a> <a href="#/compare">看进步</a>`;
+      host.innerHTML = `<span>上次试讲 ${esc(fmtShortDate(last.startedAt))} · ${fmtDur(m.duration)} · 口头禅 ${m.filler ?? "未统计"} · 视线落下 ${m.gaze ?? "未统计"}</span> <a href="#/session/${esc(last.id)}">看回放</a> <a href="#/compare">看进步</a>`;
       host.hidden = false;
     } else host.hidden = true;
   } catch (_) {}
@@ -402,7 +344,7 @@ function runCountdown(seconds, tickMs = 700, isActive = () => true) {
       if (n <= 0) {
         cap.textContent = "开始";
         clearInterval(id);
-        setTimeout(() => { if (mode === "camera") cap.hidden = true; resolve(); }, 280);
+        setTimeout(() => { if (isActive() && mode === "camera") cap.hidden = true; resolve(); }, 280);
       } else cap.textContent = String(n);
     }, tickMs);
   });
@@ -433,7 +375,13 @@ function finishDemo() {
   debugSessionEnd(session);
   openReplay(session);
   setHashSilently("#/replay");
-  saveToHistory(session).then((st) => { renderSaveStatus(st); enqueueIfConsented(session); });
+  const demoSession = session;
+  pendingSaves++;
+  saveToHistory(demoSession).then((st) => {
+    const current = session === demoSession && mode === "replay";
+    if (current) renderSaveStatus(st);
+    enqueueIfConsented(demoSession, { captureScreenshot: current });
+  }).finally(() => { pendingSaves--; applyPendingUpdate(); });
 }
 
 function updateFlagsHUD(flags = {}, gaze, onBoard, hands) {
@@ -794,6 +742,10 @@ async function startCameraLive() {
   liveTiming = timing(s);
   setRuntime({ boardSide: s.boardSide, sens: s.sens, frameMode: s.frameMode });
   session = createSession("camera");
+  const startingSession = session;
+  const generation = ++cameraGeneration;
+  const isActive = () => generation === cameraGeneration && session === startingSession && mode === "camera";
+  liveStart = 0;
   session.mirror = s.mirror;
   session.frameMode = s.frameMode;
   session.sessionMode = s.sessionMode;
@@ -832,27 +784,31 @@ async function startCameraLive() {
 
   const video = $("live-video");
   await attachVideo(video, mediaStream);
+  if (!isActive()) return;
   fitStage($("live-stage"), videoAspectOf(video));
 
   const status = visionStatus().pose || visionStatus().face ? visionStatus() : await Promise.race([initVision(), new Promise((r) => setTimeout(() => r(visionStatus()), 4000))]);
+  if (!isActive()) return;
   session.visionAvailable = !!(status.pose || status.face);
   if (!session.visionAvailable) banner("教态模型还没就绪：这次会录制并统计口头禅，但不画骨骼线、不统计教态和视线。", 9000);
 
   // 按真实秒数倒数，站到位置的时间与提示一致。
-  await runCountdown(countdownSeconds(s), 1000);
-  if (mode !== "camera") return;
+  await runCountdown(countdownSeconds(s), 1000, isActive);
+  if (!isActive()) return;
   liveStart = performance.now();
   session.aspect = videoAspectOf(video);
   keepAwake(true);
   startRecording();
   session.speechAvailable = speechSupported() && micOn;
   session.speechError = "";
-  currentProfileName().then((n) => { if (n && session) session.profileName = n; }).catch(() => {});
+  currentProfileName().then((n) => { if (n) startingSession.profileName = n; }).catch(() => {});
   debugSessionStart({ kind: "camera", camera: camLabel, mic: micOn, aspect: session.aspect });
   const asrLive = $("live-asr-state");
   if (micOn) {
-    const speechOpen = () => (mode === "camera" || mode === "finishing") && liveStart && !paused;
-    const speechT = (meta) => Math.max(0, (performance.now() - liveStart) / 1000 - ((meta && meta.agoSec) || 0));
+    const speechSession = session;
+    const speechStartedAt = liveStart;
+    const speechOpen = () => !speechSession.speechClosed && (speechSession.finishing || (isActive() && liveStart && !paused));
+    const speechT = (meta) => Math.max(0, Math.min(speechSession.finishing ? speechSession.duration : Infinity, (performance.now() - speechStartedAt) / 1000 - ((meta && meta.agoSec) || 0)));
     speechHandle = startAsr({
       engine: s.asrEngine,
       lang: s.speechLang,
@@ -862,32 +818,32 @@ async function startCameraLive() {
       onFiller: (word, meta) => {
         if (!speechOpen()) return;
         const t = speechT(meta);
-        addFiller(session, t, word);
-        if (mode === "camera") flashFiller(word);
+        addFiller(speechSession, t, word);
+        if (isActive()) flashFiller(word);
         debugSpeech("filler", word, { t });
       },
       onTranscript: (seg) => {
         if (!speechOpen()) return;
-        addTranscript(session, speechT(seg), seg.text, !!seg.final);
-        if (isSimActive()) feedClassroomSim(seg.text, speechT(seg), !!seg.final);
+        addTranscript(speechSession, speechT(seg), seg.text, !!seg.final);
+        if (isActive() && isSimActive()) feedClassroomSim(seg.text, speechT(seg), !!seg.final);
       },
       onDebug: debugEnabled() ? debugSpeech : null,
-      onHeard: () => { session.speechHeard = true; },
+      onHeard: () => { if (speechOpen()) speechSession.speechHeard = true; },
       onStatus: (st) => {
-        if (!st) return;
-        if (st.engine) session.asrEngine = st.engine;
-        if (st.engine === "sherpa" && st.ok) session.speechAvailable = true;
-        setAsrStatusLabel(asrLive, st.engine, st.ok === false ? "当前不可用" : st.loading ? "载入中" : "");
+        if (!st || !speechOpen()) return;
+        if (st.engine) speechSession.asrEngine = st.engine;
+        if (st.engine === "sherpa" && st.ok) speechSession.speechAvailable = true;
+        if (isActive()) setAsrStatusLabel(asrLive, st.engine, st.ok === false ? "当前不可用" : st.loading ? "载入中" : "");
         if (st.switched) {
-          session.speechError = "";
-          banner(st.message, 6000);
+          speechSession.speechError = "";
+          if (isActive()) banner(st.message, 6000);
           logEvent("speech", st.message);
           return;
         }
         if (!st.ok) {
-          session.speechError = st.message || "";
-          banner(st.message, st.sticky ? 0 : 8000, st.offerLocal ? { localOffer: true } : null);
-          if (st.sticky || st.engine === "none") session.speechAvailable = false;
+          speechSession.speechError = st.message || "";
+          if (isActive()) banner(st.message, st.sticky ? 0 : 8000, st.offerLocal ? { localOffer: true } : null);
+          if (st.sticky || st.engine === "none") speechSession.speechAvailable = false;
           logEvent("speech", st.message);
         }
       },
@@ -895,7 +851,7 @@ async function startCameraLive() {
     setAsrStatusLabel(asrLive, speechHandle && speechHandle.engine);
     // 浏览器听写 20 秒都没写出字（有的环境不报错，只是没有结果）：提示可改用本机听写
     setTimeout(() => {
-      if (mode !== "camera" || !session || session.speechHeard || session.asrEngine === "sherpa") return;
+      if (!isActive() || startingSession.speechHeard || startingSession.asrEngine === "sherpa") return;
       const st = asrStatus();
       if (st.sherpa || !st.sherpaSupported) return;
       banner("浏览器听写 20 秒都没有写出字。在中国大陆它经常连不上厂商服务。可以改用本机听写：声音只在这台设备上识别。", 0, { localOffer: true });
@@ -953,16 +909,24 @@ function pickMime() {
 
 function startRecording() {
   chunks = [];
-  if (!mediaStream || !window.MediaRecorder) return;
+  if (!mediaStream || !window.MediaRecorder) {
+    session.captureWarnings = ["此浏览器未能录像；本次只有观测标记，没有原视频回放。"];
+    banner(session.captureWarnings[0], 8000);
+    return;
+  }
   try {
     const mime = pickMime();
     const opts = { videoBitsPerSecond: 1_200_000 };
     if (mime) opts.mimeType = mime;
     recorder = new MediaRecorder(mediaStream, opts);
-    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const recordingSession = session, recordingChunks = chunks;
+    recorder.ondataavailable = (e) => { if ((session === recordingSession || recordingSession.finishing) && !recordingSession.recordingClosed && e.data && e.data.size) recordingChunks.push(e.data); };
+    recorder.onerror = () => { recordingSession.captureWarnings = [...(recordingSession.captureWarnings || []), "录像发生错误，原视频可能不完整；请保留本次回放后再离开。"]; };
     recorder.start(1000);
   } catch (e) {
     recorder = null;
+    session.captureWarnings = ["录像启动失败；观测仍可继续，本次没有原视频回放。"];
+    banner(session.captureWarnings[0], 8000);
     logEvent("recorder", e && e.message);
   }
 }
@@ -1182,63 +1146,98 @@ async function finishCamera() {
   if (mode !== "camera") return;
   cancelAnimationFrame(raf);
   mode = "finishing";
+  const finishingSession = session;
+  const generation = cameraGeneration;
+  const ownsLive = () => session === finishingSession && generation === cameraGeneration && mode === "finishing";
+  const finishingChunks = chunks;
+  const withVideo = saveVideoThisTime;
+  const pauses = pauseCount;
+  chunks = [];
+  finishingSession.finishing = true;
+  pendingSaves++;
   $("btn-stop").disabled = true;
   $("btn-stop").querySelector(".btn-label").textContent = "正在结束…";
   $("dock-note").textContent = "正在收尾录像与听写，随后显示点评与回放。";
-  if (paused) {
-    // Do not count paused time.
-    paused = false;
+  paused = false;
+  // Snapshot shared UI/resources before any await: a later route may own them.
+  if (!finishingSession.thumb) {
+    const last = finishingSession.frames[finishingSession.frames.length - 1];
+    finishingSession.thumb = makeThumb(drawVideoInto($("live-video"), finishingSession.mirror), last, finishingSession.aspect);
   }
+  if (isSimActive()) finishingSession.simLog = summarizeClassroomSim();
+  stopClassroomSim();
+  $("live-wrap")?.classList.remove("has-sim");
   const sh = speechHandle;
   speechHandle = null;
-  // 本机听写会先把最后一句识别完再停（最多约 2.5 秒），与停止录像并行。
-  const speechDone = sh ? Promise.resolve(sh.stop()).catch(() => {}) : Promise.resolve();
-  keepAwake(false);
   const rec = recorder;
   recorder = null;
-  if (rec && rec.state !== "inactive") {
-    await new Promise((resolve) => {
-      rec.onstop = resolve;
-      try { rec.stop(); } catch (_) { resolve(); }
-      setTimeout(resolve, 1500);
-    });
+  keepAwake(false);
+  let speechTimer;
+  const speechDone = sh ? Promise.resolve().then(() => sh.stop()).catch(() => {
+    if (finishingSession.speechClosed) return;
+    finishingSession.speechError = "听写结束失败，转写可能不完整。";
+    finishingSession.speechAvailable = false;
+  }) : Promise.resolve();
+  // Start both deadlines now, not after waiting for the recorder.
+  const speechSettled = Promise.race([speechDone, new Promise((resolve) => {
+    speechTimer = setTimeout(() => {
+      finishingSession.speechError = "听写收尾超时，未完成的转写不参与统计。";
+      finishingSession.speechAvailable = false;
+      resolve();
+    }, 3000);
+  })]);
+  try {
+    if (rec && rec.state !== "inactive") {
+      const complete = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(false), 1500);
+        rec.onstop = () => { clearTimeout(timer); resolve(true); };
+        try { rec.stop(); } catch (_) { clearTimeout(timer); resolve(false); }
+      });
+      if (!complete) finishingSession.captureWarnings = [...(finishingSession.captureWarnings || []), "录像收尾未完成，视频可能不完整；观测标记不受此项保证。"];
+    }
+    finishingSession.recordingClosed = true;
+    if (finishingChunks.length) {
+      const type = (finishingChunks[0].type || pickMime() || "video/webm").split(";")[0];
+      finishingSession.videoBlob = new Blob(finishingChunks, { type });
+    }
+    await speechSettled;
+    clearTimeout(speechTimer);
+    finishingSession.speechClosed = true;
+    finishingSession.finishing = false;
+    finishingSession.speechHeard = !!finishingSession.speechHeard;
+    finishingSession.stats = { ...(finishingSession.stats || {}), speechHeard: finishingSession.speechHeard, pauses, durationSec: Math.round(finishingSession.duration), speech: finishingSession.speechAvailable, recorded: !!finishingSession.videoBlob, recordedMB: finishingSession.videoBlob ? Math.round(finishingSession.videoBlob.size / 1e5) / 10 : 0 };
+    diagnose(finishingSession);
+    setLastSessionStats({ ...finishingSession.stats, counts: finishingSession.diagnosis.counts });
+    debugSessionEnd(finishingSession);
+    if (ownsLive()) {
+      releaseStream();
+      if (finishingSession.videoBlob) finishingSession.videoUrl = URL.createObjectURL(finishingSession.videoBlob);
+      openReplay(finishingSession);
+      setHashSilently("#/replay");
+    }
+    const st = await saveToHistory(finishingSession, { withVideo });
+    // A saves independently; only its still-current replay may change UI or URL.
+    if (session === finishingSession && generation === cameraGeneration && mode === "replay") {
+      renderSaveStatus(st);
+      enqueueIfConsented(finishingSession);
+      if (st.id) setHashSilently(`#/session/${st.id}`);
+    } else {
+      enqueueIfConsented(finishingSession, { captureScreenshot: false });
+    }
+  } finally {
+    clearTimeout(speechTimer);
+    finishingSession.speechClosed = true;
+    finishingSession.finishing = false;
+    pendingSaves--;
+    applyPendingUpdate();
   }
-  if (chunks.length) {
-    const type = (chunks[0].type || pickMime() || "video/webm").split(";")[0];
-    session.videoBlob = new Blob(chunks, { type });
-    session.videoUrl = URL.createObjectURL(session.videoBlob);
-  }
-  chunks = [];
-  await Promise.race([speechDone, new Promise((r) => setTimeout(r, 3000))]);
-  if (!session.thumb) {
-    const v = $("live-video");
-    const last = session.frames[session.frames.length - 1];
-    session.thumb = makeThumb(drawVideoInto(v, session.mirror), last, session.aspect);
-  }
-  session.speechHeard = !!session.speechHeard;
-  if (isSimActive()) session.simLog = summarizeClassroomSim();
-  stopClassroomSim();
-  const liveWrap = $("live-wrap");
-  if (liveWrap) liveWrap.classList.remove("has-sim");
-  session.stats = { ...(session.stats || {}), speechHeard: session.speechHeard, pauses: pauseCount, durationSec: Math.round(session.duration), speech: session.speechAvailable, recorded: !!session.videoBlob, recordedMB: session.videoBlob ? Math.round(session.videoBlob.size / 1e5) / 10 : 0 };
-  diagnose(session);
-  setLastSessionStats({ ...session.stats, counts: session.diagnosis.counts });
-  debugSessionEnd(session);
-  releaseStream();
-  mode = "camera-done";
-  openReplay(session);
-  setHashSilently("#/replay");
-  const st = await saveToHistory(session, { withVideo: saveVideoThisTime });
-  renderSaveStatus(st);
-  enqueueIfConsented(session);
-  if (st.id) setHashSilently(`#/session/${st.id}`);
 }
 
-async function enqueueIfConsented(sess) {
+async function enqueueIfConsented(sess, { captureScreenshot = true } = {}) {
   if (!experienceOn() || !sess) return;
   const shots = [];
   try {
-    const c = stillCanvas();
+    const c = captureScreenshot ? stillCanvas() : null;
     if (c && c.width) shots.push(c.toDataURL("image/jpeg", 0.62));
   } catch (_) {}
   try { await maybeEnqueue(sess, { screenshots: shots }); } catch (_) {}
@@ -1251,19 +1250,13 @@ async function saveToHistory(sess, { withVideo = false } = {}) {
   const lic = getLicense();
   const out = { ok: false, text: "", id: null, replaced: 0, video: false };
   try {
-    const list = await listSessions();
     if (sess.kind === "demo") {
-      for (const old of list.filter((x) => x.kind === "demo")) await deleteSession(old.id);
       if (!sess.thumb) {
         sess.thumb = makeThumb((ctx, w, h) => { renderScene(ctx, w, h, sampleDemo(36).p, 36); }, (() => { const f = frameAt(sess, 36); return f; })(), STAGE_W / STAGE_H);
       }
     } else {
-      const cams = list.filter((x) => x.kind === "camera");
-      const max = lic.features.maxHistory;
-      if (Number.isFinite(max) && cams.length >= max) {
-        const excess = cams.slice(max - 1); // newest first; keep max-1
-        for (const old of excess) { await deleteSession(old.id); out.replaced += 1; }
-      }
+      // Never delete a user's old practice to make room for an autosave.
+      // Quota errors are reported below; history deletion stays explicit.
     }
     const rec = toRecord(sess, { profileName: sess.profileName || "" });
     let blob = null;
@@ -1289,11 +1282,10 @@ async function saveToHistory(sess, { withVideo = false } = {}) {
     sess.hasVideo = rec.hasVideo;
     out.ok = true;
     out.id = rec.id;
-    if (sess.kind === "demo") out.text = "演示记录已存入历史（只保留最近一次演示，不占试用名额）。";
+    if (sess.kind === "demo") out.text = "预设演示已存入本机历史；不会替换已有记录。";
     else {
       out.text = out.video ? "已保存到本机历史（含录像）。" : "已保存到本机历史（不含录像）。";
       if (out.videoFailed) out.text = "已保存到本机历史，但录像太大或空间不足，没能一起保存。";
-      if (out.replaced) out.text += `${lic.label}最多保留 ${lic.features.maxHistory} 次试讲，已自动替换最早的 ${out.replaced} 次。`;
     }
     logEvent("saved", `${sess.kind} video=${out.video}`);
   } catch (e) {
@@ -1398,9 +1390,10 @@ function openReplay(sess) {
 
 function renderDiagnosis(sess) {
   const d = sess.diagnosis || diagnose(sess);
-  const items = [["posture", d.counts.posture, "教态提示"], ["gaze", d.counts.gaze, "视线落下"], ["filler", d.counts.filler, "口头禅"], ["board", d.counts.board, "写板未回视"]];
+  const metrics = metricsOf(sess);
+  const items = [["posture", metrics.posture, "体态标记"], ["gaze", metrics.gaze, "视线落下"], ["filler", metrics.filler, "口头禅"], ["board", metrics.board, "写板未回视"]];
   $("diag-counts").innerHTML = items.map(([k, n, lab]) =>
-    `<div class="diag-count" data-kind="${k === "posture" ? "sway" : k}"><div class="n">${n}</div><div class="k">${lab}</div></div>`).join("");
+    `<div class="diag-count" data-kind="${k === "posture" ? "sway" : k}"><div class="n">${n ?? "未统计"}</div><div class="k">${lab}</div></div>`).join("");
   $("diag-good").textContent = d.good;
   $("diag-next").textContent = d.next;
   const bits = [fmtDate(sess.startedAt || Date.now()), `时长 ${fmt(sess.duration)}`, sess.kind === "demo" ? "一键演示样本" : sess.localImport ? "本机视频画面分析（仅本次）" : "真实试讲"];
@@ -1413,15 +1406,39 @@ function renderDiagnosis(sess) {
   if (sess.frameResolved) bits.push(sess.frameResolved === "full" ? "全身构图" : "半身构图");
   if (sess.sessionMode === "classroom") bits.push("课堂模式");
   $("diag-meta").textContent = bits.join(" · ");
+  renderEvidence(sess, d);
   renderTranscript(sess);
   renderFillerReport(sess);
   renderBoardStills(sess);
   const sheet = $("observe-sheet");
   if (sheet) {
     renderObserveSheet(sheet, sess, {
-      onJump: (t) => { stopReplayPlay(); seekReplay(t); },
+      onJump: jumpToEvidence,
     });
   }
+}
+
+
+function renderEvidence(sess, d) {
+  let host = $("diagnosis-evidence");
+  if (!host) {
+    host = document.createElement("section");
+    host.id = "diagnosis-evidence";
+    host.className = "evidence-panel";
+    $("diag-meta").after(host);
+  }
+  const o = d.observation;
+  const interpretation = d.interpretation;
+  const events = (o?.evidence || sess.events || []).filter(e => Number.isFinite(e.t)).slice(0, 8);
+  host.innerHTML = `<h3>回看一个具体时刻</h3>
+    <p>${esc(o ? `来源：${o.source} · 观测 ${o.observationVersion} · 建议 ${interpretation?.ruleVersion || "无"}` : "旧记录：没有版本化观测来源，保留原标记供回看。")}</p>
+    <p>${esc(interpretation?.basis || "旧版建议仅供自查，不是教学质量测评。")}</p>
+    <div>${events.map(e => `<button type="button" class="btn-mini" data-evidence-time="${e.t}">${fmt(e.t)} · ${esc(e.label || e.type)}</button>`).join(" ") || "没有可定位标记；可以自行拖动回放，不代表没有问题。"}</div>
+    ${(o?.missing || []).map(text => `<p role="note">未覆盖：${esc(text)}</p>`).join("")}
+    <p><a class="btn-mini primary" href="#/try">只改一处，再练两分钟</a></p>`;
+  host.querySelectorAll("[data-evidence-time]").forEach(button => button.addEventListener("click", () => {
+    jumpToEvidence(Number(button.dataset.evidenceTime));
+  }));
 }
 
 
@@ -1446,7 +1463,7 @@ function renderFillerReport(sess) {
     <p class="page-note">词表可在设置里增删。上面的改法针对这一次实际出现的词。</p>`;
   host.querySelectorAll("[data-jump]").forEach((b) => b.addEventListener("click", () => {
     const t = Number(b.getAttribute("data-jump"));
-    if (Number.isFinite(t)) { stopReplayPlay(); seekReplay(t); }
+    jumpToEvidence(t);
   }));
 }
 
@@ -1466,7 +1483,7 @@ function renderBoardStills(sess) {
   host.innerHTML = stills.map((s) => `<figure data-t="${s.t}"><img src="${s.dataUrl}" alt="板书区静帧"><figcaption>${fmt(s.t)}</figcaption></figure>`).join("");
   host.querySelectorAll("figure").forEach((fig) => fig.addEventListener("click", () => {
     const t = Number(fig.getAttribute("data-t"));
-    if (Number.isFinite(t)) { stopReplayPlay(); seekReplay(t); }
+    jumpToEvidence(t);
   }));
 }
 
@@ -1495,7 +1512,7 @@ function renderTranscript(sess) {
   ).join("");
   list.querySelectorAll("li").forEach((li) => li.addEventListener("click", () => {
     const t = Number(li.dataset.t);
-    if (Number.isFinite(t)) { stopReplayPlay(); seekReplay(t); }
+    jumpToEvidence(t);
     list.querySelectorAll("li").forEach((x) => x.classList.toggle("on", x === li));
   }));
 }
@@ -1656,6 +1673,13 @@ function seekReplay(t) {
   const video = $("replay-video");
   if (hasReplayVideo() && video.src) { try { video.currentTime = tt; } catch (_) {} }
   paintReplay(tt);
+}
+
+function jumpToEvidence(t) {
+  if (!Number.isFinite(t)) return;
+  stopReplayPlay();
+  seekReplay(t);
+  $("replay-stage").scrollIntoView({ block: "start", behavior: "instant" });
 }
 
 function timeFromPointer(ev) {
@@ -1992,19 +2016,11 @@ function onReady() {
     if (mode === "replay") { sizeReplayWrap(session); paintReplay(currentReplayTime()); }
   });
 
-  const coverStageEl = document.getElementById("cover-stage");
-  if (coverStageEl && "IntersectionObserver" in window) {
-    new IntersectionObserver(([entry]) => {
-      coverVisible = entry.isIntersecting;
-      if (mode !== "cover") return;
-      if (coverVisible) { if (!coverRaf) coverRaf = requestAnimationFrame(loopCover); }
-      else { cancelAnimationFrame(coverRaf); coverRaf = 0; }
-    }, { threshold: 0.05 }).observe(coverStageEl);
-  }
-
   initPwa({
-    // 不再弹出更新条：空闲页面直接换新，练习中等到回到首页再换。
-    onUpdateReady: (apply) => { pendingUpdate = apply; applyPendingUpdate(); },
+    onUpdateReady: (apply) => {
+      pendingUpdate = apply;
+      applyPendingUpdate();
+    },
   });
   onPwaChange(() => { if (mode === "cover") renderCover(); });
 

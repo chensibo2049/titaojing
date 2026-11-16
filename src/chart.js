@@ -1,9 +1,9 @@
 /** Tiny dependency-free SVG trend chart. */
 export const INDICATORS = [
-  { key: "posture", label: "教态", color: "#c4a36a" },
-  { key: "gaze", label: "视线落下", color: "#2f8f86" },
-  { key: "filler", label: "口头禅", color: "#c4513b" },
-  { key: "board", label: "写板未回视", color: "#6d6a8f" },
+  { key: "posture", label: "体态标记", color: "#2a78d6" },
+  { key: "gaze", label: "视线落下", color: "#eb6834" },
+  { key: "filler", label: "口头禅", color: "#1baf7a" },
+  { key: "board", label: "写板未回视", color: "#eda100" },
 ];
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));

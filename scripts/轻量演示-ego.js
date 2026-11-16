@@ -76,7 +76,7 @@ for(const [w,h] of [[1366,768],[390,844],[360,800],[844,390]]) {
       check('关于页展示当前版本与轻量演示说明 '+w, await p.evaluate(version => {
         const notes = document.querySelector('#about-changelog-body').textContent;
         const capabilities = document.querySelector('#about-capabilities-list').textContent;
-        return notes.includes('v'+version) && notes.includes('轻量预设试讲演示') && capabilities.includes('按需加载轻量三维人物');
+        return notes.includes('v'+version) && capabilities.includes('按需加载轻量三维人物') && capabilities.includes('封面与真实练习不加载三维演示');
       }, expected));
     }
   }
@@ -84,13 +84,25 @@ for(const [w,h] of [[1366,768],[390,844],[360,800],[844,390]]) {
   await p.waitForFunction(()=>!document.querySelector('#screen-permission').hidden);
   check('开始练习仍进入准备页 '+w, await p.evaluate(()=>!document.querySelector('#screen-permission').hidden && /半身/.test(document.querySelector('#screen-permission').textContent)));
   await start(); await seek(38);
+  // Timeline keyboard focus scrolls a long mobile report. Frame the stage before a layout screenshot.
+  await p.evaluate(()=>document.getElementById('replay-stage').scrollIntoView({block:'start',behavior:'instant'}));
   const m=await p.evaluate(()=>{
     const box=id=>{const r=document.getElementById(id).getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom};};
     return {vp:[innerWidth,innerHeight],overflow:document.documentElement.scrollWidth>innerWidth+1,stage:box('replay-stage'),overlay:box('replay-overlay'),timeline:box('timeline')};
   });
-  check('双端布局 '+w,!m.overflow&&m.stage.width>0&&m.stage.height<h&&Math.abs(m.stage.width-m.overlay.width)<2&&Math.abs(m.stage.height-m.overlay.height)<2,m);
+  check('双端布局 '+w,!m.overflow&&m.stage.width>0&&m.stage.height<h&&m.stage.y>=-1&&m.stage.bottom<=h+1&&Math.abs(m.stage.width-m.overlay.width)<2&&Math.abs(m.stage.height-m.overlay.height)<2,m);
   await p.screenshot({path:out+'/'+w+'x'+h+'-板书.png'});
-  await seek(4); await p.screenshot({path:out+'/'+w+'x'+h+'-开场.png'});
+  await seek(4);
+  await p.evaluate(()=>document.getElementById('replay-stage').scrollIntoView({block:'start',behavior:'instant'}));
+  await p.screenshot({path:out+'/'+w+'x'+h+'-开场.png'});
+  const evidence = '#diagnosis-evidence [data-evidence-time]';
+  await activate(evidence + ':first-child');
+  const jump = await p.evaluate(()=>{
+    const r=document.getElementById('replay-stage').getBoundingClientRect();
+    const b=document.querySelector('#diagnosis-evidence [data-evidence-time]');
+    return {expected:Number(b.dataset.evidenceTime),time:window.__openpodiumDemo.status().time,top:r.top,bottom:r.bottom,height:innerHeight};
+  });
+  check('证据按钮定位并返回舞台 '+w,Math.abs(jump.time-jump.expected)<0.1&&jump.top>=-1&&jump.bottom<=jump.height+1,jump);
   await go('#/try');
   check('离开演示销毁 '+w,await p.evaluate(()=>window.__openpodiumDemo.status().state==='off'&&!document.querySelector('.demo-presenter-canvas')));
 }

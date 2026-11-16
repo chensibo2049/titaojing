@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import esbuild from 'esbuild';
+const result = await esbuild.build({stdin:{contents:`export {observeSession} from './src/observations.js'; export {interpretPractice} from './src/scenario-practice.js'; export {metricsOf,toRecord,fromRecord} from './src/records.js';`,resolveDir:process.cwd()},bundle:true,format:'esm',write:false,define:{__APP_VERSION__:'"test"',__BUILD_DATE__:'"test"',__BUILD_ID__:'"test"'}});
+const {observeSession,interpretPractice,metricsOf,toRecord,fromRecord} = await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
+const empty = {kind:'camera',duration:120,frames:[],events:[],speechAvailable:false,speechHeard:false,visionAvailable:false};
+const missing=observeSession(empty);
+assert.equal(missing.counts.posture,null); assert.equal(missing.counts.filler,null); assert.equal(missing.classRatio,null);
+assert.ok(missing.missing.length>=3); assert.match(interpretPractice(missing).next,/取景/);
+const demo=observeSession({...empty,kind:'demo'});
+assert.equal(demo.source,'preset-animation-rig'); assert.equal(demo.counts.filler,0); assert.match(interpretPractice(demo).good,/不是实际识别/);
+const observed=observeSession({...empty,visionAvailable:true,frames:[{t:0,pose:[{}],gaze:{label:'class'}},{t:119,pose:[{}],gaze:{label:'class'}}],events:[{t:12,type:'sway',kind:'sway'}]});
+assert.equal(observed.counts.posture,1); assert.equal(observed.counts.filler,null); assert.equal(observed.classRatio,1);
+const sess={...empty,diagnosis:missing};
+assert.equal(metricsOf(sess).filler,null); assert.equal(metricsOf(fromRecord(toRecord(sess))).filler,null);
+assert.equal(interpretPractice(observed).evidence[0].t,12);
+console.log('PASS observations: missing != zero, demo source, versioned evidence, record round-trip');

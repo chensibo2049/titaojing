@@ -314,10 +314,15 @@ export function startSherpa(opts = {}) {
       const w = worker;
       const finish = () => { stopped = true; cleanup(); };
       if (!w) { finish(); return Promise.resolve(); }
-      return new Promise((resolve) => {
-        const t = setTimeout(() => { flushWait = null; finish(); resolve(); }, timeoutMs);
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => {
+          flushWait = null;
+          finish();
+          reject(new Error("本机听写收尾超时，转写可能不完整。"));
+        }, timeoutMs);
         flushWait = () => { clearTimeout(t); finish(); resolve(); };
-        w.postMessage({ type: "flush" });
+        try { w.postMessage({ type: "flush" }); }
+        catch (error) { clearTimeout(t); flushWait = null; finish(); reject(error); }
       });
     },
   };
@@ -332,10 +337,11 @@ export async function preflightSherpa({ seconds = 5, onStatus } = {}) {
   });
   onStatus && onStatus({ ok: true, loading: true, reason: "正在载入本机听写…" });
   const r = await Promise.race([h.ready, new Promise((res) => setTimeout(() => res({ ok: false, message: "本机听写载入超时（60 秒）。" }), 60000))]);
-  if (!r.ok) { await h.stop(); return { ok: false, text: "", reason: r.message, error: "load" }; }
+  if (!r.ok) { await h.stop().catch(() => {}); return { ok: false, text: "", reason: r.message, error: "load" }; }
   onStatus && onStatus({ ok: true, listening: true, reason: `本机听写已载入（${r.totalMs} ms），请说一句话…` });
   await new Promise((res) => setTimeout(res, seconds * 1000));
-  await h.stop(4000);
+  try { await h.stop(4000); }
+  catch (error) { return { ok: false, text: text.trim(), reason: error.message || "听写收尾失败，转写可能不完整。", error: "flush", initMs: r.totalMs }; }
   text = text.trim();
   if (text) return { ok: true, text, reason: "本机听写听到了：「" + text + "」", error: "", initMs: r.totalMs };
   return { ok: false, text: "", reason: "本机听写已载入，但这几秒没有听到可写出的字。请靠近麦克风说一句话再试。", error: "empty", initMs: r.totalMs };

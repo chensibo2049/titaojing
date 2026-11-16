@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="开讲">
   <meta name="application-name" content="开讲">
-  <meta name="theme-color" content="#f3eee4">
+  <meta name="theme-color" content="#f8f7f3">
   <meta name="format-detection" content="telephone=no">
   <title>OpenPodium · 开讲</title>
   <meta property="og:type" content="website">
@@ -17,19 +17,20 @@
   <meta property="og:locale" content="zh_CN">
   <meta property="og:title" content="OpenPodium · 开讲">
   <meta property="og:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
-  <meta property="og:url" content="https://chensibo2049.github.io/titaojing/">
-  <meta property="og:image" content="https://chensibo2049.github.io/titaojing/landing/images/cover.jpg">
+  <meta property="og:url" content="https://openpodium.chensibo.cn/">
+  <meta property="og:image" content="https://openpodium.chensibo.cn/landing/images/cover.jpg">
   <meta property="og:image:width" content="960">
   <meta property="og:image:height" content="617">
   <meta property="og:image:alt" content="开讲的练习入口与本机试讲工具">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="OpenPodium · 开讲">
   <meta name="twitter:description" content="对着镜头试讲：教态、视线、口头禅和板书回视画在画面上，讲完即可回看。视频只留在本机。">
-  <meta name="twitter:image" content="https://chensibo2049.github.io/titaojing/landing/images/cover.jpg">
+  <meta name="twitter:image" content="https://openpodium.chensibo.cn/landing/images/cover.jpg">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="assets/icons/icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="assets/tokens.css?v=__BUILD_ID__">
   <link rel="stylesheet" href="assets/app.css?v=__BUILD_ID__">
   <script src="config.js?v=__BUILD_ID__"></script>
 </head>
@@ -63,9 +64,9 @@
 
       <div class="cover-layout">
         <div class="cover-copy">
-          <p class="eyebrow">试讲与表达练习</p>
-          <h1>讲完这一段，<br>知道下次改哪儿。</h1>
-          <p class="lead">回看不用从头找。低头、看稿、转身、口头禅都会标在时间线上，点一下就跳回那个瞬间。</p>
+          <p class="eyebrow">试讲练习工作台 · 无需账号</p>
+          <h1>先讲两分钟，<br>再练好一处。</h1>
+          <p class="lead">留下教态、视线与语言线索，回到具体时刻。<br>讲两分钟 → 证据回看 → 改一处 → 再练。</p>
           <div class="cover-actions">
             <button type="button" class="btn btn-primary" id="btn-camera">
               <span class="btn-label">开始练习</span>
@@ -99,31 +100,19 @@
           <button type="button" class="install-chip" id="btn-install" hidden>安装到桌面 · 可离线使用</button>
         </div>
 
-        <aside class="cover-stage-card" aria-label="预设试讲演示">
-          <div class="cover-stage" id="cover-stage">
-            <canvas class="cover-scene" id="cover-scene" width="720" height="540" aria-hidden="true"></canvas>
-            <span class="cover-stage-badge">预设演示 · 非真实识别</span>
+        <aside class="entry-preview" aria-label="预设演示的具体回看示例">
+          <p class="eyebrow">回看示例 · 来自预设演示</p>
+          <h2>把「再讲好一点」<br>变成一个具体动作。</h2>
+          <div class="evidence-example">
+            <p class="example-time">00:14.8 <span>语言线索</span></p>
+            <blockquote>「然后……然后我们看<br>『疑是地上霜』。」</blockquote>
+            <p class="example-reason">预设字幕在这一句重复了「然后」。回到原处，判断这次停顿是否需要调整。</p>
+            <div class="example-next"><strong>下一次，只练这一处</strong><p>用半拍停顿代替重复的「然后」，把这一句再讲一遍。</p></div>
           </div>
-          <div class="cover-stage-body">
-            <ul class="cover-insights">
-              <li>
-                <span class="sample-time">00:38</span>
-                <div>
-                  <strong>连续低头 9 秒</strong>
-                  <p>抬头把这一句讲完，会更有把握。</p>
-                </div>
-              </li>
-              <li>
-                <span class="sample-time">01:12</span>
-                <div>
-                  <strong>「嗯」出现 4 次</strong>
-                  <p>停顿放在句尾，比垫字更稳。</p>
-                </div>
-              </li>
-            </ul>
-            <p class="cover-insight-note">
-              示例数据，不是你的识别结果 · <a href="#/demo">看完整演示 →</a>
-            </p>
+          <p class="entry-example">来源：55 秒预设演示的字幕与口头禅脚本。<br>不是用户记录，不是真实识别，也不是评分。</p>
+          <div hidden aria-hidden="true">
+            <canvas id="cover-canvas" width="720" height="1280"></canvas>
+            <span id="cover-shot-label">步骤示意</span>
           </div>
         </aside>
       </div>
@@ -157,10 +146,18 @@
         <span class="head-spacer"></span>
       </header>
       <div class="plain-card">
-        <p class="eyebrow">对着镜头试讲</p>
-        <h2>需要使用镜头和麦克风</h2>
-        <p class="plain-lead">画面只在这台设备的浏览器里分析。不需要账号。录像默认不保存；若勾选保存，也只写入本机历史，沉思波不会收到。练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析随录制在本机进行，结束后不会继续分析（回放已保存的记录除外）。</p>
-        <p class="plain-lead">试讲需要打开麦克风，用来留下转写并标出口头禅。推荐用<b>本机听写</b>：默认不下载听写包，需主动下载（约 90 MB，一次即可）。声音只在这台设备上识别，不经过沉思波，也不经过浏览器厂商。没下载完时会用浏览器听写：Chrome / Edge 会把声音送到厂商的语音服务，在中国大陆即使网页能打开也经常连不上。</p>
+        <p class="eyebrow">练习前 · 先确认设备</p>
+        <h2>放好镜头，就可以开讲。</h2>
+        <p class="plain-lead">让腰部以上和双手入画，避开逆光。下一步会打开镜头，让你先检查站位，不会立刻录制。</p>
+        <div class="permission-summary">
+          <p>这次建议讲 <b id="perm-target">2 分钟</b>，板书区在画面<b id="perm-board">右侧</b>。</p>
+          <p>画面在本机分析，录像默认不保存。转写取决于听写方式；浏览器听写可能把声音发送给浏览器厂商，且可能连接失败。</p>
+        </div>
+        <details class="permission-advanced">
+          <summary>高级准备 <span>模式、构图、录像与听写说明</span></summary>
+          <div class="permission-advanced-body">
+          <p class="fs-note">练习 1–5 分钟，课堂 10 / 15 / 20 分钟，最长 22 分钟。分析在录制期间于本机进行，结束后不再继续分析，回放已保存记录除外。录像仅在主动勾选保存时写入本机历史。</p>
+          <p class="fs-note">本机听写需在<a href="#/settings">设置</a>主动下载约 90 MB 模型，声音只在本机识别。自动模式在本机模型不可用时使用浏览器听写，声音可能发送给浏览器厂商，在中国大陆可能连接失败。</p>
         <div class="perm-modes">
           <p class="field-label">这次怎么讲</p>
           <div class="seg" role="radiogroup" aria-label="试讲模式" id="perm-session-mode">
@@ -178,7 +175,7 @@
         <ul class="plain-list">
           <li>手机或电脑均可；课堂模式建议用电脑放在讲台或课桌上，镜头与胸齐或略低</li>
           <li id="perm-framing-tip">半身时站到腰部以上入画；全身时向后退，让脚也进入画面</li>
-          <li>建议时长 <b id="perm-target">2 分钟</b>，板书区在画面<b id="perm-board">右侧</b>（可在设置里改）</li>
+          <li>建议时长和板书侧可在<a href="#/settings">设置</a>调整。</li>
           <li>目前不能认出黑板上的字；能看到手是否伸向板书区、是否在写、写完是否回视学生</li>
         </ul>
         <div class="seg" role="radiogroup" aria-label="选择镜头">
@@ -200,6 +197,8 @@
           <textarea id="perm-stem" rows="3" maxlength="800" placeholder="把试讲题目或题干里的 2–3 条要求粘贴在这里。回放时会在「语文试讲观察表」里对照转写，看这些词有没有讲到。"></textarea>
           <p class="fs-note">只随这次试讲保存，用来对照「紧扣题干」。可不填。</p>
         </div>
+          </div>
+        </details>
         <div class="plain-actions">
           <button type="button" class="btn btn-primary" id="btn-allow-media">
             <span class="btn-label">允许镜头与麦克风</span>
@@ -500,6 +499,11 @@
           </label>
           <label class="field check"><input type="checkbox" name="asrAutoDownload"> <span>进入页面后在后台自动下载听写包（约 90 MB，一次即可）。开了浏览器的省流量时不会自动开始，角落里会留一枚「点此下载」。下载不打断浏览，换页也不中断。</span></label>
           <div class="field" id="local-asr-box"></div>
+          <section class="server-asr-settings" id="server-asr-settings" aria-labelledby="server-asr-title">
+            <h3 id="server-asr-title">录后服务器转写 · 未接入</h3>
+            <p class="fs-note">当前不会向服务器上传音频。此选项接通后，必须由你单独明确同意，才可上传本次音频；不影响本机练习。</p>
+            <div id="server-asr-controls"></div>
+          </section>
           <label class="field">
             <span>模拟课堂（练习用模拟，默认不开）</span>
             <select name="classroomSim">
@@ -617,7 +621,8 @@
             </div>
           </form>
         </section>
-        <section class="about-card" id="cloud-auth-card">
+        <!-- Backend unavailable: retain dependent DOM, remove misleading account entry. -->
+        <section class="about-card" id="cloud-auth-card" hidden>
           <h3>云端账号（尚未开通）</h3>
           <p id="profile-cloud-state">云端账号会在服务端就绪后开通；现在可以先在本机建立练习档案，记录仍留在这台设备。</p>
           <form id="cloud-auth-form" class="settings-form" autocomplete="off">
@@ -685,7 +690,8 @@
           <h3>适用范围</h3>
           <p>Core 只记录可见动作与语音线索，观察表再解释这些线索；观察不等于评分。视线来自单个摄像头的估计，不是精确眼动；光线、构图、遮挡会影响结果。情绪不作为客观真值，也不作心理或医学判断。请把它当作一面会说话的镜子，而不是评分标准。</p>
         </section>
-        <section class="about-card" id="license-card">
+        <!-- No connected activation service; JS-bound elements deliberately retained. -->
+        <section class="about-card" id="license-card" hidden>
           <h3>版本与激活</h3>
           <p id="license-state"></p>
           <div class="activate-row">

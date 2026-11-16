@@ -133,6 +133,10 @@ export function startSpeech({ onFiller, onStatus, onHeard, onDebug, onTranscript
   let seen = "";
   let restarts = 0;
   let networkFails = 0;
+  const ended = new WeakSet();
+  let finishStop = null;
+  let stopPromise = null;
+  let closed = false;
   const MAX_NETWORK = 4;
   const dbg = (kind, detail, extra) => { if (onDebug) { try { onDebug(kind, detail, extra); } catch (_) {} } };
 
@@ -140,11 +144,13 @@ export function startSpeech({ onFiller, onStatus, onHeard, onDebug, onTranscript
     if (stopped) return;
     seen = "";
     rec = new SpeechRec();
+    const recognition = rec;
     rec.lang = lang;
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
     rec.onresult = (ev) => {
+      if (closed || rec !== recognition) return;
       networkFails = 0;
       let text = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -194,6 +200,9 @@ export function startSpeech({ onFiller, onStatus, onHeard, onDebug, onTranscript
     };
     rec.onstart = () => dbg("listening", `restarts=${restarts} networkFails=${networkFails}`);
     rec.onend = () => {
+      ended.add(recognition);
+      if (rec !== recognition) return;
+      if (finishStop) finishStop();
       dbg("ended", stopped ? "已停止" : "将自动重启");
       if (!stopped) {
         restarts += 1;
@@ -238,16 +247,33 @@ export function startSpeech({ onFiller, onStatus, onHeard, onDebug, onTranscript
       try { rec && rec.stop(); } catch (_) {}
     },
     resume() {
-      if (!stopped) return;
+      if (!stopped || stopPromise) return;
       stopped = false;
       seen = "";
       restarts = 0;
       networkFails = 0;
       boot();
     },
-    stop() {
+    stop(timeoutMs = 2500) {
+      if (stopPromise) return stopPromise;
       stopped = true;
-      try { rec && rec.stop(); } catch (_) {}
+      if (!rec || ended.has(rec)) { closed = true; return Promise.resolve(); }
+      stopPromise = new Promise((resolve, reject) => {
+        const done = (error) => {
+          if (!finishStop) return;
+          clearTimeout(timer);
+          finishStop = null;
+          closed = true;
+          if (error) reject(error); else resolve();
+        };
+        const timer = setTimeout(() => {
+          done(new Error("浏览器听写收尾超时，转写可能不完整。"));
+          try { rec.abort(); } catch (_) {}
+        }, timeoutMs);
+        finishStop = done;
+        try { rec.stop(); } catch (error) { done(error); }
+      });
+      return stopPromise;
     },
   };
 }

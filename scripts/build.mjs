@@ -5,6 +5,7 @@ import * as esbuild from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +23,8 @@ const presenter = await esbuild.build({
   legalComments: "none", write: false, logLevel: "warning",
 });
 const presenterBundle = presenter.outputFiles[0].text;
+// A production build must not modify tracked source artifacts.
+if (devOnly) {
 fs.writeFileSync(path.join(root, "assets/demo-presenter.js"), presenterBundle);
 // 1) dev bundle for the source folder
 await esbuild.build({
@@ -31,7 +34,8 @@ await esbuild.build({
   define: { __APP_VERSION__: JSON.stringify(version), __BUILD_DATE__: JSON.stringify(buildDate), __BUILD_ID__: JSON.stringify("dev") },
   logLevel: "warning",
 });
-if (devOnly) { console.log("dev bundle ok"); process.exit(0); }
+console.log("dev bundle ok"); process.exit(0);
+}
 
 // 2) production bundle
 const tmp = await esbuild.build({
@@ -42,8 +46,10 @@ const tmp = await esbuild.build({
 });
 let bundle = tmp.outputFiles[0].text;
 const css = fs.readFileSync(path.join(root, "assets/app.css"), "utf8");
+const tokens = fs.readFileSync(path.join(root, "assets/tokens.css"), "utf8");
 const hash = crypto.createHash("sha1").update(bundle).update(css)
-  .update(presenterBundle).update(fs.readFileSync(path.join(root, "index.html"))).update(fs.readFileSync(path.join(root, "sw.js")))
+  .update(tokens).update(fs.readFileSync(path.join(root, "config.js"))).update(presenterBundle).update(fs.readFileSync(path.join(root, "index.html"))).update(fs.readFileSync(path.join(root, "sw.js")))
+  .update(fs.readFileSync(path.join(root, "landing/index.html"))).update(fs.readFileSync(path.join(root, "landing/styles.css")))
   .digest("hex").slice(0, 8);
 const buildId = `${version}-${hash}`;
 bundle = bundle.replaceAll("__BUILD_ID_SLOT__", buildId);
@@ -57,6 +63,7 @@ const write = (to, text) => { mk(path.dirname(to)); fs.writeFileSync(path.join(d
 write("assets/app.bundle.js", bundle);
 write("assets/demo-presenter.js", presenterBundle);
 write("assets/app.css", css);
+write("assets/tokens.css", tokens);
 write("index.html", fs.readFileSync(path.join(root, "index.html"), "utf8").replaceAll("__BUILD_ID__", buildId));
 write("sw.js", fs.readFileSync(path.join(root, "sw.js"), "utf8").replaceAll("__BUILD_ID__", buildId));
 cp("config.js");
@@ -80,7 +87,9 @@ if (fs.existsSync(classroomDir)) {
 // Host configs (harmless on hosts that ignore them)
 write("_headers", fs.readFileSync(path.join(root, "deploy/_headers"), "utf8"));
 write("vercel.json", fs.readFileSync(path.join(root, "deploy/vercel.json"), "utf8"));
-write("version.json", JSON.stringify({ name: "OpenPodium · 开讲", version, buildId, buildDate }, null, 2) + "\n");
+const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+const sourceDirty = !!execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).trim();
+write("version.json", JSON.stringify({ name: "OpenPodium · 开讲", version, buildId, buildDate, sourceCommit, sourceDirty }, null, 2) + "\n");
 write(".nojekyll", "");
 // GitHub Pages / Netlify 等会把它当作找不到页面时的兜底页
 write("404.html", fs.readFileSync(path.join(root, "deploy/404.html"), "utf8"));
@@ -99,3 +108,13 @@ biggest.sort((a, b) => b[1] - a[1]);
 console.log(`dist/ built  version=${version} buildId=${buildId} date=${buildDate}`);
 console.log(`total ${(total / 1048576).toFixed(1)} MB in ${biggest.length} files; largest:`);
 for (const [f, s] of biggest.slice(0, 6)) console.log(`  ${(s / 1048576).toFixed(2).padStart(6)} MB  ${f}`);
+
+// Integrity metadata excludes itself; sha256sum-compatible manifest includes every other public file.
+const files = [];
+const collect = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+  const p = path.join(d, e.name); if (e.isDirectory()) collect(p);
+  else files.push({ path: path.relative(dist, p).split(path.sep).join("/"), bytes: fs.statSync(p).size, sha256: crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex") });
+} };
+collect(dist); files.sort((a,b) => a.path.localeCompare(b.path));
+write("build-manifest.json", JSON.stringify({ schemaVersion: 1, version, buildId, sourceCommit, sourceDirty, files }, null, 2) + "\n");
+console.log(`source=${sourceCommit} dirty=${sourceDirty}; manifest=${files.length} files`);

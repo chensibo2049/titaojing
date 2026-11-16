@@ -13,16 +13,20 @@ export function metricsOf(session) {
   const c = d.counts || {};
   const dur = Math.max(1, d.duration || session.duration || 1);
   const min = dur / 60;
-  const per = (n) => r2((n || 0) / min);
+  const available = session.kind === "demo" ? { posture: true, gaze: true, board: true, filler: true } : d.available || {
+    posture: session.visionAvailable === true && !d.lowVisibility,
+    gaze: session.visionAvailable === true && !d.lowVisibility,
+    board: session.visionAvailable === true && !d.lowVisibility,
+    filler: session.speechAvailable === true && session.speechHeard === true,
+  };
+  const value = (k) => available[k] && Number.isFinite(c[k]) ? c[k] : null;
+  const per = (k) => value(k) === null ? null : r2(value(k) / min);
   return {
-    duration: Math.round(dur),
-    posture: c.posture || 0,
-    gaze: c.gaze || 0,
-    filler: c.filler || 0,
-    board: c.board || 0,
-    perMin: { posture: per(c.posture), gaze: per(c.gaze), filler: per(c.filler), board: per(c.board) },
-    classRatio: r2(d.classRatio || 0),
-    notesRatio: r2(d.notesRatio || 0),
+    duration: Math.round(dur), available,
+    posture: value("posture"), gaze: value("gaze"), filler: value("filler"), board: value("board"),
+    perMin: { posture: per("posture"), gaze: per("gaze"), filler: per("filler"), board: per("board") },
+    classRatio: available.gaze && Number.isFinite(d.classRatio) ? r2(d.classRatio) : null,
+    notesRatio: available.gaze && Number.isFinite(d.notesRatio) ? r2(d.notesRatio) : null,
   };
 }
 
@@ -103,7 +107,9 @@ export function toRecord(session, extra = {}) {
     videoSize: 0,
     videoType: "",
     speechAvailable: !!session.speechAvailable,
-    speechHeard: session.speechHeard !== false,
+    speechHeard: session.speechHeard === true,
+    localImport: !!session.localImport,
+    captureWarnings: session.captureWarnings || [],
     visionAvailable: !!session.visionAvailable,
     stats: session.stats || null,
     transcript: session.transcript || [],
@@ -140,6 +146,8 @@ export function fromRecord(rec) {
     stats: rec.stats,
     speechAvailable: rec.speechAvailable,
     speechHeard: rec.speechHeard,
+    localImport: !!rec.localImport,
+    captureWarnings: rec.captureWarnings || [],
     visionAvailable: rec.visionAvailable,
     fromHistory: true,
     stored: true,

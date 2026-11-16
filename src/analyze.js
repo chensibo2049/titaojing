@@ -1,5 +1,7 @@
 import { POSE as P, EVENT_META, runtime, boardSign as sideSign, podiumBox, boardBox, HAND_TIPS } from "./constants.js";
-import { buildFillerReport, fillerNextAdvice } from "./fillers.js";
+import { buildFillerReport } from "./fillers.js";
+import { observeSession } from "./observations.js";
+import { interpretPractice } from "./scenario-practice.js";
 
 const mid = (a, b) =>
   a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, v: Math.min(vis(a), vis(b)) } : null;
@@ -537,130 +539,14 @@ export function frameAt(session, t) {
 }
 
 export function diagnose(session) {
-  const dur = Math.max(session.duration, 0.1);
-  const events = session.events;
-  const count = (kindOrType, byType = false) =>
-    events.filter((e) => (byType ? e.type : e.kind) === kindOrType).length;
-
-  const nSway = count("sway") + count("posture");
-  const nSwayOnly = count("sway", true);
-  const nHip = count("hip", true);
-  const nFold = count("folded", true);
-  const nOut = count("out", true);
-  const nBack = count("back", true);
-  const nPace = count("pace", true);
-  const nGaze = count("gaze");
-  const nFill = count("filler");
-  const nBoard = count("board");
-
-  const fillers = events.filter((e) => e.type === "filler");
-  let cluster = 0;
-  for (let i = 0; i < fillers.length; i++) {
-    const n = fillers.filter((f) => Math.abs(f.t - fillers[i].t) <= 8).length;
-    if (n > cluster) cluster = n;
-  }
-
-  let classTime = 0, notesTime = 0, known = 0;
-  const fr = session.frames;
-  for (let i = 0; i < fr.length; i++) {
-    const dt = (fr[i + 1]?.t ?? dur) - fr[i].t;
-    const g = fr[i].gaze?.label;
-    if (!g || g === "unknown") continue;
-    known += dt;
-    if (g === "class") classTime += dt;
-    if (g === "notes") notesTime += dt;
-  }
-  const classRatio = known > 0.5 ? classTime / known : 0;
-  const notesRatio = known > 0.5 ? notesTime / known : 0;
-
-  const opening = fr.filter((f) => f.t <= 8);
-  const openingClass =
-    opening.length &&
-    opening.filter((f) => f.gaze?.label === "class").length / opening.length >= 0.55;
-
-  const lookedBackSometime = fr.some((f) => f.onBoard) && nBoard === 0 && fr.some((f) => f.onBoard);
-
-  const fillerRep = buildFillerReport(session);
-  session.fillerReport = fillerRep;
-
-  // 「最提神的一点」— find something true and specific.
-  let good;
-  const poseRatio = fr.length ? fr.filter((f) => f.pose).length / fr.length : 0;
-  if (session.kind === "camera" && poseRatio < 0.3) {
-    session.diagnosis = {
-      duration: dur,
-      counts: { posture: nSway, sway: nSwayOnly, gaze: nGaze, filler: nFill, board: nBoard, back: nBack, pace: nPace },
-      classRatio, notesRatio, cluster, poseRatio, lowVisibility: true,
-      good: nFill <= 2 && dur > 15 && session.speechAvailable && session.speechHeard
-        ? "口头禅很少，话和话之间留得住空隙。不过这一次画面里大部分时间没有识别到人，教态和视线的统计并不完整。"
-        : "你把这一段完整地讲下来了。不过这一次画面里大部分时间没有识别到人，教态和视线的统计并不完整。",
-      next: "下一次请退后一点，让腰部以上完整进入画面，光线从正面照过来，再试一次。识别稳定后，诊断才有参考价值。",
-      lookedBackSometime: false,
-      fillerReport: buildFillerReport(session),
-    };
-    return session.diagnosis;
-  }
-  if (openingClass) {
-    good = "开场那几秒，你是看着“学生”的。问候落在镜头上，台下会觉得这句话是说给他们听的。";
-  } else if (classRatio >= 0.55) {
-    good = `这一次里，大约有 ${Math.round(classRatio * 100)}% 的时间，视线是朝着镜头里的学生的。这已经是在对“人”讲，而不只是对讲稿讲。`;
-  } else if (nBoard === 0 && fr.some((f) => f.onBoard)) {
-    good = "板书写完之后，你有回到学生这边来。回视这一下，四个字才算写完。";
-  } else if (nSwayOnly === 0 && nHip === 0 && dur > 20) {
-    good = "站姿大体稳住了，没有长时间左右晃，也没有把重心一直撂在一边。学生会先看见这份安定。";
-  } else if (nFill <= 2 && dur > 15 && (session.kind === "demo" || (session.speechHeard && session.speechAvailable !== false))) {
-    good = "口头禅很少。话和话之间留得住空隙，听起来会更从容。";
-  } else if (classRatio > 0.3) {
-    good = "中间有一段，你是抬眼看向学生的。把这样的抬眼再多留半拍，整堂都会更稳。";
-  } else {
-    good = "你把这一段完整地讲下来了。先肯定这件事——能对着镜头把话讲完，本身就是在练站台。";
-  }
-
-  // 「下一次可以试的一招」— the single most useful fix.
-  let next;
-  if (nBack > 0) {
-    next = "写板书时侧过身，不要整个人背对学生。侧身写，一边写一边还能看见课堂。";
-  } else if (nPace > 0) {
-    next = "走到需要走到的地方再停住。来回踱步会把学生的注意力从内容上带走。";
-  } else if (nBoard > 0) {
-    next = "字写完的那一刻，先转身看学生，再开口。板书是写给学生看的，回视一下，才算写完。";
-  } else if (fillerRep.ok && (cluster >= 3 || nFill >= 5)) {
-    next = fillerNextAdvice(fillerRep) || "把最常冒出来的那一个词换成半拍停顿，再把那一段重讲一遍。";
-  } else if (notesRatio >= 0.28 || nGaze >= 2) {
-    next = "把讲稿要点缩成三行，抬眼的时间会自然变多。可以先试：每讲完一句，主动看向镜头里的“学生”停半拍。";
-  } else if (nSwayOnly >= 1) {
-    next = "双脚与肩同宽，把重心放回两脚之间。可以在心里数「一、二」，再换支撑脚，晃就会小下去。";
-  } else if (nHip >= 1) {
-    next = "把重心从一侧髋上收回来，膝盖不要锁死。站定时先感觉两只脚都在用力。";
-  } else if (nFold >= 1) {
-    next = "双手松开，做一次打开的手势，再自然垂在身侧。抱臂会把声音也挡在胸口。";
-  } else if (nOut >= 1) {
-    next = "先在讲台框里站定。走动要有目的，走到了再停，不要在边上看似随意地晃出去。";
-  } else if (!fillerRep.ok && session.kind === "camera") {
-    next = fillerRep.reason + "教态和视线仍可回看。下次开讲前可以先点「试一下听写」，确认浏览器能否出字。";
-  } else if (classRatio < 0.5) {
-    next = "把镜头当成第一排的学生。讲关键句时看它一眼，再低头看稿，节奏会清楚很多。";
-  } else {
-    next = "下一遍可以故意在板书结束、口头禅要出口、低头看稿这三处各停半秒。停下来的那半秒，往往就是教态最干净的时候。";
-  }
-
+  const observation = observeSession(session);
+  const interpretation = interpretPractice(observation);
+  const fillerReport = buildFillerReport(session);
+  session.fillerReport = fillerReport;
   session.diagnosis = {
-    duration: dur,
-    counts: {
-      posture: nSway,
-      sway: nSwayOnly,
-      gaze: nGaze,
-      filler: nFill,
-      board: nBoard,
-    },
-    classRatio,
-    notesRatio,
-    cluster,
-    poseRatio,
-    good,
-    next,
-    lookedBackSometime,
-    fillerReport: fillerRep,
+    ...observation, good: interpretation.good, next: interpretation.next,
+    observation, interpretation, fillerReport,
+    lookedBackSometime: observation.available.board && observation.counts.board === 0 && (session.frames || []).some(f => f.onBoard),
   };
   return session.diagnosis;
 }

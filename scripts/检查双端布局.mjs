@@ -97,7 +97,7 @@ try {
     await page.screenshot({ path:path.join(OUT, `介绍页-${width}.png`), fullPage:true });
     await page.goto(base + '?noasrdl=1#/demo', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !document.getElementById('btn-stop').disabled);
-    assert(await page.$eval('#dock-note', e => /低头看稿/.test(e.textContent) && /非真实识别/.test(e.textContent) && e.getBoundingClientRect().height > 0), 'outside demo explanation missing');
+    assert(await page.$eval('#dock-note', e => /预设演示/.test(e.textContent) && /非真实识别/.test(e.textContent) && e.getBoundingClientRect().height > 0), 'outside demo explanation missing');
     assert(await page.$eval('#hud-caption', e => +getComputedStyle(e).zIndex > +getComputedStyle(document.querySelector('.stage-overlay')).zIndex), 'caption behind skeleton');
     assert(await page.$eval('#hud-flags', e => +getComputedStyle(e).zIndex > +getComputedStyle(document.querySelector('.stage-overlay')).zIndex), 'flags behind skeleton');
     await page.waitForFunction(() => { const e=document.getElementById('hud-caption'); return !e.hidden && e.textContent.trim().length > 2; });

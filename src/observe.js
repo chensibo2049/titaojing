@@ -3,6 +3,58 @@
  */
 import { midHip, lm } from "./analyze.js";
 import { POSE as P } from "./constants.js";
+import { observeSession, OBSERVATION_VERSION } from "./observations.js";
+import { interpretPractice } from "./scenario-practice.js";
+
+export const OBSERVE_RULE_VERSION = "review-details/1.0.0";
+
+/** Shared, read-only presentation contract. Never re-diagnose or migrate a stored record. */
+export function buildReviewContext(session = {}) {
+  const d = session.diagnosis || {};
+  const saved = d.observation;
+  const demo = session.kind === "demo";
+  const imported = !!session.localImport || session.stats?.source === "local-video" || saved?.source === "local-video-mediapipe";
+  const legacy = !!session.diagnosis && !saved;
+  const derived = saved || observeSession({ ...session, localImport: imported });
+  const available = { ...derived.available };
+  if (!demo && session.visionAvailable === false) {
+    for (const key of ["posture", "sway", "back", "pace", "gaze", "board"]) available[key] = false;
+  }
+  if (!demo && (session.speechAvailable === false || session.speechHeard === false)) available.filler = false;
+  const counts = {};
+  for (const key of Object.keys(available)) {
+    const value = (saved?.counts || d.counts || derived.counts)[key];
+    counts[key] = available[key] && Number.isFinite(value) ? value : null;
+  }
+  const source = demo ? "preset-animation-rig" : imported ? "local-video-mediapipe" : saved?.source || (session.kind === "camera" ? "local-camera-mediapipe" : "unknown");
+  const observationVersion = saved?.observationVersion || (legacy ? "旧版未记录" : saved ? "未记录" : OBSERVATION_VERSION);
+  const rawEvidence = saved?.evidence?.length ? saved.evidence : session.events || [];
+  const evidence = rawEvidence.map(e => {
+    const speech = e.kind === "filler" || e.type === "filler";
+    const eventSource = demo ? (speech ? "preset-transcript" : source)
+      : e.source || (legacy ? "旧记录，具体来源未记录" : speech ? session.asrEngine || "browser-speech" : source);
+    return { ...e, source: eventSource, observationVersion: e.observationVersion || observationVersion };
+  });
+  const missing = [...new Set([
+    ...(derived.missing || []),
+    !available.posture && "体态画面不足，未统计不代表没有发生。",
+    !available.gaze && "头部朝向不可判；不是精确眼动。",
+    !available.filler && (imported ? "导入视频未听写声音，口头禅未统计。" : session.speechError || "没有可用听写，口头禅未统计。"),
+    legacy && "旧记录未保存观测与建议规则版本；保留原标记，不追溯认定为新版识别结果。",
+    ...(session.captureWarnings || []),
+  ].filter(Boolean))];
+  const observation = { ...derived, source, demo, available, counts, evidence, observationVersion, missing };
+  const interpretation = d.interpretation || (legacy ? {
+    ruleVersion: "旧版未记录", good: d.good || "旧记录仅供回看，不是表现评分。",
+    next: d.next || "请先回看原标记，再自行选择一处复练。",
+    basis: "保留旧版建议；没有版本与证据关联，不能当作新版规则结论。", evidence: [],
+  } : interpretPractice(observation));
+  return {
+    observation, interpretation, legacy, demo, imported, source,
+    sourceLabel: demo ? "预设演示" : imported ? "本机视频导入（仅本次）" : session.kind === "camera" ? "真实试讲（本机摄像头）" : "来源未记录",
+    sourceNote: demo ? "骨架来自动画 rig 投影，非实际视觉识别；字幕、语音与标记均为预设，不代表真实试讲表现。" : "体态为单摄像头规则估计；头部朝向不是精确眼动。标记供自查，不是教学质量、心理或医学测评。",
+  };
+}
 
 export const PARTICLE_WORDS = ["那么", "然后", "就是", "嗯", "啊", "呃", "哦", "呢", "吧", "嘛"];
 
@@ -341,7 +393,7 @@ function wristPoints(frame) {
 }
 
 export function stanceAndMotion(session) {
-  const frames = (session && session.frames) || [];
+  const frames = session?.kind !== "demo" && session?.visionAvailable === false ? [] : (session && session.frames) || [];
   const dur = Number(session && session.duration) || (frames.length ? frames[frames.length - 1].t : 0);
   const points = [];
   let dist = 0;
@@ -379,7 +431,7 @@ export function stanceAndMotion(session) {
 }
 
 export function gestureStats(session) {
-  const frames = (session && session.frames) || [];
+  const frames = session?.kind !== "demo" && session?.visionAvailable === false ? [] : (session && session.frames) || [];
   const dur = Number(session && session.duration) || (frames.length ? frames[frames.length - 1].t : 0);
   if (!frames.length) return { available: false, count: 0, meanAmp: 0, times: [] };
   let count = 0;
@@ -417,7 +469,7 @@ export function gestureStats(session) {
 }
 
 export function gazeCoverage(session) {
-  const frames = (session && session.frames) || [];
+  const frames = session?.kind !== "demo" && session?.visionAvailable === false ? [] : (session && session.frames) || [];
   const dur = Number(session && session.duration) || (frames.length ? frames[frames.length - 1].t : 0);
   let left = 0, mid = 0, right = 0, faceClass = 0, notes = 0, known = 0, back = 0, board = 0;
   let gazeKnown = false;
@@ -460,6 +512,7 @@ export function estimateStructure(session) {
   if (session && session.observeMarks && session.observeMarks.source === "user" && Array.isArray(session.observeMarks.segments)) {
     return { source: "user", segments: session.observeMarks.segments, duration: dur };
   }
+  if (missingSpeech(session)) return { source: "none", segments: [], duration: dur };
   const openEnd = Math.min(dur, Math.max(dur * 0.1, Math.min(60, dur * 0.18)));
   const closeStart = Math.max(openEnd, dur * 0.82);
   let open = openEnd, close = closeStart;
@@ -485,6 +538,8 @@ export function lessonRhythm(session) {
   const motion = stanceAndMotion(session);
   const ges = gestureStats(session);
   const pauses = findPauses(lines, dur);
+  const speechAvailable = !missingSpeech(session);
+  const poseAvailable = !missingPose(session);
   const minutes = [];
   const n = Math.max(1, Math.ceil(dur / 60));
   for (let m = 0; m < n; m++) {
@@ -495,7 +550,10 @@ export function lessonRhythm(session) {
     let move = 0;
     for (let i = 1; i < pts.length; i++) move += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
     const gestures = ges.times.filter((t) => t >= t0 && t < t1).length;
-    minutes.push({ minute: m + 1, t0, t1, cpm: chars / Math.max((t1 - t0) / 60, 1 / 60), pause, move, gestures });
+    const speechOK = speechAvailable && lines.some(l => l.t >= t0 && l.t < t1);
+    const motionOK = poseAvailable && motion.available && pts.length >= 2;
+    const handsOK = poseAvailable && ges.available && (session.frames || []).some(f => f.t >= t0 && f.t < t1 && wristPoints(f).length);
+    minutes.push({ minute: m + 1, t0, t1, cpm: speechOK ? chars / Math.max((t1 - t0) / 60, 1 / 60) : null, pause: speechOK ? pause : null, move: motionOK ? move : null, gestures: handsOK ? gestures : null });
   }
   const structure = estimateStructure(session);
   return { minutes, structure, duration: dur };
@@ -503,8 +561,9 @@ export function lessonRhythm(session) {
 
 export function boardAlignment(session) {
   const lines = linesOf(session);
-  const frames = (session && session.frames) || [];
-  const events = (session && session.events) || [];
+  const frames = session?.kind !== "demo" && session?.visionAvailable === false ? [] : (session && session.frames) || [];
+  const visualOK = session?.kind === "demo" || session?.visionAvailable !== false;
+  const events = visualOK ? (session && session.events) || [] : [];
   const starts = [];
   let on = false, start = 0;
   const dur = Number(session && session.duration) || 0;
@@ -528,11 +587,12 @@ export function boardAlignment(session) {
     const kws = extractKeywords(nearby, { minCount: 1, topN: 6 });
     spans.push({ t: s.t, end: s.end || s.t, keywords: kws, quotes: nearby.slice(0, 3) });
   }
-  return { available: starts.length > 0, spans };
+  const why = !visualOK || missingPose(session) ? "没有足够的体态画面，写板时段未统计。" : missingSpeech(session);
+  return { available: !why && starts.length > 0, spans, why };
 }
 
 export function findHighlights(session) {
-  const lines = linesOf(session);
+  const lines = missingSpeech(session) ? [] : linesOf(session);
   const dur = Number(session && session.duration) || 0;
   const cues = extractKeyPoints(lines);
   const qs = findQuestions(lines, dur).items;
@@ -566,16 +626,17 @@ export function findHighlights(session) {
 
 function missingSpeech(session) {
   const lines = linesOf(session);
+  if (session?.kind !== "demo" && (session?.speechAvailable === false || session?.speechHeard === false)) {
+    return session?.localImport || session?.stats?.source === "local-video" ? "导入视频未听写声音，无法从原话里定位。" : session?.speechError || "这一次没有可用的听写，无法从原话里定位。";
+  }
   if (lines.length) return "";
-  if (session && session.kind === "camera" && session.speechAvailable === false) return "这一次没有可用的听写，无法从原话里定位。";
-  if (session && session.kind === "camera" && session.speechHeard === false) return "这一次听写没有留下句子，无法从原话里定位。";
   return "没有转写，无法从原话里定位。";
 }
 
 function missingPose(session) {
-  const frames = (session && session.frames) || [];
+  const frames = session?.kind !== "demo" && session?.visionAvailable === false ? [] : (session && session.frames) || [];
   const withPose = frames.filter((f) => f.pose).length;
-  if (withPose >= 8) return "";
+  if (withPose >= 8 && withPose / frames.length >= 0.3) return "";
   if (session && session.kind === "demo" && !frames.length) return "演示回放没有留下姿态轨迹，站位和移动无法计算。";
   if (session && session.kind === "camera" && session.visionAvailable === false) return "这一次没有体态分析，站位和移动无法计算。";
   return frames.length ? "识别到人的画面太少，站位和移动不够完整。" : "没有姿态记录，站位和移动无法计算。";
@@ -585,6 +646,7 @@ function missingPose(session) {
  * 根据一次试讲生成观察记录（细项 + 整节课）。不作评分。
  */
 export function buildObserveReport(session) {
+  const context = buildReviewContext(session);
   const lines = linesOf(session);
   const dur = Math.max(Number(session && session.duration) || 0, lines.reduce((a, l) => Math.max(a, l.t), 0));
   const speechWhy = missingSpeech(session);
@@ -611,6 +673,9 @@ export function buildObserveReport(session) {
   const cheers = speechWhy ? null : encouragements(lines);
 
   return {
+    ...context,
+    detailRuleVersion: OBSERVE_RULE_VERSION,
+    missing: [...new Set([...context.observation.missing, speechWhy, poseWhy, !gaze.available && "头部朝向记录不足，未统计覆盖。"].filter(Boolean))],
     duration: dur,
     hasSpeech: !speechWhy,
     speechWhy,
@@ -625,7 +690,7 @@ export function buildObserveReport(session) {
     questions,
     motion,
     gestures,
-    gaze: gaze.available ? gaze : { ...gaze, available: false, why: gaze.available ? "" : "没有足够的视线记录，面向和左右覆盖无法计算。" },
+    gaze: gaze.available ? { ...gaze, backTime: poseWhy ? null : gaze.backTime, boardTime: poseWhy ? null : gaze.boardTime } : { available: false, why: "没有足够的头部朝向记录，面向和左右覆盖无法计算。" },
     structure,
     lesson: {
       label: "依据你的原话定位",

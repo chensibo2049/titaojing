@@ -18,7 +18,7 @@ export function runEgoChecks(layoutOnly = false) {
   if (result.error) throw result.error;
   if (result.status !== 0) { process.exitCode = result.status || 1; return; }
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-  if (report.base !== base || report.layoutOnly !== layoutOnly || report.count !== (layoutOnly ? 35 : 50) || !report.checks.every(c => c.ok)) throw Error('Ego report incomplete');
+  if (report.base !== base || report.layoutOnly !== layoutOnly || report.count !== (layoutOnly ? 39 : 54) || !report.checks.every(c => c.ok)) throw Error('Ego report incomplete');
   console.log(`PASS ${report.count} Ego checks; report: ${reportPath}`);
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) runEgoChecks(process.argv.includes('--layout'));
