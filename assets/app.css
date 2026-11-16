@@ -2000,92 +2000,79 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
 .screen-cover .local-import summary:hover,
 .screen-cover .start-guide summary:hover { color: var(--cinnabar); border-color: var(--cinnabar); }
 
-/* 首屏结果示例 */
+/* 首屏预设试讲者＋回看要点 */
 
-.sample-card {
+.cover-stage-card {
   width: 100%;
   max-width: 430px;
-  padding: 22px;
   background: var(--paper-soft);
   border: 1px solid var(--line);
   border-radius: 18px;
+  overflow: hidden;
   box-shadow: 0 14px 36px rgba(18, 22, 26, 0.07);
 }
 
-.sample-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.sample-tag {
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(30, 111, 92, 0.10);
-  color: var(--cinnabar-deep);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.sample-title {
-  font-size: 13px;
-  color: var(--ink-faint);
-  letter-spacing: 0.02em;
-}
-
-.sample-strip {
+.cover-stage {
   position: relative;
-  height: 64px;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #1c2126, #13171a);
+  aspect-ratio: 4 / 3;
+  background: #e9e9df;
   overflow: hidden;
 }
 
-.sample-strip::after {
-  content: "";
+.cover-scene {
   position: absolute;
-  left: 18px;
-  right: 18px;
-  top: 50%;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.18);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-.sample-mark {
+.cover-stage .demo-presenter-host {
   position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  border-radius: 50%;
-  background: #4ecba9;
-  box-shadow: 0 0 0 4px rgba(78, 203, 169, 0.18);
+  inset: 0;
+  pointer-events: none;
 }
 
-.sample-scale {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
+.cover-stage-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(20, 23, 26, 0.72);
+  color: #fff;
   font-size: 11px;
-  color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
-.sample-list {
+.cover-stage-body { padding: 18px 20px 20px; }
+
+.cover-insights {
   list-style: none;
-  margin: 18px 0 0;
   display: grid;
-  gap: 13px;
+  gap: 12px;
 }
 
-.sample-list li {
+.cover-insights li {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
   align-items: start;
+}
+
+.cover-insights strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cover-insights p {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-faint);
 }
 
 .sample-time {
@@ -2097,28 +2084,21 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
   font-variant-numeric: tabular-nums;
 }
 
-.sample-list strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.sample-list p {
-  margin-top: 3px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink-faint);
-}
-
-.sample-foot {
-  margin-top: 16px;
-  padding-top: 14px;
+.cover-insight-note {
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 12px;
   line-height: 1.5;
   color: var(--ink-faint);
 }
+
+.cover-insight-note a {
+  color: var(--cinnabar-deep);
+  text-decoration: none;
+}
+
+.cover-insight-note a:hover { text-decoration: underline; }
 
 @media (max-width: 900px) {
   .screen-cover .cover-layout {
@@ -2127,11 +2107,19 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
     align-items: start;
   }
 
-  .sample-card { max-width: none; }
+  .cover-stage-card { max-width: none; }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .cover-stage {
+    aspect-ratio: auto;
+    height: 46vh;
+  }
 }
 
 @media (max-width: 640px) {
   .screen-cover .cover-copy h1 { font-size: 32px; }
   .screen-cover .cover-actions .btn { width: 100%; min-height: 0; padding: 13px 18px; }
-  .sample-card { padding: 18px; border-radius: 16px; }
+  .cover-stage-card { border-radius: 16px; }
+  .cover-stage-body { padding: 16px 16px 18px; }
 }

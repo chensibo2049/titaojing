@@ -38,10 +38,6 @@
     请先在本文件夹运行 <code>./start.sh</code>，再用 Chrome 或 Edge 打开 <code>http://127.0.0.1:8765/</code>。直接双击打开时，镜头、历史记录和离线功能都无法使用；「一键演示」仍可观看。
   </div>
   <main id="app">
-    <div id="update-bar" class="update-bar" hidden role="status">
-      <span>开讲有新版本</span>
-      <button type="button" id="btn-update">刷新使用新版</button>
-    </div>
     <!-- COVER -->
     <section id="screen-cover" class="screen screen-cover" data-screen="cover">
       <header class="cover-head">
@@ -103,36 +99,32 @@
           <button type="button" class="install-chip" id="btn-install" hidden>安装到桌面 · 可离线使用</button>
         </div>
 
-        <aside class="sample-card" aria-label="回看结果示例">
-          <div class="sample-head">
-            <span class="sample-tag">示例</span>
-            <span class="sample-title">一次练习的回看</span>
+        <aside class="cover-stage-card" aria-label="预设试讲演示">
+          <div class="cover-stage" id="cover-stage">
+            <canvas class="cover-scene" id="cover-scene" width="720" height="540" aria-hidden="true"></canvas>
+            <span class="cover-stage-badge">预设演示 · 非真实识别</span>
           </div>
-          <div class="sample-strip" aria-hidden="true">
-            <span class="sample-mark" style="left: 24%"></span>
-            <span class="sample-mark" style="left: 47%"></span>
-            <span class="sample-mark" style="left: 79%"></span>
+          <div class="cover-stage-body">
+            <ul class="cover-insights">
+              <li>
+                <span class="sample-time">00:38</span>
+                <div>
+                  <strong>连续低头 9 秒</strong>
+                  <p>抬头把这一句讲完，会更有把握。</p>
+                </div>
+              </li>
+              <li>
+                <span class="sample-time">01:12</span>
+                <div>
+                  <strong>「嗯」出现 4 次</strong>
+                  <p>停顿放在句尾，比垫字更稳。</p>
+                </div>
+              </li>
+            </ul>
+            <p class="cover-insight-note">
+              示例数据，不是你的识别结果 · <a href="#/demo">看完整演示 →</a>
+            </p>
           </div>
-          <div class="sample-scale" aria-hidden="true">
-            <span>00:00</span><span>01:00</span><span>02:00</span>
-          </div>
-          <ul class="sample-list">
-            <li>
-              <span class="sample-time">00:38</span>
-              <div>
-                <strong>连续低头 9 秒</strong>
-                <p>这一段抬头把话讲完，会更有把握。</p>
-              </div>
-            </li>
-            <li>
-              <span class="sample-time">01:12</span>
-              <div>
-                <strong>「嗯」出现 4 次</strong>
-                <p>停顿放在句尾，比垫字更稳。</p>
-              </div>
-            </li>
-          </ul>
-          <p class="sample-foot">示例数据，不是你的识别结果；真实练习会标出对应画面。</p>
         </aside>
       </div>
 

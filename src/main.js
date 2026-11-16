@@ -130,6 +130,7 @@ function setHashSilently(hash) {
 
 function stopEverything({ keepPreview = false } = {}) {
   clearDemoView();
+  stopCoverStage();
   cancelLocalImport();
   releaseLocalReplay();
   cancelAnimationFrame(raf);
@@ -165,6 +166,7 @@ function goCover() {
   showScreen("cover");
   renderCover();
   startCoverLoop();
+  applyPendingUpdate();
 }
 
 /* ——— Router ——— */
@@ -206,10 +208,78 @@ function route() {
 /* ——— Cover ——— */
 
 let coverRaf = 0;
-function startCoverLoop() {
-  // 首屏使用静态步骤，不下载人物模型、不运行不可见的动画。
+let coverStart = 0;
+let coverVisible = true;
+let pendingUpdate = null;
+
+/* 首屏的预设试讲者：仅在首页可见时循环，离开即释放；失败退回 2D 静态画面。 */
+const coverView = createDemoView({
+  onReady: () => {
+    const scene = $("cover-scene");
+    if (scene) scene.hidden = coverView.status().state === "ready";
+  },
+});
+
+function stopCoverStage() {
   cancelAnimationFrame(coverRaf);
+  coverRaf = 0;
+  coverView.dispose();
+  const scene = $("cover-scene");
+  if (scene) {
+    const ctx = scene.getContext("2d");
+    if (ctx) ctx.clearRect(0, 0, scene.width, scene.height);
+    scene.hidden = false;
+  }
+}
+
+function paintCoverFallback(t) {
+  const scene = $("cover-scene");
+  if (!scene || coverView.status().state === "ready") return;
+  resizeCanvasTo(scene, scene.clientWidth || 320, scene.clientHeight || 240);
+  const { p } = sampleDemo(t);
+  renderScene(scene.getContext("2d"), scene.width, scene.height, p, t);
+}
+
+function loopCover(now) {
+  if (mode !== "cover" || !coverVisible) { coverRaf = 0; return; }
+  const t = ((now - coverStart) / 1000) % 55;
+  coverView.setTime(t);
+  paintCoverFallback(t);
+  coverRaf = requestAnimationFrame(loopCover);
+}
+
+function startCoverLoop() {
+  cancelAnimationFrame(coverRaf);
+  coverRaf = 0;
   setRuntime({});
+  const stage = $("cover-stage");
+  if (!stage) return;
+  coverStart = performance.now();
+  // 等页面 load 后再挂三维：主线程建场景不能拖慢首屏与首字节渲染。
+  const begin = () => {
+    if (mode !== "cover") return;
+    coverView.mount(stage);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      coverView.setTime(12);
+      paintCoverFallback(12);
+      return;
+    }
+    if (coverVisible) coverRaf = requestAnimationFrame(loopCover);
+  };
+  const idle = () => {
+    if ("requestIdleCallback" in window) requestIdleCallback(begin, { timeout: 1500 });
+    else setTimeout(begin, 300);
+  };
+  if (document.readyState === "complete") idle();
+  else window.addEventListener("load", idle, { once: true });
+}
+
+function applyPendingUpdate() {
+  if (!pendingUpdate) return;
+  if (mode !== "cover" && mode !== "page") return;
+  const run = pendingUpdate;
+  pendingUpdate = null;
+  run();
 }
 
 function renderWhatsNew() {
@@ -1922,11 +1992,19 @@ function onReady() {
     if (mode === "replay") { sizeReplayWrap(session); paintReplay(currentReplayTime()); }
   });
 
+  const coverStageEl = document.getElementById("cover-stage");
+  if (coverStageEl && "IntersectionObserver" in window) {
+    new IntersectionObserver(([entry]) => {
+      coverVisible = entry.isIntersecting;
+      if (mode !== "cover") return;
+      if (coverVisible) { if (!coverRaf) coverRaf = requestAnimationFrame(loopCover); }
+      else { cancelAnimationFrame(coverRaf); coverRaf = 0; }
+    }, { threshold: 0.05 }).observe(coverStageEl);
+  }
+
   initPwa({
-    onUpdateReady: (apply) => {
-      $("update-bar").hidden = false;
-      $("btn-update").onclick = () => { if (mode === "camera") { toast("请先结束这次试讲再更新"); return; } apply(); };
-    },
+    // 不再弹出更新条：空闲页面直接换新，练习中等到回到首页再换。
+    onUpdateReady: (apply) => { pendingUpdate = apply; applyPendingUpdate(); },
   });
   onPwaChange(() => { if (mode === "cover") renderCover(); });
 
