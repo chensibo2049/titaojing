@@ -133,34 +133,29 @@
   <div class="wrap">
     <header>
       <span class="brand">OpenPodium · 开讲</span>
-      <nav>
-        <a href="#start">开始指南</a>
-        <a href="#demo3d">3D 演示</a>
-        <a href="#classroom">课堂里怎么用</a>
-        <a href="#framing">半身与全身</a>
-        <a href="#flow">讲完再回看</a>
-        <a href="#practice">10 分钟怎么练</a>
+      <nav aria-label="介绍页导航">
+        <a href="#start">怎么开始</a>
         <a href="#yuwen">语文观察表</a>
-        <a href="#faq">常见问题</a>
-        <a href="../">进入开讲</a>
+        <a href="#faq">隐私与限制</a>
+        <a href="../">进入开讲 ↗</a>
       </nav>
     </header>
 
     <main id="main" tabindex="-1">
     <div class="hero">
       <div>
-        <h1>一面给试讲用的镜子</h1>
-        <p class="brand-en">OpenPodium · 开讲</p>
-        <p class="lead">对着镜头讲一段课。教态、视线、口头禅和写板后的回视，会像运动训练一样，直接画在画面上。讲完可以回放，转写里的水词也会标出来。</p>
-        <p class="lead" style="margin-top:12px">我们会重点打磨电脑端：电脑放在讲台或课桌上就能练，不必再找手机支架。练习模式几分钟即可；课堂模式可以讲上 10 到 20 分钟再回看。手机同样可以用。</p>
+        <p class="eyebrow">给试讲，也给下一次更好的表达</p>
+        <h1>先讲出来，<br>再看清楚。</h1>
+        <p class="lead">开讲是一面给试讲用的镜子。留下教态、视线与语言线索，回到具体时刻，找到下一次能改的一处。</p>
         <div class="actions">
-          <a class="btn btn-primary" href="../#/demo">看一分钟演示</a>
-          <a class="btn btn-ghost" href="../#/try">对着镜头试讲</a>
+          <a class="btn btn-primary" href="../#/try">开始练习 ↗</a>
+          <a class="btn btn-ghost" href="../#/demo">观看演示</a>
         </div>
+        <p class="note">免费开源 · 无需账号 · 录像默认不保存</p>
       </div>
       <figure class="hero-fig">
         <img src="images/half.jpg" alt="半身构图下，教态和视线画在讲课的人身上">
-        <figcaption>教态会画在人身上。一键演示无需打开摄像头。</figcaption>
+        <figcaption>示例画面 · 提示用于回看，不是评分。演示无需摄像头。</figcaption>
       </figure>
     </div>
 
@@ -174,69 +169,14 @@
       </div>
     </section>
 
-    <section id="demo3d">
-      <h2>一键演示里的 3D 试讲老师</h2>
-      <p class="lead">封面和一键演示在 WebGL 可用时，会换成更写实的 3D 人物：老师站在讲台前，仍会把骨架、视线和口头禅画在画面上。模拟课堂、模拟路演里的同学和嘉宾也是同一套人物。显卡较弱或设置里选择插画时，会自动退回原来的插画。</p>
-      <div class="grid-2" style="margin-top:28px">
-        <figure class="hero-fig">
-          <video id="demo3d-video" autoplay muted loop playsinline poster="images/demo-3d.jpg">
-            <source src="images/demo-3d.mp4" type="video/mp4">
-          </video>
-          <figcaption>16 秒讲台演示。这是风格化的写实人物，手臂动作比较克制，骨架不会与网格完全重合。</figcaption>
-        </figure>
-        <figure class="hero-fig">
-          <img src="images/classroom-3d.jpg" alt="模拟课堂里坐在课桌前的 3D 同学，面向黑板">
-          <figcaption>模拟课堂里的同学。练习用模拟，不是真实课堂。</figcaption>
-        </figure>
-      </div>
-    </section>
-
-    <section id="classroom">
-      <h2>把电脑放在讲台上</h2>
-      <p class="lead">不必另买设备。用教室里那台笔记本的摄像头就可以。</p>
-      <div class="plan" style="margin-top:28px">
-        <article>
-          <span class="plan-n">1</span>
-          <h3>摆放</h3>
-          <p>电脑放在讲台或第一排课桌上，镜头大致与胸部齐平或略低，不要俯拍。光线从正面或侧前方来，避免逆光和强光打在黑板上。</p>
-        </article>
-        <article>
-          <span class="plan-n">2</span>
-          <h3>入画</h3>
-          <p>半身：腰部以上完整进入画面，距离大约一到两米。全身：再退远一些，或把镜头放到教室侧前方，从头到脚都能看见。</p>
-        </article>
-        <article>
-          <span class="plan-n">3</span>
-          <h3>开讲、回看</h3>
-          <p>选择「课堂」模式，建议 10、15 或 20 分钟。电脑放在讲台上时，站好后可以按空格开始（课堂模式先有 5 秒倒计时），讲完再按空格结束，不必走回去点按钮。回放就在同一台电脑上：时间线上有标记，转写里的水词会标出，也可以写下自己的批注。</p>
-        </article>
-      </div>
-      <p class="note">详细的摆放、光线和常见问题，见使用说明里的「课堂摆放」。</p>
-    </section>
-
-    <section id="framing">
-      <h2>半身，或全身</h2>
-      <p class="lead">两种构图都支持，可以指定，也可以开讲后由画面自动判断。</p>
-      <div class="grid-2" style="margin-top:28px">
-        <article class="card">
-          <img src="images/half.jpg" alt="半身：腰部以上，讲台近景">
-          <h3>半身 · 讲台近景</h3>
-          <p>电脑就放在讲台上。看得到视线是否落在讲稿上、肩膀是否晃、写板后有没有回看学生。适合日常对着镜头练，也适合大多数教室的讲台位置。</p>
-        </article>
-        <article class="card">
-          <img src="images/replay.jpg" alt="回放页：时间线标记与诊断">
-          <h3>全身 · 教室侧前方</h3>
-          <p>镜头再远一些，或放在侧前方。看得到站位、步伐，以及写板书时会不会整个人背对学生。适合微格教室，或请同伴把手机架在稍远的地方。</p>
-        </article>
-      </div>
-    </section>
-
     <section id="flow">
-      <h2>讲 10 到 20 分钟，再回看</h2>
+      <p class="eyebrow">能回到原处，才有据可改</p>
+      <h2>看一个时刻，而不是一个分数</h2>
       <div class="grid-2">
         <div>
-          <p>开讲不是一堂课的评分表，而是讲完之后用来回看的镜子。时间线上会标出晃动、视线落下、口头禅、写板未回视等时刻；旁边是两句具体的话——这一次里值得留下的，和下一次可以试的一招。目前不能认出黑板上的字，但能看到手是否伸向板书区、是否在写、写完是否回视。口头禅靠听写：可下载本机听写（约 90 MB，一次即可），声音不离开这台设备；浏览器自带的听写在中国大陆经常连不上。</p>
-          <p style="margin-top:12px">转写会整段留下来，词表里的水词用记号标出，点某一句就能跳到那里。历史留在这台设备上，可以和上一次对比。</p>
+          <p>拖动时间线，回到视线落下、晃动或写板后的时刻。对照画面判断：是在看稿、思考，还是忘了回看学生？提示只是线索，原因由你来判断。</p>
+          <p style="margin-top:12px">有转写时，可以点一句话跳转，并查看口头禅标记；语文试讲还可以对照题干与朗读口令。没有识别到的内容会说明限制，不把缺失当作零。</p>
+          <p class="note">摄像头练习支持半身或全身；练习模式几分钟，课堂模式可选 10、15 或 20 分钟。导入视频只分析画面，结果不存历史。</p>
         </div>
         <figure class="hero-fig">
           <img src="images/replay.jpg" alt="回放与时间线">
@@ -245,22 +185,10 @@
       </div>
     </section>
 
-    <section id="practice">
-      <h2>一次 10 分钟试讲，可以这样分</h2>
-      <p class="lead">教师面试的试讲常见是 10 分钟。下面是一种参考节奏，按自己的学科调整即可。讲完先看时间线上标记最密的那一段，一次只挑一两处改。</p>
-      <ol class="timeline">
-        <li style="flex:1"><b>0:00–1:00</b><span>导入</span><small>开口前先看向学生</small></li>
-        <li style="flex:5"><b>1:00–6:00</b><span>新授</span><small>写完板书要回身</small></li>
-        <li style="flex:2"><b>6:00–8:00</b><span>练习与互动</span><small>提问后留出停顿</small></li>
-        <li style="flex:1.5"><b>8:00–9:30</b><span>小结</span><small>视线照顾两侧</small></li>
-        <li style="flex:0.8"><b>9:30</b><span>结束</span><small>按空格</small></li>
-      </ol>
-      <p class="note">完整的练习单（开讲前怎么摆、讲完按什么顺序看回放、两个人怎么一起练）见 <a href="https://github.com/chensibo2049/titaojing/blob/main/docs/PRACTICE.md">试讲练习单</a>。</p>
-    </section>
-
     <section id="yuwen">
       <h2>语文试讲观察表</h2>
       <p class="lead">给语文试讲和教资面试回看用。只摆事实，不打分：能从转写和时间戳里找到的，列出原话和时刻；镜头和录音看不出的，留一张自查清单自己勾。</p>
+      <details class="usage-detail"><summary>展开观察项目与使用方法</summary>
       <dl class="for-whom">
         <div><dt>紧扣题干</dt><dd>开讲前把题干里的 2–3 条要求粘进去，回看时列出哪些讲到了、哪些还没出现。</dd></div>
         <div><dt>朗读不少于三次</dt><dd>按「齐读」「请你来读」「我来读」「分角色」等口令切出朗读段，看形式有没有变化，有没有指导重音和停顿。</dd></div>
@@ -268,15 +196,12 @@
         <div><dt>以生为本</dt><dd>数一数开放问题、点名和提问次数，看提问是否不少于三次。板书主副、彩色粉笔、意象意境等看不出的，放进自查清单。</dd></div>
       </dl>
       <p class="note">二十三条来自师范生备考笔记，全文可以打印：<a href="https://github.com/chensibo2049/titaojing/blob/main/docs/YUWEN_RUBRIC.md">语文试讲观察表</a>。在开讲里，讲完后到回放的「观察记录」查看同一张表。</p>
-    </section>
-
-    <section id="story">
-      <h2>这面镜子是怎么来的</h2>
-      <p class="lead">最近在路演和表达上，我总觉得差点意思。去参加职业规划赛，才发现台上的人都很专业。那段时间和我的对象一起「以赛促学」，专门练表达。练着练着，就做出了这面给试讲用的镜子，想开源出来，和大家一起用、一起改。</p>
+      </details>
     </section>
 
     <section id="faq">
-      <h2>常见问题</h2>
+      <p class="eyebrow">使用前，先知道边界</p>
+      <h2>隐私与限制 · 常见问题</h2>
       <div class="faq">
         <details>
           <summary>Core 观察与解释是什么关系？</summary>
@@ -311,19 +236,15 @@
           <p>目前不能。它能看到手是否伸向板书区、是否在写、写完是否回看学生；写板时会留下板书区静帧，供你自己看字迹。</p>
         </details>
       </div>
+      <p class="note"><a href="../#/demo" id="demo3d">观看预设演示</a>：低头看稿、卡顿晃动、转身板书、回看学生。动作、字幕和提示为预设，非真实识别。</p>
       <p class="note">更多摆放和排错细节见<a href="https://github.com/chensibo2049/titaojing/blob/main/docs/CLASSROOM.md">课堂摆放指南</a>。</p>
     </section>
 
     <section>
-      <h2>给谁用</h2>
-      <dl class="for-whom">
-        <div><dt>教师面试、试讲</dt><dd>把一段课讲完，再自己看教态、视线和口头禅。也可以请老师或同伴一起看回放，在时间线上讨论。</dd></div>
-        <div><dt>教师资格证面试</dt><dd>练习模式几分钟就能反复练同一处。微格课、教学技能大赛之前，先对着镜子过一遍。</dd></div>
-        <div><dt>表达与演讲</dt><dd>路演、职规赛、课堂发言，凡是需要把一段话讲清楚的场合，都可以用。先把电脑打开就能练。</dd></div>
-      </dl>
-      <p class="note">画面来自单个摄像头的估计，受光线和构图影响，只作训练提示，不是精确测量，也不是心理或医学评估。视频默认不上传；体验计划需主动参加，默认关闭。</p>
+      <h2>下一次开口，从这一段开始。</h2>
+      <p class="lead">适合教师面试、教资试讲，也适合表达与演讲练习。先讲两分钟，回看一个时刻。</p>
       <div class="actions">
-        <a class="btn btn-primary" href="../">进入开讲</a>
+        <a class="btn btn-primary" href="../#/try">开始练习</a>
         <a class="btn btn-ghost" href="../#/demo">先看演示</a>
       </div>
     </section>

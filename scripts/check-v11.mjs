@@ -14,12 +14,13 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.0", pkg.version === "1.6.0", pkg.version);
+check("package.json 版本为 1.6.1", pkg.version === "1.6.1", pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
 check("CHANGELOG 含 v1.6.0、v1.5.0 与 v1.4.0", /## v1\.6\.0/.test(changelog) && /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog));
 const notesSrc = fs.readFileSync(path.join(root, "src/changelog.js"), "utf8");
-check("应用内更新说明含 1.6.0", /version: "1\.6.0"/.test(notesSrc));
+check("应用内更新说明含 1.6.1 和 1.6.0", /version: "1\.6.1"/.test(notesSrc) && /version: "1\.6.0"/.test(notesSrc));
+check("CHANGELOG 含当前版本", changelog.includes(`## v${pkg.version}`));
 
 const config = fs.readFileSync(path.join(root, "config.js"), "utf8");
 check("保留测试激活码 CSB-TEST-PRO", /CSB-TEST-PRO/.test(config));
@@ -433,7 +434,8 @@ check("演示 mp4 体积适中", mp4 > 80 * 1024 && mp4 < 3 * 1024 * 1024, `${(m
       const app = data.find((d) => d["@type"] === "SoftwareApplication");
       const faq = data.find((d) => d["@type"] === "FAQPage");
       const strip = (t) => t.replace(/<[^>]+>/g, "").trim();
-      const shown = [...lh.matchAll(/<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)].map((x) => [strip(x[1]), strip(x[2])]);
+      const faqSection = (lh.match(/<section id="faq">([\s\S]*?)<\/section>/) || [])[1] || "";
+      const shown = [...faqSection.matchAll(/<summary>([^<]*)<\/summary>\s*<p>([\s\S]*?)<\/p>/g)].map((x) => [strip(x[1]), strip(x[2])]);
       const same = faq && faq.mainEntity.length === shown.length && faq.mainEntity.every((q, i) => q.name === shown[i][0] && q.acceptedAnswer.text === shown[i][1]);
       ok = !!app && /apache/i.test(app.license) && same && !/赋能|大模型|智能诊断/.test(m[1]);
       why = `${shown.length} 条常见问题${same ? "一致" : "与页面不一致"}`;
