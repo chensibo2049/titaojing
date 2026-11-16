@@ -2078,3 +2078,91 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
   .cover-stage-card { border-radius: 16px; }
   .cover-stage-body { padding: 16px 16px 18px; }
 }
+
+/* ——— 手机回放：把进度条固定在底部，别让它沉到长报告末尾 ——— */
+@media (max-width: 900px) {
+  .screen-replay { padding-bottom: calc(214px + var(--safe-b)); }
+
+  .timeline-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    padding: 8px 14px calc(8px + var(--safe-b));
+    background: rgba(18, 16, 14, 0.97);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+
+  .timeline-dock .legend,
+  .timeline-dock .replay-kbd-hint { display: none; }
+
+  .timeline-dock .replay-actions {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .timeline-dock .replay-actions .btn {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 9px 14px;
+  }
+}
+
+@media (max-width: 900px) and (max-height: 560px) {
+  .screen-replay { padding-bottom: calc(150px + var(--safe-b)); }
+}
+
+/* ——— 回放：完整观察记录默认收起，别把进度条挤到几屏之外 ——— */
+.observe-details {
+  margin: 10px 16px 26px;
+  border: 1px solid rgba(236, 228, 214, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.observe-details > summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 13px 16px;
+  cursor: pointer;
+  list-style: none;
+  color: #ece4d6;
+}
+
+.observe-details > summary::-webkit-details-marker { display: none; }
+
+.observe-details > summary::after {
+  content: "展开";
+  position: absolute;
+  right: 16px;
+  font-size: 12px;
+  color: rgba(236, 228, 214, 0.6);
+}
+
+.observe-details > summary { position: relative; padding-right: 64px; }
+.observe-details[open] > summary::after { content: "收起"; }
+
+.obd-title { font-size: 14px; font-weight: 600; }
+.obd-hint { font-size: 12px; color: rgba(236, 228, 214, 0.62); }
+
+.observe-details[open] > summary { border-bottom: 1px solid rgba(236, 228, 214, 0.12); }
+
+@media (max-width: 900px) {
+  .observe-details { margin: 8px 10px 20px; }
+  .observe-details > summary { padding: 11px 13px; }
+}
+
+/* 回放页是 flex 列：别让长内容把布局和折叠条压扁 */
+.screen-replay > * { flex-shrink: 0; }
+
+@media (max-width: 900px) {
+  /* 折叠的观察记录排在面板之后，不能因为默认 order 跑到视频前面 */
+  .observe-details { order: 4; flex: none; }
+}
