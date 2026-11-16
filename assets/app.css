@@ -2166,3 +2166,44 @@ body:has(.modal:not([hidden])) .update-bar { display: none; }
   /* 折叠的观察记录排在面板之后，不能因为默认 order 跑到视频前面 */
   .observe-details { order: 4; flex: none; }
 }
+
+/* 首页底部：公司版权、AI 赋能教育计划与备案 */
+.screen-cover .cover-foot {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.screen-cover .cover-foot .foot-legal,
+.screen-cover .cover-foot .foot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  width: 100%;
+}
+
+.screen-cover .cover-foot .foot-meta {
+  justify-content: space-between;
+  color: var(--ink-faint);
+}
+
+.screen-cover .cover-foot a {
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.screen-cover .cover-foot a:hover {
+  color: var(--cinnabar);
+  border-bottom-color: var(--cinnabar);
+}
+
+.screen-cover .cover-foot .version-link { border-bottom: 1px solid var(--line-strong); }
+
+@media (max-width: 640px) {
+  .screen-cover .cover-foot { font-size: 12px; }
+  .screen-cover .cover-foot .foot-legal,
+  .screen-cover .cover-foot .foot-meta { gap: 4px 12px; }
+}
