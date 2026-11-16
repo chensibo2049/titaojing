@@ -1182,8 +1182,9 @@ a.btn { text-decoration: none; color: inherit; }
   .pr-trend { margin-top: 12pt; break-inside: avoid; } .pr-trend h3, .pr-events h3 { font-size: 10pt; letter-spacing: 0.1em; margin-bottom: 4pt; }
   .pr-legend { font-size: 9pt; color: #6f675c; }
   .pr-events { margin-top: 12pt; } .pr-events table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
-  .pr-events th, .pr-events td { border-bottom: 1px solid #e6dccb; padding: 3pt 6pt; text-align: left; }
-  .pr-foot { margin-top: 14pt; padding-top: 6pt; border-top: 1px solid #ddd5c6; font-size: 8.5pt; color: #6f675c; }
+  .pr-events th, .pr-events td { border-bottom: 1px solid #e6dccb; padding: 2pt 6pt; text-align: left; }
+  .pr-events tr { break-inside: avoid; }
+  .pr-foot { margin-top: 8pt; padding-top: 4pt; border-top: 1px solid #ddd5c6; font-size: 8.5pt; color: #6f675c; break-inside: avoid; }
   .trend-svg .grid { stroke: #e6dccb; } .trend-svg .tick { font-size: 10px; fill: #6f675c; }
 }
 
