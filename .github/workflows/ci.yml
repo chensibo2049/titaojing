@@ -31,7 +31,9 @@ jobs:
       - name: 构建
         run: npm run build
       - name: 制品来源与完整性
-        run: node scripts/verify-build.mjs dist --release
+        run: |
+          node scripts/verify-build.mjs dist --release
+          node scripts/检查无3D构建.mjs dist
       - name: 服务器听写客户端契约（模拟传输，不代验公网）
         run: node server/asr/test-client.mjs
       - name: 冒烟测试

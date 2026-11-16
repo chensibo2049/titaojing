@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """打测试包：python3 scripts/package.py  → release/titaojing-v<版本>.zip
 包含 dist/（成品）、deploy/、启动脚本、给测试同学看的文档。需先 npm run build。"""
-import json, os, sys, zipfile
+import json, os, sys, zipfile, subprocess
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ver = json.load(open(os.path.join(root, "package.json"), encoding="utf-8"))["version"]
@@ -10,6 +10,10 @@ if not os.path.isfile(os.path.join(root, "dist", "index.html")):
 built = json.load(open(os.path.join(root, "dist", "version.json"), encoding="utf-8"))
 if built.get("version") != ver:
     sys.exit(f"dist/ 是 v{built.get('version')}，package.json 是 v{ver}，请重新 npm run build")
+
+# Release packaging uses exactly the same clean/public gates as deployment.
+subprocess.run(["node", "scripts/verify-build.mjs", "dist", "--release"], cwd=root, check=True)
+subprocess.run(["node", "scripts/检查无3D构建.mjs", "dist"], cwd=root, check=True)
 
 name = f"titaojing-v{ver.split('.')[0]}"
 out_dir = os.path.join(root, "release")
@@ -65,7 +69,7 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         p = os.path.join(root, src)
         if os.path.isfile(p):
             add(z, p, arc, mode)
-    for base in ("deploy", "dist", "landing"):
+    for base in ("deploy", "dist"):
         for d, _, fs in os.walk(os.path.join(root, base)):
             for f in sorted(fs):
                 p = os.path.join(d, f)

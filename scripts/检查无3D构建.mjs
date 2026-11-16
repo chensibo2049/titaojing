@@ -124,7 +124,7 @@ export function checkNo3dDist(base, dist, check) {
 
   const mp = JSON.parse(read(base, "assets/mediapipe/manifest.json"));
   const asr = JSON.parse(read(base, "assets/asr/manifest.json"));
-  const allowed = new Set(["LICENSE", "NOTICE", "index.html", "404.html", "config.js", "sw.js", "manifest.webmanifest", "version.json", "vercel.json", "_headers", ".nojekyll", "assets/app.bundle.js", "assets/demo-presenter.js", "assets/app.css", "assets/favicon.svg", "assets/classroom/banks.json", "assets/asr/manifest.json", "assets/asr/engine/asr-worker.js", "landing/index.html", "landing/styles.css", ...referencedMedia(base, dist)]);
+  const allowed = new Set(["LICENSE", "NOTICE", "index.html", "404.html", "config.js", "sw.js", "manifest.webmanifest", "version.json", "build-manifest.json", "vercel.json", "_headers", ".nojekyll", "assets/app.bundle.js", "assets/demo-presenter.js", "assets/app.css", "assets/tokens.css", "assets/favicon.svg", "assets/classroom/banks.json", "assets/asr/manifest.json", "assets/asr/engine/asr-worker.js", "landing/index.html", "landing/styles.css", ...referencedMedia(base, dist)]);
   for (const name of Object.keys(mp.wasm)) allowed.add(`assets/mediapipe/wasm/${name}`);
   for (const name of Object.keys(mp.models)) allowed.add(`assets/mediapipe/models/${name}`);
   for (const { name } of asr.engineFiles.files) allowed.add(`${asr.engineFiles.dir}${name}`);

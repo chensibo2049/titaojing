@@ -96,7 +96,7 @@ write("404.html", fs.readFileSync(path.join(root, "deploy/404.html"), "utf8"));
 
 // landing page (static, Chinese)
 // Explicit public allowlist: do not recursively publish personal or unreferenced media.
-for (const f of ["index.html", "styles.css", "images/cover.jpg", "images/half.jpg", "images/replay.jpg"]) {
+for (const f of ["index.html", "styles.css", "images/cover.jpg", "images/replay.jpg"]) {
   cp(`landing/${f}`);
 }
 
