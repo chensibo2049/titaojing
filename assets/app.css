@@ -1233,8 +1233,8 @@ a.text-back { text-decoration: none; }
   .screen-replay .stage-head { position: sticky; top: 0; z-index: 4; background: #12100e; }
   .replay-layout { display: contents; }
   #replay-wrap { order: 1; flex: none; height: 58vh; min-height: 240px; padding: 0 10px; }
-  .timeline-dock { order: 2; flex: none; padding-top: 8px; }
-  .diag-panel { order: 3; flex: none; max-height: none; overflow: visible; padding: 14px 16px calc(20px + var(--safe-b)); border-top: 1px solid rgba(243,238,228,0.08); }
+  .timeline-dock { order: 3; flex: none; padding-top: 8px; }
+  .diag-panel { order: 2; flex: none; max-height: none; overflow: visible; padding: 14px 16px calc(20px + var(--safe-b)); border-top: 1px solid rgba(243,238,228,0.08); }
   .observe-sheet { order: 4; flex: none; }
 }
 
@@ -1672,6 +1672,8 @@ mark.shuici, .shuici {
 
 /* 听写包角落进度不要盖住封面页脚的版本号，也不要在手机上压住「对着镜头试讲」 */
 body:has(#asr-dl-chip:not([hidden])) .cover-foot { padding-right: 168px; }
+/* The global download shortcut must not intercept live exit or replay navigation. */
+body:has(#screen-live:not([hidden]), #screen-replay:not([hidden])) .asr-dl-chip { display: none; }
 @media (max-width: 720px) {
   .asr-dl-chip { top: max(10px, var(--safe-t)); bottom: auto; right: max(10px, var(--safe-r)); }
   .asr-dl-chip-btn { min-width: 0; padding: 6px 10px; box-shadow: none; }

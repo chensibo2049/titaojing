@@ -16,7 +16,9 @@ const check = (name, ok, detail = "") => {
 };
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-check("package.json 版本为 1.6.3", pkg.version === "1.6.3", pkg.version);
+check("package.json 版本为 1.6.4", pkg.version === "1.6.4", pkg.version);
+const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
+check("锁文件版本与应用一致", lock.version === pkg.version && lock.packages[""].version === pkg.version);
 
 const changelog = fs.readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
 check("CHANGELOG 含 v1.6.0、v1.5.0 与 v1.4.0", /## v1\.6\.0/.test(changelog) && /## v1\.5\.0/.test(changelog) && /## v1\.4\.0/.test(changelog));

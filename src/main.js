@@ -269,8 +269,9 @@ function startDemo() {
   $("speech-banner").hidden = true;
   if ($("live-asr-state")) $("live-asr-state").hidden = true;
   $("timer-hint").textContent = "演示约 00:55";
-  $("btn-stop").disabled = true;
-  $("dock-note").textContent = "预设演示 · 非真实识别。留意：低头看稿 → 卡顿晃动 → 转身板书 → 回看学生。可随时跳过到回放。";
+  $("btn-stop").disabled = false;
+  $("btn-stop").querySelector(".btn-label").textContent = "结束演示，看点评";
+  $("dock-note").textContent = "预设演示 · 非真实识别。可随时结束，查看完整样本点评与动画关节骨架。";
   liveStart = 0;
   paintDemoFrame(0);
   mountDemoView($("live-stage"));
@@ -305,11 +306,13 @@ function paintDemoFrame(t) {
 }
 
 function paintDemoOverlay(canvas, scriptedFrame) {
-  // No unrelated 2D skeleton or gaze map may be drawn over the actual 3D rig.
-  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   const status = demoView.status();
+  // The 3D presenter draws its own rig joints; only the 2D fallback uses its scripted pose.
+  if (status.state !== "ready") drawSkeleton(ctx, scriptedFrame.pose, canvas.width, canvas.height, scriptedFrame.flags);
   const label = $(mode === "replay" ? "replay-demo-source" : "live-demo-source");
-  if (label) label.textContent = `预设演示 · 动作/字幕/提示非真实识别 · 无音轨，非 ASR/情绪识别 · ${status.state === "ready" ? "轻量 3D" : status.state === "loading" ? "3D 加载中（2D 占位）" : "2D 简洁模式"}`;
+  if (label) label.textContent = `预设演示 · 骨架来自动画关节，非实际视觉识别 · 点评/字幕为样本，无音轨，非 ASR/情绪识别 · ${status.state === "ready" ? "轻量 3D" : status.state === "loading" ? "3D 加载中（2D 占位）" : "2D 简洁模式"}`;
 }
 
 /** 开讲倒计时：课堂模式要从电脑走到讲台或黑板前，多给两秒。 */
@@ -746,6 +749,7 @@ async function startCameraLive() {
   $("speech-banner").hidden = true;
   $("timer-hint").textContent = `建议 ${fmt(liveTiming.suggested)}`;
   $("btn-stop").disabled = true;
+  $("btn-stop").querySelector(".btn-label").textContent = "结束试讲，看点评";
   $("dock-note").textContent = `大约 ${liveTiming.minStop} 秒后可以结束，最长 ${fmt(liveTiming.max)}`;
   const wrap = $("live-wrap");
   stopClassroomSim();
@@ -1108,6 +1112,9 @@ async function finishCamera() {
   if (mode !== "camera") return;
   cancelAnimationFrame(raf);
   mode = "finishing";
+  $("btn-stop").disabled = true;
+  $("btn-stop").querySelector(".btn-label").textContent = "正在结束…";
+  $("dock-note").textContent = "正在收尾录像与听写，随后显示点评与回放。";
   if (paused) {
     // Do not count paused time.
     paused = false;
@@ -1261,6 +1268,9 @@ function openReplay(sess) {
   session = sess;
   mode = "replay";
   showScreen("replay");
+  screens.replay.scrollTop = 0;
+  $("diag-panel").scrollTop = 0;
+  $("diag-title").textContent = sess.kind === "demo" ? "演示点评（完整预设样本）" : "试讲点评";
   if (sess.kind === "demo") {
     setRuntime({});
     $("replay-demo-source").hidden = false;
@@ -1324,6 +1334,7 @@ function renderDiagnosis(sess) {
   $("diag-good").textContent = d.good;
   $("diag-next").textContent = d.next;
   const bits = [fmtDate(sess.startedAt || Date.now()), `时长 ${fmt(sess.duration)}`, sess.kind === "demo" ? "一键演示样本" : sess.localImport ? "本机视频画面分析（仅本次）" : "真实试讲"];
+  if (sess.kind === "demo") bits.push("点评为预设样本；骨架来自动画关节，非实际视觉识别");
   if (sess.profileName) bits.push(sess.profileName);
   if (sess.kind === "camera" && sess.speechAvailable === false) bits.push("本次未听写口头禅");
   else if (sess.kind === "camera" && sess.speechHeard === false) bits.push("没听到语音，口头禅无法可靠统计");
